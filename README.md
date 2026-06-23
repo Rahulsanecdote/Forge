@@ -31,8 +31,9 @@ runForge(client, task)             ← src/forge/runtime.ts
 ```
 
 Nothing is business-specific in the code. Each business is a row in `clients` plus a brand
-voice — added from a JSON config, no code changes. `*client_memory` (pgvector) is created
-for increment 2 (retrieval over past content).
+voice — added from a JSON config, no code changes. `*client_memory` (pgvector) ships as an
+optional migration (`0003_client_memory.sql`) for increment 2 (retrieval over past content);
+the core schema needs no extensions.
 
 ## Tools in this release
 
