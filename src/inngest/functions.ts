@@ -60,20 +60,37 @@ export const reviewSweep = inngest.createFunction(
           needs_manager?: boolean;
         }>;
 
-        await Promise.all(
-          pending.map((row: any, i: number) =>
+        // Only act on reviews that actually got a usable reply. Malformed or
+        // short model output leaves some entries empty; those stay 'new' so a
+        // later sweep retries them instead of being silently dropped.
+        const updates = pending
+          .map((row: any, i: number) => ({ row, reply: replies[i] }))
+          .filter((u: { reply?: { reply?: string } }) => (u.reply?.reply ?? '').trim().length > 0);
+
+        const results = await Promise.all(
+          updates.map(({ row, reply }) =>
             supabase
               .from('reviews')
               .update({
                 status: 'drafted',
-                draft_reply: replies[i]?.reply ?? '',
-                needs_manager: replies[i]?.needs_manager ?? false,
+                draft_reply: reply!.reply,
+                needs_manager: reply!.needs_manager ?? false,
               })
               .eq('id', row.id),
           ),
         );
 
-        return pending.length;
+        // Supabase resolves with { error } instead of throwing; surface any
+        // failure so Inngest retries the step rather than recording a false
+        // success and dropping the review.
+        const failed = results.filter((r) => r.error);
+        if (failed.length) {
+          throw new Error(
+            `Failed to update ${failed.length}/${updates.length} review drafts for ${client.slug}: ${failed[0].error?.message}`,
+          );
+        }
+
+        return updates.length;
       });
       drafted += handled;
     }
