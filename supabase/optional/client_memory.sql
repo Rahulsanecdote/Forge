@@ -1,9 +1,15 @@
 -- Forge — client_memory (pgvector retrieval over past content + performance memory).
--- RESERVED FOR INCREMENT 2. Not used by the alpha tools yet, so this migration is
--- optional for now — apply it only when you wire up retrieval.
+-- RESERVED FOR INCREMENT 2. Not used by the alpha tools yet.
 --
--- Requires the pgvector extension. Supabase ships it; on a self-hosted Postgres install
--- the OS package first (e.g. `apt-get install postgresql-16-pgvector`), then run this.
+-- Deliberately kept OUT of supabase/migrations/ so the standard migration workflow
+-- (`supabase db push` / `db reset`, which applies every tracked migration) does not pull
+-- in pgvector — the core schema stays applicable on any Postgres. Apply this by hand only
+-- when you wire up retrieval:
+--   psql "$DATABASE_URL" -f supabase/optional/client_memory.sql
+-- (or paste it into the Supabase SQL editor).
+--
+-- Requires the pgvector extension. Supabase ships it; on a self-hosted Postgres install the
+-- OS package first (e.g. `apt-get install postgresql-16-pgvector`), then run this.
 
 create extension if not exists vector;
 

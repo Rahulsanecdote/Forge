@@ -39,8 +39,9 @@ create table if not exists tool_runs (
   created_at timestamptz default now()
 );
 
--- NOTE: client_memory (pgvector retrieval) lives in 0003_client_memory.sql so this
--- core schema runs on any Postgres. It is reserved for increment 2 and not used yet.
+-- NOTE: client_memory (pgvector retrieval) lives in supabase/optional/client_memory.sql —
+-- intentionally outside this migrations folder so the core schema runs on any Postgres
+-- (and `supabase db push` stays pgvector-free). Reserved for increment 2; not used yet.
 
 -- NOTE ON RLS: this alpha is single-operator (you, via the service-role key in a CLI).
 -- Row-Level Security policies land in increment 3 when the multi-tenant cloud portal is built
