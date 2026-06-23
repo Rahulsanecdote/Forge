@@ -1,0 +1,19 @@
+{
+  "slug": "bright-smile-dental",
+  "name": "Bright Smile Dental",
+  "industry": "Dental practice",
+  "website": "https://example.com",
+  "locations": 1,
+  "brandVoice": {
+    "tone": ["reassuring", "professional", "friendly", "calm"],
+    "about": "A family dental practice focused on gentle, anxiety-free care for all ages.",
+    "audience": "Local families and nervous patients who want a dentist they can trust.",
+    "dos": ["lead with reassurance", "emphasize comfort and gentleness", "be clear about what to expect"],
+    "donts": ["use fear-based messaging", "overpromise results", "lean on heavy clinical jargon"],
+    "samplePosts": [
+      "Nervous about the dentist? You're in good hands here — we go at your pace.",
+      "Two cleaning slots open this Friday. A healthy smile starts with a check-up."
+    ],
+    "bannedPhrases": ["painless guarantee", "perfect smile in one visit"]
+  }
+}

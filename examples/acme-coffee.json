@@ -1,0 +1,19 @@
+{
+  "slug": "acme-coffee",
+  "name": "Acme Coffee Co.",
+  "industry": "Specialty coffee / cafe",
+  "website": "https://example.com",
+  "locations": 3,
+  "brandVoice": {
+    "tone": ["warm", "community-first", "a little playful", "unpretentious"],
+    "about": "A neighborhood specialty-coffee shop that treats every location like a local third place.",
+    "audience": "Students, remote workers, and regulars who want good coffee and a familiar face.",
+    "dos": ["sound like a friendly barista", "celebrate regulars and the neighborhood", "keep it short"],
+    "donts": ["sound corporate", "overuse exclamation points", "lean on marketing clichés"],
+    "samplePosts": [
+      "Cold brew season is officially open. Pull up.",
+      "Your usual is ready before you are. See you at 8."
+    ],
+    "bannedPhrases": ["game-changer", "elevate your experience", "hustle"]
+  }
+}
