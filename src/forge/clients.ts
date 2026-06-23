@@ -62,7 +62,7 @@ function toContext(client: any, bv: any): ClientContext {
 export async function loadClient(slug: string): Promise<ClientContext> {
   const { data: client, error } = await supabase.from('clients').select('*').eq('slug', slug).single();
   if (error || !client) {
-    throw new Error(`Client "${slug}" not found. Run "pnpm forge:client:add" or "pnpm forge:onboard" first.`);
+    throw new Error(`Client "${slug}" not found. Run "npm run forge:client:add" or "npm run forge:onboard" first.`);
   }
   const { data: bv } = await supabase.from('brand_voices').select('*').eq('client_id', client.id).single();
   return toContext(client, bv);

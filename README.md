@@ -56,12 +56,12 @@ npm install
 cp .env.example .env     # set FORGE_PROVIDER + its key, plus Supabase URL + service role key
 
 # 4. Add a business (ships with two example verticals)
-npm run forge:client:add examples/acme-coffee.json
-npm run forge:client:add examples/bright-smile-dental.json
+npm run forge:client:add -- examples/acme-coffee.json
+npm run forge:client:add -- examples/bright-smile-dental.json
 
 # 5. Run it
-npm run forge:run acme-coffee "Write 3 Instagram posts for a new oat-milk cold brew"
-npm run forge:run bright-smile-dental "Draft a friendly post announcing Saturday cleaning slots"
+npm run forge:run -- acme-coffee "Write 3 Instagram posts for a new oat-milk cold brew"
+npm run forge:run -- bright-smile-dental "Draft a friendly post announcing Saturday cleaning slots"
 ```
 
 ## Add your business
@@ -69,7 +69,7 @@ npm run forge:run bright-smile-dental "Draft a friendly post announcing Saturday
 **Fastest — let Forge draft the brand voice from a description:**
 
 ```bash
-npm run forge:onboard "Bright Smile Dental" "A gentle family dental practice focused on anxiety-free care"
+npm run forge:onboard -- "Bright Smile Dental" "A gentle family dental practice focused on anxiety-free care"
 ```
 
 **Or hand-author it (full control)** — copy an example and edit for any vertical:
@@ -77,7 +77,7 @@ npm run forge:onboard "Bright Smile Dental" "A gentle family dental practice foc
 ```bash
 cp examples/acme-coffee.json my-business.json
 # edit name, industry, tone, audience, dos/donts, sample posts, banned phrases
-npm run forge:client:add my-business.json
+npm run forge:client:add -- my-business.json
 ```
 
 Keep real client configs out of the repo.
