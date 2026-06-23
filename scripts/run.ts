@@ -5,7 +5,7 @@ async function main() {
   const [slug, ...rest] = process.argv.slice(2);
   const task = rest.join(' ');
   if (!slug || !task) {
-    console.error('Usage: pnpm forge:run <client-slug> "<task>"');
+    console.error('Usage: npm run forge:run -- <client-slug> "<task>"');
     process.exit(1);
   }
 
