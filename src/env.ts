@@ -22,4 +22,16 @@ const schema = z.object({
   GOOGLE_GENERATIVE_AI_API_KEY: z.string().optional(),
 });
 
-export const env = schema.parse(process.env);
+const parsed = schema.safeParse(process.env);
+if (!parsed.success) {
+  const missing = parsed.error.issues.map((i) => i.path.join('.')).join(', ');
+  console.error(
+    `\nForge is missing required configuration: ${missing}\n\n` +
+      `Copy .env.example to .env and fill it in (Supabase URL + service-role key, ` +
+      `plus the API key for your FORGE_PROVIDER):\n` +
+      `  cp .env.example .env\n`,
+  );
+  process.exit(1);
+}
+
+export const env = parsed.data;

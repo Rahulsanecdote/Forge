@@ -31,8 +31,10 @@ runForge(client, task)             ← src/forge/runtime.ts
 ```
 
 Nothing is business-specific in the code. Each business is a row in `clients` plus a brand
-voice — added from a JSON config, no code changes. `*client_memory` (pgvector) is created
-for increment 2 (retrieval over past content).
+voice — added from a JSON config, no code changes. The core migrations need no extensions;
+`*client_memory` (pgvector) is shipped separately as `supabase/optional/client_memory.sql`
+— kept out of `supabase/migrations/` so `supabase db push` stays pgvector-free — and applied
+by hand for increment 2 (retrieval over past content).
 
 ## Tools in this release
 

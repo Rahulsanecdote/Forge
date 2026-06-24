@@ -1,7 +1,6 @@
 -- Forge alpha — initial schema
 -- Run in the Supabase SQL editor, or via the Supabase CLI.
-
-create extension if not exists vector;
+-- Core schema only — runs on any Postgres, no extensions required.
 
 -- A client Forge runs marketing for (your own businesses first).
 create table if not exists clients (
@@ -40,20 +39,9 @@ create table if not exists tool_runs (
   created_at timestamptz default now()
 );
 
--- RESERVED FOR INCREMENT 2: retrieval over past content + performance memory.
--- Not used by the two alpha tools yet. Dimension 768 matches Google text-embedding-004;
--- change it to match whichever embedding model you wire up.
-create table if not exists client_memory (
-  id         uuid primary key default gen_random_uuid(),
-  client_id  uuid not null references clients(id) on delete cascade,
-  kind       text not null,            -- 'post' | 'review' | 'report' ...
-  content    text not null,
-  embedding  vector(768),
-  metadata   jsonb default '{}',
-  created_at timestamptz default now()
-);
-create index if not exists client_memory_embedding_idx
-  on client_memory using hnsw (embedding vector_cosine_ops);
+-- NOTE: client_memory (pgvector retrieval) lives in supabase/optional/client_memory.sql —
+-- intentionally outside this migrations folder so the core schema runs on any Postgres
+-- (and `supabase db push` stays pgvector-free). Reserved for increment 2; not used yet.
 
 -- NOTE ON RLS: this alpha is single-operator (you, via the service-role key in a CLI).
 -- Row-Level Security policies land in increment 3 when the multi-tenant cloud portal is built
