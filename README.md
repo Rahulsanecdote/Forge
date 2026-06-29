@@ -48,6 +48,9 @@ Adding tools is the main extension point — see [CONTRIBUTING](./CONTRIBUTING.m
 
 ## Quick start
 
+> **Want to run everything locally** (local Supabase + Ollama, no cloud, no per-token cost)?
+> See **[docs/RUNNING_LOCALLY.md](./docs/RUNNING_LOCALLY.md)**.
+
 ```bash
 # 1. Install
 npm install
