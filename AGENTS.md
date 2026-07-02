@@ -1,6 +1,6 @@
 # Forge — Build Context for Codex (`AGENTS.md`)
 
-> **Version:** v1.0 · **Updated:** 2026-06-23 · **Repo:** `forge-agent`
+> **Version:** v1.1 · **Updated:** 2026-07-02 · **Repo:** `forge-agent`
 > **How to use:** Codex reads this automatically as `AGENTS.md`. (Also works pasted into a
 > Claude Code / Codex session at start, or renamed `CLAUDE.md`.) Read it fully before
 > changing code. Obey the Non-Negotiables. Append to the Decision Log on any structural
@@ -28,7 +28,9 @@ src/
   supabase.ts                    server-side Supabase client (service role)
   forge/
     types.ts                     ForgeTool contract, ClientContext, ToolContext{client,model}
-    model.ts                     resolveModel(): FORGE_PROVIDER -> AI SDK LanguageModel
+    model.ts                     resolveModel(): env FORGE_PROVIDER -> buildModel()
+    resolve-model.ts             buildModel(cfg): pure provider->LanguageModel (no env/Supabase)
+    web-model.ts                 resolveWebModel(): process.env, Supabase-free (used by web app)
     runtime.ts                   runForge({client,task}) — AI SDK tool loop, logs tool_runs
     registry.ts                  the 5 tools the agent can choose
     client-config.ts             zod schema + loader for client JSON configs
@@ -45,6 +47,14 @@ src/
     client.ts                    Inngest client (id: "forge")
     functions.ts                 crons: weekly-content, review-sweep
     server.ts                    minimal Node http server hosting /api/inngest
+  web/
+    demo.ts                      stateless demo layer: maps ClientConfig->ClientContext,
+                                 calls generateClientConfig + real tools (no Supabase)
+app/                             Next.js App Router web app (npm run dev/build/start)
+  page.tsx                       interactive demo: describe -> brand voice -> posts/replies
+  layout.tsx · globals.css       shell + styling
+  api/onboard · generate · reviews  route handlers (nodejs runtime) over src/web/demo.ts
+next.config.mjs                  Next config (eslint ignored during build)
 scripts/
   onboard.ts                     forge:onboard  "Name" "description"
   add-client.ts                  forge:client:add  <config.json>
@@ -124,6 +134,8 @@ npm run typecheck               # must pass
 | 2026-06-23 | **CLI-first**; only a minimal Node server for Inngest. Next.js portal deferred to Lane B. |
 | 2026-06-23 | **RLS deferred** to the multi-tenant portal; alpha is single-operator via service role. |
 | 2026-06-23 | Positioning: **universal framework, specialized per vertical via config** (open-core). |
+| 2026-07-02 | Extracted pure `buildModel()` into `resolve-model.ts`; `model.ts` (env) and `web-model.ts` (process.env) both use it — lets the web app resolve a model without importing the Supabase-strict `env.ts`. |
+| 2026-07-02 | Added a **Next.js App Router web app** (Lane C-ish, ahead of the multi-tenant portal). Runs the demo **stateless** — no Supabase, no persistence — reusing `generateClientConfig()` + real `ForgeTool.execute()`. Model key is the only requirement, so anyone can try Forge. Persisted portal + auth/RLS remain Lane B. |
 
 ## 9. Conventions
 - Conventional Commits (`feat:`, `fix:`, `docs:`…). One focused change per PR.

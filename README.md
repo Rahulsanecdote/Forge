@@ -16,7 +16,7 @@ self-hostable agent with a typed tool system and per-client brand voice, so it w
 ## How it works
 
 ```
-CLI · Inngest crons · (future portal)
+CLI · Inngest crons · web app (Next.js)
       │
       ▼
 runForge(client, task)             ← src/forge/runtime.ts
@@ -45,6 +45,24 @@ by hand for increment 2 (retrieval over past content).
 - `analyze_competitors` — positioning analysis vs named competitors, surfacing gaps and opportunities.
 
 Adding tools is the main extension point — see [CONTRIBUTING](./CONTRIBUTING.md).
+
+## Try it — the web app
+
+A zero-setup Next.js demo runs the **same engine** as the CLI, statelessly (no Supabase
+required — only a model key). Describe a business → Forge drafts its brand voice → generate
+on-brand social posts or rating-calibrated review replies, live.
+
+```bash
+npm install
+cp .env.example .env      # set FORGE_PROVIDER + its API key (Supabase NOT needed for the web app)
+npm run dev               # http://localhost:3000
+```
+
+Deploy it anywhere Next.js runs (e.g. Vercel): set the same `FORGE_PROVIDER` + provider-key
+env vars in the host and `npm run build`. The demo endpoints (`/api/onboard`, `/api/generate`,
+`/api/reviews`) reuse `generateClientConfig()` and the real `ForgeTool.execute()` code paths, so
+what you see in the browser is exactly what the agent produces — including the honesty
+constraint (no fabricated metrics or claims).
 
 ## Quick start
 
