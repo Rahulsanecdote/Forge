@@ -1,0 +1,77 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================
+   Forge — Global Styles
+   ============================================================ */
+
+@layer base {
+  :root {
+    --bg: #06090F;
+  }
+
+  * {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background: var(--bg);
+    color: #F0EDE6;
+    font-family: var(--font-dm-sans), sans-serif;
+    overflow-x: hidden;
+  }
+
+  /* Selection */
+  ::selection {
+    background: rgba(232, 197, 71, 0.25);
+    color: #F0EDE6;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 10px; }
+  ::-webkit-scrollbar-track { background: #06090F; }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(232, 197, 71, 0.2);
+    border-radius: 5px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(232, 197, 71, 0.35);
+  }
+}
+
+@layer components {
+  /* Grid overlay — apply to a fixed full-screen div */
+  .fx-grid {
+    background-image:
+      linear-gradient(rgba(232, 197, 71, 0.022) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(232, 197, 71, 0.022) 1px, transparent 1px);
+    background-size: 64px 64px;
+  }
+
+  /* Grain overlay */
+  .fx-grain {
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+    opacity: 0.5;
+  }
+
+  /* Spec-sheet section label: "01 / SERVICES" */
+  .section-label {
+    @apply font-mono text-[11px] tracking-label uppercase text-muted flex items-center gap-4;
+  }
+  .section-label::after {
+    content: '';
+    @apply flex-1 h-px;
+    background: rgba(255, 255, 255, 0.07);
+  }
+
+  /* Container */
+  .container-forge {
+    @apply max-w-[1180px] mx-auto px-6 md:px-10;
+  }
+}

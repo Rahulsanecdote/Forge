@@ -1,6 +1,6 @@
 # Forge — Build Context for Codex (`AGENTS.md`)
 
-> **Version:** v1.0 · **Updated:** 2026-06-23 · **Repo:** `forge-agent`
+> **Version:** v1.1 · **Updated:** 2026-07-06 · **Repo:** `forge-agent`
 > **How to use:** Codex reads this automatically as `AGENTS.md`. (Also works pasted into a
 > Claude Code / Codex session at start, or renamed `CLAUDE.md`.) Read it fully before
 > changing code. Obey the Non-Negotiables. Append to the Decision Log on any structural
@@ -124,6 +124,7 @@ npm run typecheck               # must pass
 | 2026-06-23 | **CLI-first**; only a minimal Node server for Inngest. Next.js portal deferred to Lane B. |
 | 2026-06-23 | **RLS deferred** to the multi-tenant portal; alpha is single-operator via service role. |
 | 2026-06-23 | Positioning: **universal framework, specialized per vertical via config** (open-core). |
+| 2026-07-06 | Phase 00 launch surface added as a Next.js 14 App Router site with waitlist capture, launch-board validation, production env-contract checks, and Supabase leads/profiles migration. |
 
 ## 9. Conventions
 - Conventional Commits (`feat:`, `fix:`, `docs:`…). One focused change per PR.

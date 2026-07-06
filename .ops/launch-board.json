@@ -1,0 +1,207 @@
+{
+  "schemaVersion": 1,
+  "updatedAt": "2026-07-02T00:00:00.000Z",
+  "project": "forge-agent",
+  "activeLane": "launch-readiness",
+  "lanes": [
+    {
+      "id": "launch-readiness",
+      "title": "Phase 00 \u2014 Foundation",
+      "status": "active",
+      "phase": "00"
+    },
+    {
+      "id": "migration-readiness",
+      "title": "Supabase schema + RLS",
+      "status": "parked",
+      "phase": "00"
+    },
+    {
+      "id": "security-readiness",
+      "title": "RLS + AAL permission audits",
+      "status": "parked",
+      "phase": "02.5"
+    },
+    {
+      "id": "observability-readiness",
+      "title": "PostHog + Sentry live",
+      "status": "parked",
+      "phase": "01"
+    },
+    {
+      "id": "oss-readiness",
+      "title": "Public OSS launch gates",
+      "status": "parked",
+      "phase": "05"
+    }
+  ],
+  "blockers": [
+    {
+      "id": "domain-and-repo",
+      "title": "Domain purchased + GitHub repo initialized",
+      "priority": "P0",
+      "type": "infrastructure_cutover",
+      "status": "in_progress",
+      "owner": "founder",
+      "lane": "launch-readiness",
+      "createdAt": "2026-07-02T00:00:00.000Z",
+      "updatedAt": "2026-07-02T00:00:00.000Z",
+      "requiresHumanApproval": true,
+      "definitionOfDone": [
+        {
+          "item": "getforge.ai purchased on Namecheap",
+          "done": false
+        },
+        {
+          "item": "forge-agent repo created (private)",
+          "done": false
+        },
+        {
+          "item": "Next.js 14 scaffold pushed to main",
+          "done": false
+        }
+      ],
+      "evidence": []
+    },
+    {
+      "id": "supabase-foundation-migration",
+      "title": "Phase 00 migration applied (leads + profiles)",
+      "priority": "P0",
+      "type": "migration",
+      "status": "discovered",
+      "owner": "release",
+      "lane": "migration-readiness",
+      "createdAt": "2026-07-02T00:00:00.000Z",
+      "updatedAt": "2026-07-02T00:00:00.000Z",
+      "requiresHumanApproval": true,
+      "definitionOfDone": [
+        {
+          "item": "001_phase00_foundation.sql applied to remote",
+          "done": false
+        },
+        {
+          "item": "leads + profiles tables verified present",
+          "done": false
+        },
+        {
+          "item": "RLS policies confirmed (anon insert, admin read)",
+          "done": false
+        },
+        {
+          "item": "auto-profile trigger fires on signup",
+          "done": false
+        }
+      ],
+      "evidence": [],
+      "rollback": {
+        "strategy": "migration_down",
+        "command": "supabase migration repair / drop tables leads, profiles",
+        "verified": false
+      }
+    },
+    {
+      "id": "env-contract-validated",
+      "title": "Production environment contract validated",
+      "priority": "P0",
+      "type": "production_deploy",
+      "status": "discovered",
+      "owner": "release",
+      "lane": "launch-readiness",
+      "createdAt": "2026-07-02T00:00:00.000Z",
+      "updatedAt": "2026-07-02T00:00:00.000Z",
+      "requiresHumanApproval": true,
+      "definitionOfDone": [
+        {
+          "item": "NEXT_PUBLIC_SUPABASE_URL + ANON_KEY set in Vercel",
+          "done": false
+        },
+        {
+          "item": "SUPABASE_SERVICE_ROLE_KEY set (server-only)",
+          "done": false
+        },
+        {
+          "item": "App fails closed if required secrets missing in prod",
+          "done": false
+        },
+        {
+          "item": "No secret present in any NEXT_PUBLIC_ variable",
+          "done": false
+        }
+      ],
+      "evidence": []
+    },
+    {
+      "id": "coming-soon-live",
+      "title": "Coming Soon page deployed + email capture working",
+      "priority": "P1",
+      "type": "production_deploy",
+      "status": "discovered",
+      "owner": "engineering",
+      "lane": "launch-readiness",
+      "createdAt": "2026-07-02T00:00:00.000Z",
+      "updatedAt": "2026-07-02T00:00:00.000Z",
+      "requiresHumanApproval": true,
+      "definitionOfDone": [
+        {
+          "item": "Coming Soon page deployed to Vercel",
+          "done": false
+        },
+        {
+          "item": "Supabase keys wired into capture form",
+          "done": false
+        },
+        {
+          "item": "Test email lands in leads table",
+          "done": false
+        },
+        {
+          "item": "Domain points to Vercel with SSL",
+          "done": false
+        }
+      ],
+      "evidence": []
+    },
+    {
+      "id": "ci-gates-live",
+      "title": "CI verification gates passing on main",
+      "priority": "P1",
+      "type": "production_deploy",
+      "status": "discovered",
+      "owner": "engineering",
+      "lane": "launch-readiness",
+      "createdAt": "2026-07-02T00:00:00.000Z",
+      "updatedAt": "2026-07-02T00:00:00.000Z",
+      "requiresHumanApproval": true,
+      "definitionOfDone": [
+        {
+          "item": "typecheck + lint pass",
+          "done": false
+        },
+        {
+          "item": "production build passes",
+          "done": false
+        },
+        {
+          "item": "secret scan (gitleaks) clean",
+          "done": false
+        },
+        {
+          "item": "env validation script passes",
+          "done": false
+        }
+      ],
+      "evidence": []
+    }
+  ],
+  "policies": {
+    "singleActiveLane": true,
+    "humanApprovalRequiredFor": [
+      "migration",
+      "production_deploy",
+      "legal_release",
+      "security_exception",
+      "infrastructure_cutover"
+    ],
+    "terminalEvidenceRequired": true
+  }
+}

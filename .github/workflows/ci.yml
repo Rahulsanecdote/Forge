@@ -6,7 +6,7 @@ on:
   pull_request:
 
 jobs:
-  typecheck:
+  verify:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -18,5 +18,29 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Validate launch board
+        run: npm run launch:validate
+
+      - name: Validate environment contract
+        run: npm run env:validate
+        env:
+          NODE_ENV: production
+          SUPABASE_URL: https://ci-placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_URL: https://ci-placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
+          ANTHROPIC_API_KEY: ci-placeholder
+          SUPABASE_SERVICE_ROLE_KEY: ci-service-role-placeholder
+
       - name: Typecheck
         run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://ci-placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
+
+      - name: Secret scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

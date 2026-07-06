@@ -1,0 +1,55 @@
+{
+  "slug": "nutri-ai",
+  "name": "NutriAI",
+  "industry": "Nutrition & health tech — AI calorie/macro tracking and meal planning app",
+  "website": "https://nutriai.app",
+  "locations": 1,
+  "brandVoice": {
+    "tone": [
+      "science-honest",
+      "calm and no-hype",
+      "supportive, never preachy",
+      "precise and specific",
+      "privacy-respecting"
+    ],
+    "about": "NutriAI is an AI nutrition app that meets people where they already eat. It logs and plans meals with USDA-verified macros and calories (the AI never invents the numbers — they're resolved deterministically from food data), learns each person's real eating routine over time, and turns intent into accuracy. Core capabilities: fast logging (barcode, voice, quick-add), AI meal plans you can save to a personal Recipe Vault, pantry-aware shopping lists, a vault-aware assistant (NutriBot), and GLP-1 support. It's local-first and private — the app works with no account, and your data stays yours. The promise isn't a diet to follow; it's honest numbers and less friction on the way you already eat.",
+    "audience": "People who take nutrition seriously and want accuracy over fads: macro-trackers and meal-preppers, GLP-1 users managing appetite and protein, busy people who already know how they eat and just want the numbers and less logging, and privacy-conscious users who don't want a cloud account to track their food.",
+    "dos": [
+      "lead with accuracy and honesty — verified macros, real data",
+      "respect the routine people already have; help, don't lecture",
+      "be concrete and specific (real features, real numbers when provided)",
+      "use plain, calm language a non-expert understands",
+      "emphasize privacy and local-first (works with no account)",
+      "be encouraging and judgement-free about food choices"
+    ],
+    "donts": [
+      "use hype or buzzwords",
+      "shame, guilt, or moralize about food ('good'/'bad' foods, 'cheat' meals)",
+      "promise fad-diet or rapid-weight-loss outcomes",
+      "fabricate statistics, study results, or medical claims",
+      "give individualized medical or clinical advice",
+      "overpromise — describe what the app actually does"
+    ],
+    "samplePosts": [
+      "You already know what you eat. NutriAI just tells you the macros behind it — verified, not guessed.",
+      "Log a meal by voice or barcode in seconds. Save the ones you make often to your Vault and re-log them in a tap.",
+      "Your food data, your device. NutriAI works with no account — local-first by default.",
+      "On a GLP-1? NutriAI keeps protein front and center while appetite is low — and adapts as your routine changes.",
+      "Meal plans that learn from what you actually cook, not a template someone else picked for you."
+    ],
+    "bannedPhrases": [
+      "game-changer",
+      "elevate your experience",
+      "revolutionary",
+      "crush your goals",
+      "guilt-free",
+      "cheat meal",
+      "miracle",
+      "burn fat fast",
+      "melt away",
+      "superfood",
+      "detox",
+      "no pain no gain"
+    ]
+  }
+}
