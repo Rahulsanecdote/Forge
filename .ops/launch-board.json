@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-07-02T00:00:00.000Z",
+  "updatedAt": "2026-07-10T00:00:00.000Z",
   "project": "forge-agent",
   "activeLane": "launch-readiness",
   "lanes": [
@@ -68,31 +68,47 @@
       "title": "Phase 00 migration applied (leads + profiles)",
       "priority": "P0",
       "type": "migration",
-      "status": "discovered",
+      "status": "shipped",
       "owner": "release",
       "lane": "migration-readiness",
       "createdAt": "2026-07-02T00:00:00.000Z",
-      "updatedAt": "2026-07-02T00:00:00.000Z",
+      "updatedAt": "2026-07-10T00:00:00.000Z",
       "requiresHumanApproval": true,
       "definitionOfDone": [
         {
-          "item": "001_phase00_foundation.sql applied to remote",
-          "done": false
+          "item": "0001_init.sql, 0002_reviews.sql, and 0003_phase00_foundation.sql applied to remote",
+          "done": true
         },
         {
           "item": "leads + profiles tables verified present",
-          "done": false
+          "done": true
         },
         {
-          "item": "RLS policies confirmed (anon insert, admin read)",
-          "done": false
+          "item": "RLS policies confirmed (anon insert; server-side service-role reads)",
+          "done": true
         },
         {
           "item": "auto-profile trigger fires on signup",
-          "done": false
+          "done": true
         }
       ],
-      "evidence": [],
+      "evidence": [
+        {
+          "description": "supabase db push applied 0001_init.sql, 0002_reviews.sql, and 0003_phase00_foundation.sql to project ygygmbocmxhbnvpemsic.",
+          "source": "terminal",
+          "capturedAt": "2026-07-10T00:00:00.000Z"
+        },
+        {
+          "description": "supabase migration list reports Local and Remote versions aligned for 0001, 0002, and 0003.",
+          "source": "terminal",
+          "capturedAt": "2026-07-10T00:00:00.000Z"
+        },
+        {
+          "description": "supabase db lint --linked completed with no schema errors found.",
+          "source": "terminal",
+          "capturedAt": "2026-07-10T00:00:00.000Z"
+        }
+      ],
       "rollback": {
         "strategy": "migration_down",
         "command": "supabase migration repair / drop tables leads, profiles",
