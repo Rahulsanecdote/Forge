@@ -9,6 +9,7 @@ Fail-closed rules for every environment variable Forge carries. Validated by
 |---|---|
 | `SUPABASE_URL` | Required by the agent runtime (CLI, Inngest). |
 | `SUPABASE_SERVICE_ROLE_KEY` | Required, **server-only**. Never expose to a browser. App refuses to deploy if missing in prod. |
+| `FORGE_ADMIN_PASSWORD` | Required in production for the single-operator dashboard. Server-only; stored as an HttpOnly signed session cookie after login. |
 | `ANTHROPIC_API_KEY` (or provider key matching `FORGE_PROVIDER`) | Required for the agent runtime. |
 | `INNGEST_SIGNING_KEY` | Required in production once Inngest jobs are live. |
 | `STRIPE_WEBHOOK_SECRET` | Required once billing is live (Phase 03). |

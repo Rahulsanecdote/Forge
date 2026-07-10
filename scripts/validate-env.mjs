@@ -30,7 +30,7 @@ if (isProd && process.env.AUTH_DISABLED === 'true') {
 
 // Server secrets required in production.
 if (isProd) {
-  for (const key of ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY']) {
+  for (const key of ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'FORGE_ADMIN_PASSWORD']) {
     if (!process.env[key]) errors.push(`${key} is required in production (server-only)`);
   }
 

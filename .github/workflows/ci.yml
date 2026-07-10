@@ -29,6 +29,7 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: https://ci-placeholder.supabase.co
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
           ANTHROPIC_API_KEY: ci-placeholder
+          FORGE_ADMIN_PASSWORD: ci-admin-placeholder
           SUPABASE_SERVICE_ROLE_KEY: ci-service-role-placeholder
 
       - name: Typecheck
