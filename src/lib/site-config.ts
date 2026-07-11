@@ -11,7 +11,7 @@ export const site = {
   description:
     'AI-native marketing automation for small businesses. Local SEO, social content, reputation management, and reporting — run by an AI agent, not a bloated agency.',
   email: 'hello@getforge.ai',
-  github: 'https://github.com/YOUR_ORG/forge-agent',
+  github: 'https://github.com/Rahulsanecdote/Forge',
   calendly: 'https://calendly.com/YOUR_HANDLE/forge-audit', // replace with real link
   location: 'New Jersey',
 } as const;

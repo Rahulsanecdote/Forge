@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-07-10T00:00:00.000Z",
+  "updatedAt": "2026-07-11T02:35:00.000Z",
   "project": "forge-agent",
   "activeLane": "launch-readiness",
   "lanes": [
@@ -45,7 +45,7 @@
       "owner": "founder",
       "lane": "launch-readiness",
       "createdAt": "2026-07-02T00:00:00.000Z",
-      "updatedAt": "2026-07-02T00:00:00.000Z",
+      "updatedAt": "2026-07-11T02:35:00.000Z",
       "requiresHumanApproval": true,
       "definitionOfDone": [
         {
@@ -53,15 +53,26 @@
           "done": false
         },
         {
-          "item": "forge-agent repo created (private)",
-          "done": false
+          "item": "GitHub repo exists at https://github.com/Rahulsanecdote/Forge",
+          "done": true
         },
         {
           "item": "Next.js 14 scaffold pushed to main",
-          "done": false
+          "done": true
         }
       ],
-      "evidence": []
+      "evidence": [
+        {
+          "description": "GitHub API reports Rahulsanecdote/Forge exists with default branch main and pushed commit 3c01a1e.",
+          "source": "terminal",
+          "capturedAt": "2026-07-11T02:35:00.000Z"
+        },
+        {
+          "description": "Vercel project forge-agent linked locally as project prj_bBDfqQepC8A0t6Kf8KC65kl39l4g.",
+          "source": "terminal",
+          "capturedAt": "2026-07-11T02:35:00.000Z"
+        }
+      ]
     },
     {
       "id": "supabase-foundation-migration",
@@ -120,93 +131,131 @@
       "title": "Production environment contract validated",
       "priority": "P0",
       "type": "production_deploy",
-      "status": "discovered",
+      "status": "shipped",
       "owner": "release",
       "lane": "launch-readiness",
       "createdAt": "2026-07-02T00:00:00.000Z",
-      "updatedAt": "2026-07-02T00:00:00.000Z",
+      "updatedAt": "2026-07-11T02:35:00.000Z",
       "requiresHumanApproval": true,
       "definitionOfDone": [
         {
           "item": "NEXT_PUBLIC_SUPABASE_URL + ANON_KEY set in Vercel",
-          "done": false
+          "done": true
         },
         {
           "item": "SUPABASE_SERVICE_ROLE_KEY set (server-only)",
-          "done": false
+          "done": true
         },
         {
           "item": "App fails closed if required secrets missing in prod",
-          "done": false
+          "done": true
         },
         {
           "item": "No secret present in any NEXT_PUBLIC_ variable",
-          "done": false
+          "done": true
         }
       ],
-      "evidence": []
+      "evidence": [
+        {
+          "description": "Vercel production env lists NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, FORGE_ADMIN_PASSWORD, FORGE_PROVIDER, FORGE_BASE_URL, FORGE_MODEL, FORGE_API_KEY, and NEXT_PUBLIC_APP_URL.",
+          "source": "terminal",
+          "capturedAt": "2026-07-11T02:35:00.000Z"
+        },
+        {
+          "description": "npm run env:validate completed successfully locally, and latest GitHub CI run 29129632295 completed successfully with production env-contract validation.",
+          "source": "terminal",
+          "capturedAt": "2026-07-11T02:35:00.000Z"
+        }
+      ]
     },
     {
       "id": "coming-soon-live",
       "title": "Coming Soon page deployed + email capture working",
       "priority": "P1",
       "type": "production_deploy",
-      "status": "discovered",
+      "status": "in_progress",
       "owner": "engineering",
       "lane": "launch-readiness",
       "createdAt": "2026-07-02T00:00:00.000Z",
-      "updatedAt": "2026-07-02T00:00:00.000Z",
+      "updatedAt": "2026-07-11T02:35:00.000Z",
       "requiresHumanApproval": true,
       "definitionOfDone": [
         {
           "item": "Coming Soon page deployed to Vercel",
-          "done": false
+          "done": true
         },
         {
           "item": "Supabase keys wired into capture form",
-          "done": false
+          "done": true
         },
         {
           "item": "Test email lands in leads table",
-          "done": false
+          "done": true
         },
         {
-          "item": "Domain points to Vercel with SSL",
+          "item": "getforge.ai points to Vercel with SSL",
           "done": false
         }
       ],
-      "evidence": []
+      "evidence": [
+        {
+          "description": "Vercel production deployment dpl_3Ew7oUNYvjNUF6KWJtDzThoWaHPG is Ready and aliased to https://forge-agent-ten.vercel.app.",
+          "source": "terminal",
+          "capturedAt": "2026-07-11T02:35:00.000Z"
+        },
+        {
+          "description": "curl -I https://forge-agent-ten.vercel.app returned HTTP/2 200 with Vercel TLS headers.",
+          "source": "terminal",
+          "capturedAt": "2026-07-11T02:35:00.000Z"
+        },
+        {
+          "description": "Production POST /api/leads returned 201 for launchops-prod+1783736973379@getforge.ai, and Supabase readback found the row in leads with source launchops-production-e2e.",
+          "source": "terminal",
+          "capturedAt": "2026-07-11T02:35:00.000Z"
+        }
+      ]
     },
     {
       "id": "ci-gates-live",
       "title": "CI verification gates passing on main",
       "priority": "P1",
       "type": "production_deploy",
-      "status": "discovered",
+      "status": "shipped",
       "owner": "engineering",
       "lane": "launch-readiness",
       "createdAt": "2026-07-02T00:00:00.000Z",
-      "updatedAt": "2026-07-02T00:00:00.000Z",
+      "updatedAt": "2026-07-11T02:35:00.000Z",
       "requiresHumanApproval": true,
       "definitionOfDone": [
         {
           "item": "typecheck + lint pass",
-          "done": false
+          "done": true
         },
         {
           "item": "production build passes",
-          "done": false
+          "done": true
         },
         {
           "item": "secret scan (gitleaks) clean",
-          "done": false
+          "done": true
         },
         {
           "item": "env validation script passes",
-          "done": false
+          "done": true
         }
       ],
-      "evidence": []
+      "evidence": [
+        {
+          "description": "GitHub Actions CI run 29129632295 on main completed successfully for commit 3c01a1e.",
+          "source": "terminal",
+          "capturedAt": "2026-07-11T02:35:00.000Z"
+        },
+        {
+          "description": "Local npm run typecheck and npm run build completed successfully on 2026-07-11.",
+          "source": "terminal",
+          "capturedAt": "2026-07-11T02:35:00.000Z"
+        }
+      ]
     }
   ],
   "policies": {
