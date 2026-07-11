@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-07-11T02:35:00.000Z",
+  "updatedAt": "2026-07-11T04:10:00.000Z",
   "project": "forge-agent",
   "activeLane": "launch-readiness",
   "lanes": [
@@ -41,16 +41,16 @@
       "title": "Domain purchased + GitHub repo initialized",
       "priority": "P0",
       "type": "infrastructure_cutover",
-      "status": "in_progress",
+      "status": "shipped",
       "owner": "founder",
       "lane": "launch-readiness",
       "createdAt": "2026-07-02T00:00:00.000Z",
-      "updatedAt": "2026-07-11T02:35:00.000Z",
+      "updatedAt": "2026-07-11T04:10:00.000Z",
       "requiresHumanApproval": true,
       "definitionOfDone": [
         {
-          "item": "getforge.ai purchased on Namecheap",
-          "done": false
+          "item": "getforge.ai owned and added to Vercel project forge-agent",
+          "done": true
         },
         {
           "item": "GitHub repo exists at https://github.com/Rahulsanecdote/Forge",
@@ -71,6 +71,11 @@
           "description": "Vercel project forge-agent linked locally as project prj_bBDfqQepC8A0t6Kf8KC65kl39l4g.",
           "source": "terminal",
           "capturedAt": "2026-07-11T02:35:00.000Z"
+        },
+        {
+          "description": "Vercel domains add getforge.ai succeeded, and domains inspect reports getforge.ai found under rahuls-projects-5433a772 with Edge Network enabled.",
+          "source": "terminal",
+          "capturedAt": "2026-07-11T04:10:00.000Z"
         }
       ]
     },
