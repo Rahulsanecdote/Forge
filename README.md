@@ -1,17 +1,24 @@
 # Forge
 
-**Open-source AI marketing agent for any small business.** Self-host it, point it at a
-business — a cafe, a dental practice, a gym, a law firm — and it produces on-brand
-marketing work in that business's voice. **Architect plans, Forge executes.**
+**A self-hostable agent runtime with a typed tool system and per-client context isolation.**
+One runtime, many businesses: each client is a row in the database plus a brand voice — no
+code changes, no forks. Provider-agnostic — Anthropic, OpenAI, Google, or fully offline
+against Ollama. Ships with a marketing tool pack; write your own in ~40 lines.
 
 MIT licensed. Bring your own Supabase + model key and run it anywhere.
 
+**Why not just use LangChain / CrewAI?** Those give you a single agent loop. Forge wraps that
+loop for *many clients at once* — the system prompt is built from each client's brand voice,
+and every tool run is logged to `tool_runs` keyed by `client_id`. If you're running one agent
+across many customers, that per-client scoping and audit trail is the part you'd otherwise
+build yourself.
+
 ## Why Forge
 
-Most marketing automation is either a closed SaaS you rent (GoHighLevel, Vendasta) or a
-generic chatbot with no business context. Forge is the missing piece: an **open**,
-self-hostable agent with a typed tool system and per-client brand voice, so it works for
-*any* vertical and you own the whole stack.
+An **open**, self-hostable runtime for running one agent across many clients: typed tools,
+per-client brand voice, and every run logged to `tool_runs`. Marketing is the reference tool
+pack it ships with — swap it and the same runtime works for any vertical. You own the whole
+stack.
 
 ## How it works
 
