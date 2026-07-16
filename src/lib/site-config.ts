@@ -6,7 +6,7 @@
 
 export const site = {
   name: 'Forge',
-  domain: 'https://getforge.ai',
+  domain: 'https://forge-agent-ten.vercel.app',
   tagline: 'AI that runs your marketing. While you run your business.',
   description:
     'AI-native marketing automation for small businesses. Local SEO, social content, reputation management, and reporting — run by an AI agent, not a bloated agency.',
@@ -21,6 +21,7 @@ export const navLinks = [
   { label: 'Pricing', href: '/pricing' },
   { label: 'Blog', href: '/blog' },
   { label: 'Contact', href: '/contact' },
+  { label: 'Dashboard', href: '/dashboard' },
 ] as const;
 
 export interface Service {
