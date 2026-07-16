@@ -23,7 +23,7 @@ stack.
 ## How it works
 
 ```
-CLI · Inngest crons · (future portal)
+CLI · Inngest crons · Next.js operator dashboard
       │
       ▼
 runForge(client, task)             ← src/forge/runtime.ts
@@ -75,6 +75,12 @@ npm run forge:client:add -- examples/bright-smile-dental.json
 npm run forge:run -- acme-coffee "Write 3 Instagram posts for a new oat-milk cold brew"
 npm run forge:run -- bright-smile-dental "Draft a friendly post announcing Saturday cleaning slots"
 ```
+
+## Operator dashboard
+
+Open `/dashboard` to manage clients and inspect recent agent runs. Selecting a run opens its
+draft preview at `/dashboard/runs/[id]`, including generated captions, hashtags, and image
+directions. Production access is protected by `FORGE_ADMIN_PASSWORD`.
 
 ## Add your business
 
@@ -145,8 +151,8 @@ insert a row by hand to test it now.
 report metrics, Google Business Profile to populate reviews); more tools (blog writer,
 performance alerts); a content approval queue; `client_memory` retrieval.
 
-**Increment 3** — Next.js portal + tiered tool activation; multi-tenant auth + RLS; managed
-cloud tier (open-core) + one-click self-host deploy.
+**Increment 3** — client-facing portal + tiered tool activation; multi-tenant auth + RLS;
+managed cloud tier (open-core) + one-click self-host deploy.
 
 ## Contributing & License
 
