@@ -248,7 +248,11 @@ export default async function ClientDetailPage({
                 </div>
               )}
               {toolRuns.map((run) => (
-                <div key={run.id} className="px-4 py-4">
+                <Link
+                  key={run.id}
+                  href={`/dashboard/runs/${run.id}`}
+                  className="group block px-4 py-4 transition hover:bg-gold-dim"
+                >
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="font-mono text-xs uppercase tracking-wide text-gold">
                       {run.tool ?? 'agent run'}
@@ -258,7 +262,10 @@ export default async function ClientDetailPage({
                     </div>
                   </div>
                   <p className="mt-2 font-sans text-sm leading-6 text-muted">{run.task ?? 'n/a'}</p>
-                </div>
+                  <div className="mt-3 font-mono text-[11px] uppercase tracking-wide text-muted-dark transition group-hover:text-gold">
+                    View draft
+                  </div>
+                </Link>
               ))}
             </div>
           </div>

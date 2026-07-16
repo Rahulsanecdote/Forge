@@ -68,6 +68,12 @@ export interface DashboardClientDetail {
   errors: string[];
 }
 
+export interface DashboardToolRunDetail {
+  run: DashboardToolRun;
+  client: Pick<DashboardClient, 'id' | 'slug' | 'name'> | null;
+  errors: string[];
+}
+
 export function getAdminSupabase() {
   const url = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -178,6 +184,39 @@ export async function loadClientDetail(slug: string): Promise<DashboardClientDet
     brandVoice,
     toolRuns,
     reviews,
+    errors,
+  };
+}
+
+export async function loadToolRunDetail(id: string): Promise<DashboardToolRunDetail | null> {
+  const supabase = getAdminSupabase();
+  const errors: string[] = [];
+
+  const { data: run, error } = await supabase
+    .from('tool_runs')
+    .select('id, client_id, task, tool, input, output, created_at')
+    .eq('id', id)
+    .single();
+
+  if (error || !run) return null;
+
+  let client: DashboardToolRunDetail['client'] = null;
+  if (run.client_id) {
+    const { data: clientData, error: clientError } = await supabase
+      .from('clients')
+      .select('id, slug, name')
+      .eq('id', run.client_id)
+      .single();
+
+    if (clientError && clientError.code !== 'PGRST116') {
+      errors.push(`client: ${clientError.message}`);
+    }
+    client = (clientData ?? null) as DashboardToolRunDetail['client'];
+  }
+
+  return {
+    run: run as DashboardToolRun,
+    client,
     errors,
   };
 }

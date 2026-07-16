@@ -1,6 +1,6 @@
 # Forge — Build Context for Codex (`AGENTS.md`)
 
-> **Version:** v1.3 · **Updated:** 2026-07-10 · **Repo:** `forge-agent`
+> **Version:** v1.4 · **Updated:** 2026-07-16 · **Repo:** `forge-agent`
 > **How to use:** Codex reads this automatically as `AGENTS.md`. (Also works pasted into a
 > Claude Code / Codex session at start, or renamed `CLAUDE.md`.) Read it fully before
 > changing code. Obey the Non-Negotiables. Append to the Decision Log on any structural
@@ -127,6 +127,7 @@ npm run typecheck               # must pass
 | 2026-07-06 | Phase 00 launch surface added as a Next.js 14 App Router site with waitlist capture, launch-board validation, production env-contract checks, and Supabase leads/profiles migration. |
 | 2026-07-06 | Phase 02 portal foundation starts with a single-operator dashboard protected by `FORGE_ADMIN_PASSWORD`, using service-role Supabase reads only inside Server Components. |
 | 2026-07-10 | Client operations moved into the portal with per-client profile editing, brand-voice editing, review/run history, and on-demand `runForge` execution from a protected Server Action. |
+| 2026-07-16 | Tool-run audit records gained a server-rendered detail route with typed social-post previews and a generic JSON fallback; service-role reads remain server-side. |
 
 ## 9. Conventions
 - Conventional Commits (`feat:`, `fix:`, `docs:`…). One focused change per PR.

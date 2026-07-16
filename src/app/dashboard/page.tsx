@@ -16,10 +16,10 @@ function formatDate(value: string | null) {
   }).format(new Date(value));
 }
 
-function EmptyRow({ label }: { label: string }) {
+function EmptyRow({ label, colSpan }: { label: string; colSpan: number }) {
   return (
     <tr>
-      <td colSpan={4} className="px-4 py-6 text-center font-mono text-xs text-muted-dark">
+      <td colSpan={colSpan} className="px-4 py-6 text-center font-mono text-xs text-muted-dark">
         {label}
       </td>
     </tr>
@@ -109,7 +109,7 @@ export default async function DashboardPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gold-border/70 font-mono text-xs text-muted">
-                  {data.leads.length === 0 && <EmptyRow label="No leads yet." />}
+                  {data.leads.length === 0 && <EmptyRow label="No leads yet." colSpan={3} />}
                   {data.leads.map((lead) => (
                     <tr key={lead.id}>
                       <td className="px-4 py-3 text-ink">{lead.email}</td>
@@ -138,7 +138,7 @@ export default async function DashboardPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gold-border/70 font-mono text-xs text-muted">
-                  {data.clients.length === 0 && <EmptyRow label="No clients configured." />}
+                  {data.clients.length === 0 && <EmptyRow label="No clients configured." colSpan={5} />}
                   {data.clients.map((client) => (
                     <tr key={client.id}>
                       <td className="px-4 py-3 text-ink">{client.name}</td>
@@ -173,16 +173,26 @@ export default async function DashboardPage() {
                   <th className="px-4 py-3 font-normal">Task</th>
                   <th className="px-4 py-3 font-normal">Client ID</th>
                   <th className="px-4 py-3 font-normal">Created</th>
+                  <th className="px-4 py-3 font-normal">Open</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gold-border/70 font-mono text-xs text-muted">
-                {data.toolRuns.length === 0 && <EmptyRow label="No tool runs yet." />}
+                {data.toolRuns.length === 0 && <EmptyRow label="No tool runs yet." colSpan={5} />}
                 {data.toolRuns.map((run) => (
                   <tr key={run.id}>
-                    <td className="px-4 py-3 text-ink">{run.tool ?? 'n/a'}</td>
+                    <td className="px-4 py-3 text-ink">
+                      <Link href={`/dashboard/runs/${run.id}`} className="transition hover:text-gold">
+                        {run.tool ?? 'n/a'}
+                      </Link>
+                    </td>
                     <td className="max-w-xl px-4 py-3">{run.task ?? 'n/a'}</td>
                     <td className="px-4 py-3">{run.client_id ?? 'n/a'}</td>
                     <td className="px-4 py-3">{formatDate(run.created_at)}</td>
+                    <td className="px-4 py-3">
+                      <Link href={`/dashboard/runs/${run.id}`} className="text-gold transition hover:text-gold-soft">
+                        View draft
+                      </Link>
+                    </td>
                   </tr>
                 ))}
               </tbody>
