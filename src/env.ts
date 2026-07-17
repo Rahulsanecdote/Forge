@@ -22,7 +22,23 @@ const schema = z.object({
   GOOGLE_GENERATIVE_AI_API_KEY: z.string().optional(),
 });
 
-const parsed = schema.safeParse(process.env);
+// Keep these references explicit so Next.js includes each server-only variable in
+// the Vercel function bundle instead of relying on dynamic process.env access.
+const runtimeEnv = {
+  SUPABASE_URL: process.env.SUPABASE_URL,
+  SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
+  FORGE_PROVIDER: process.env.FORGE_PROVIDER,
+  FORGE_MODEL: process.env.FORGE_MODEL,
+  FORGE_BASE_URL: process.env.FORGE_BASE_URL,
+  FORGE_API_KEY: process.env.FORGE_API_KEY,
+  FORGE_CONTENT_CRON: process.env.FORGE_CONTENT_CRON,
+  FORGE_REVIEW_CRON: process.env.FORGE_REVIEW_CRON,
+  ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
+  OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+  GOOGLE_GENERATIVE_AI_API_KEY: process.env.GOOGLE_GENERATIVE_AI_API_KEY,
+};
+
+const parsed = schema.safeParse(runtimeEnv);
 if (!parsed.success) {
   const missing = parsed.error.issues.map((i) => i.path.join('.')).join(', ');
   console.error(
