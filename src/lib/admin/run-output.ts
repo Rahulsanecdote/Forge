@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { findBannedPhraseViolations as findViolations } from '@/forge/compliance';
 
 const socialPostSchema = z
   .object({
@@ -53,6 +54,5 @@ export function formatRunPayload(payload: unknown) {
 }
 
 export function findBannedPhraseViolations(payload: unknown, bannedPhrases: string[]) {
-  const text = formatRunPayload(payload).toLocaleLowerCase();
-  return bannedPhrases.filter((phrase) => text.includes(phrase.toLocaleLowerCase()));
+  return findViolations(formatRunPayload(payload), bannedPhrases);
 }

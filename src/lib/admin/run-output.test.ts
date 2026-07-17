@@ -6,8 +6,8 @@ test('finds current-policy violations in historical structured output', () => {
   const output = {
     posts: [
       {
-        caption: 'NutriAI provides verified macros.',
-        hashtags: ['#Legacy'],
+        caption: 'NutriAI resolves nutrition numbers server-side.',
+        hashtags: ['#VerifiedMacros'],
         image_direction: 'Product screenshot',
       },
     ],

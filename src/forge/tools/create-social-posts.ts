@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { generateText } from 'ai';
+import { findBannedPhraseViolations } from '../compliance';
 import { parseJsonBlock } from '../util';
 import type { ClientContext, ForgeTool } from '../types';
 
@@ -57,9 +58,8 @@ export function buildSocialPostsPrompt(input: Input, client: ClientContext) {
 function assertBrandCompliance(posts: SocialPost[], bannedPhrases: string[]) {
   const generatedText = posts
     .flatMap((post) => [post.caption, ...post.hashtags, post.image_direction])
-    .join('\n')
-    .toLocaleLowerCase();
-  const violations = bannedPhrases.filter((phrase) => generatedText.includes(phrase.toLocaleLowerCase()));
+    .join('\n');
+  const violations = findBannedPhraseViolations(generatedText, bannedPhrases);
   if (violations.length > 0) {
     throw new Error(`Generated social posts used banned phrase(s): ${violations.join(', ')}`);
   }
