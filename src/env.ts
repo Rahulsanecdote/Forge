@@ -1,13 +1,25 @@
 import 'dotenv/config';
 import { z } from 'zod';
 
+const providerSchema = z.preprocess((value) => {
+  if (typeof value !== 'string') return value;
+
+  const normalized = value.trim();
+  const quote = normalized.at(0);
+  if ((quote === '"' || quote === "'") && normalized.at(-1) === quote) {
+    return normalized.slice(1, -1).trim();
+  }
+
+  return normalized;
+}, z.enum(['anthropic', 'openai', 'google', 'openai-compatible']));
+
 const schema = z.object({
   // Supabase — always required.
   SUPABASE_URL: z.string().min(1, 'SUPABASE_URL is required'),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1, 'SUPABASE_SERVICE_ROLE_KEY is required'),
 
   // Which model provider to use.
-  FORGE_PROVIDER: z.enum(['anthropic', 'openai', 'google', 'openai-compatible']).default('anthropic'),
+  FORGE_PROVIDER: providerSchema.default('anthropic'),
   FORGE_MODEL: z.string().optional(), // defaults per-provider if unset
   FORGE_BASE_URL: z.string().optional(), // for openai-compatible / local (e.g. Ollama)
   FORGE_API_KEY: z.string().optional(), // optional key for openai-compatible endpoints
