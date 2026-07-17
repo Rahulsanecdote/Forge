@@ -13,25 +13,32 @@ const providerSchema = z.preprocess((value) => {
   return normalized;
 }, z.enum(['anthropic', 'openai', 'google', 'openai-compatible']));
 
+const requiredConfigSchema = z.string().trim().min(1);
+const optionalConfigSchema = z.preprocess((value) => {
+  if (typeof value !== 'string') return value;
+  const normalized = value.trim();
+  return normalized || undefined;
+}, z.string().optional());
+
 const schema = z.object({
   // Supabase — always required.
-  SUPABASE_URL: z.string().min(1, 'SUPABASE_URL is required'),
-  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1, 'SUPABASE_SERVICE_ROLE_KEY is required'),
+  SUPABASE_URL: requiredConfigSchema,
+  SUPABASE_SERVICE_ROLE_KEY: requiredConfigSchema,
 
   // Which model provider to use.
   FORGE_PROVIDER: providerSchema.default('anthropic'),
-  FORGE_MODEL: z.string().optional(), // defaults per-provider if unset
-  FORGE_BASE_URL: z.string().optional(), // for openai-compatible / local (e.g. Ollama)
-  FORGE_API_KEY: z.string().optional(), // optional key for openai-compatible endpoints
+  FORGE_MODEL: optionalConfigSchema, // defaults per-provider if unset
+  FORGE_BASE_URL: optionalConfigSchema, // for openai-compatible / local (e.g. Ollama)
+  FORGE_API_KEY: optionalConfigSchema, // optional key for openai-compatible endpoints
 
   // Scheduled jobs (Inngest). Cron strings; sensible defaults applied if unset.
-  FORGE_CONTENT_CRON: z.string().optional(),
-  FORGE_REVIEW_CRON: z.string().optional(),
+  FORGE_CONTENT_CRON: optionalConfigSchema,
+  FORGE_REVIEW_CRON: optionalConfigSchema,
 
   // Provider API keys — only the one matching FORGE_PROVIDER is needed.
-  ANTHROPIC_API_KEY: z.string().optional(),
-  OPENAI_API_KEY: z.string().optional(),
-  GOOGLE_GENERATIVE_AI_API_KEY: z.string().optional(),
+  ANTHROPIC_API_KEY: optionalConfigSchema,
+  OPENAI_API_KEY: optionalConfigSchema,
+  GOOGLE_GENERATIVE_AI_API_KEY: optionalConfigSchema,
 });
 
 // Keep these references explicit so Next.js includes each server-only variable in
