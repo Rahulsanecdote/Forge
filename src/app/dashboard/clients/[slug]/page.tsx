@@ -27,6 +27,7 @@ function StatusBanner({ status }: { status?: string }) {
     'profile-saved': 'Client profile saved.',
     'voice-saved': 'Brand voice saved.',
     'run-complete': 'Forge run completed and was logged.',
+    'profile-invalid': 'Enter a valid profile name and lowercase URL slug.',
     'profile-error': 'Client profile could not be saved.',
     'voice-error': 'Brand voice could not be saved.',
     'run-error': 'Forge could not complete that run. Check provider keys and server logs.',
@@ -178,10 +179,11 @@ export default async function ClientDetailPage({
         <section className="mt-8 grid gap-6 xl:grid-cols-2">
           <form action={updateClientProfile} className="border border-gold-border bg-surface/50 p-5">
             <input type="hidden" name="client_id" value={client.id} />
-            <input type="hidden" name="slug" value={client.slug} />
+            <input type="hidden" name="current_slug" value={client.slug} />
             <div className="font-mono text-xs uppercase tracking-wide text-muted">Profile</div>
             <div className="mt-5 grid gap-4 md:grid-cols-2">
               <Field label="Name" name="name" defaultValue={client.name} />
+              <Field label="Slug" name="slug" defaultValue={client.slug} />
               <Field label="Industry" name="industry" defaultValue={client.industry} />
               <Field label="Website" name="website" defaultValue={client.website} />
               <Field label="Locations" name="locations" type="number" defaultValue={client.locations ?? 1} />

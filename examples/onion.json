@@ -1,0 +1,71 @@
+{
+  "slug": "onion",
+  "name": "Onion",
+  "industry": "AI nutrition platform - deterministic food logging, meal planning, and grocery workflows",
+  "locations": 1,
+  "brandVoice": {
+    "tone": [
+      "science-honest",
+      "calm and no-hype",
+      "supportive, never preachy",
+      "precise and specific",
+      "builder-transparent",
+      "privacy-respecting"
+    ],
+    "about": "Onion is a pre-launch AI nutrition platform built around a log -> plan -> shop -> learn loop. The AI proposes food concepts, but nutrition numbers are resolved server-side from USDA-anchored and deterministic sources; the model does not calculate macros. Shipped product capabilities include text, voice, barcode, and manual logging; deterministic meal planning; a recipe vault; shopping lists; lifestyle tracking and analytics; seven-language support; coach dashboards; data export and account deletion; and a built Kroger cart integration whose production certification is not yet confirmed. Onion is currently a web app, not an installable PWA or medical device. Stripe Pro, GLP-1 mode, and photo recognition are built but dark or partial and must not be marketed as generally available.",
+    "audience": "Primary: health-conscious mainstream users who want planning without making nutrition a second job, and serious goal trackers who value accurate, provenance-aware nutrition data. Acquisition wedge: people dissatisfied with MyFitnessPal-style paywalls or spreadsheet-like logging. Secondary: wellness integrators and online macro or physique coaches evaluating Onion as a design partner. Messaging must remain wellness-focused and must not imply medical treatment or outcomes.",
+    "dos": [
+      "use Onion as the only current product name",
+      "lead with trust: the AI suggests food concepts but is not allowed to calculate or invent macros",
+      "describe nutrition data as USDA-anchored, deterministic, and provenance-aware rather than universally verified",
+      "show the log -> plan -> shop -> learn loop using capabilities that are shipped",
+      "distinguish shipped capabilities from dark, partial, branch-only, planned, or unverified capabilities",
+      "use concrete product demonstrations such as voice logging, barcode logging, deterministic meal plans, recipe vault, and shopping lists",
+      "describe privacy with provable controls: guest mode, data export, and account deletion",
+      "use process language for health-related topics and stay on the wellness side of the claims ceiling",
+      "state uncertainty explicitly when certification, production flags, pricing, traction, or market figures are not verified",
+      "write in plain, calm, judgment-free language"
+    ],
+    "donts": [
+      "use the legacy name NutriAI",
+      "claim every macro is verified or imply deterministic fallback data is USDA-verified",
+      "claim Onion is a native mobile app, installable PWA, or fully offline-first product",
+      "market GLP-1 mode, photo recognition, health-condition hints, Stripe Pro, or adaptive orchestration as generally available",
+      "claim Kroger production certification or a live one-tap grocery-cart experience until certification is confirmed",
+      "promise diagnosis, treatment, disease management, medication guidance, or health outcomes",
+      "invent users, retention, testimonials, search volumes, market sizes, competitor facts, or performance metrics",
+      "publish a subscription price until the pricing decision is final",
+      "claim Coach checkout or billing is available",
+      "shame, guilt, or moralize about food"
+    ],
+    "samplePosts": [
+      "AI can suggest the meal. It cannot invent the macros. Onion resolves nutrition data server-side from USDA-anchored sources and deterministic rules.",
+      "Log -> plan -> shop -> learn. Onion connects the nutrition tasks that usually live in separate apps, without turning food into another spreadsheet.",
+      "Log a meal by text, voice, barcode, or manual entry. Onion keeps the routine fast while the nutrition math stays outside the language model.",
+      "Your nutrition data should be yours in practice, not just in a policy. Onion supports guest use, data export, and real account deletion.",
+      "Meal plans should fit the way you actually eat. Onion combines food concepts with deterministic portioning, then turns the plan into a practical shopping list."
+    ],
+    "bannedPhrases": [
+      "NutriAI",
+      "verified macros",
+      "clinically proven",
+      "medical-grade",
+      "Kroger-certified",
+      "available on iOS",
+      "offline-first",
+      "game-changer",
+      "elevate your experience",
+      "revolutionary",
+      "crush your goals",
+      "guilt-free",
+      "cheat meal",
+      "miracle",
+      "burn fat fast",
+      "melt away",
+      "superfood",
+      "detox",
+      "no pain no gain",
+      "guaranteed weight loss"
+    ]
+  }
+}

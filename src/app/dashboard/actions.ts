@@ -2,6 +2,7 @@
 
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
+import { z } from 'zod';
 import { clearAdminSession, setAdminSession, verifyAdminPassword } from '@/lib/admin/auth';
 import { getAdminSupabase, loadClientDetail } from '@/lib/admin/data';
 import type { ClientContext } from '@/forge/types';
@@ -33,21 +34,31 @@ function listValue(formData: FormData, key: string) {
     .filter(Boolean);
 }
 
-function redirectClient(slug: string, status: string) {
+function redirectClient(slug: string, status: string): never {
   redirect(`/dashboard/clients/${encodeURIComponent(slug)}?status=${encodeURIComponent(status)}`);
 }
 
+const clientSlugSchema = z
+  .string()
+  .min(1)
+  .max(80)
+  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
+
 export async function updateClientProfile(formData: FormData) {
   const id = stringValue(formData, 'client_id');
-  const slug = stringValue(formData, 'slug');
+  const currentSlug = stringValue(formData, 'current_slug');
+  const slug = clientSlugSchema.safeParse(stringValue(formData, 'slug'));
   const name = stringValue(formData, 'name');
   const locations = Number.parseInt(stringValue(formData, 'locations') || '1', 10);
 
-  if (!id || !slug || !name) redirectClient(slug || 'unknown', 'profile-invalid');
+  if (!id || !currentSlug || !slug.success || !name) {
+    redirectClient(currentSlug || 'unknown', 'profile-invalid');
+  }
 
   const { error } = await getAdminSupabase()
     .from('clients')
     .update({
+      slug: slug.data,
       name,
       industry: stringValue(formData, 'industry') || null,
       website: stringValue(formData, 'website') || null,
@@ -55,11 +66,12 @@ export async function updateClientProfile(formData: FormData) {
     })
     .eq('id', id);
 
-  if (error) redirectClient(slug, 'profile-error');
+  if (error) redirectClient(currentSlug, 'profile-error');
 
   revalidatePath('/dashboard');
-  revalidatePath(`/dashboard/clients/${slug}`);
-  redirectClient(slug, 'profile-saved');
+  revalidatePath(`/dashboard/clients/${currentSlug}`);
+  revalidatePath(`/dashboard/clients/${slug.data}`);
+  redirectClient(slug.data, 'profile-saved');
 }
 
 export async function updateBrandVoice(formData: FormData) {
