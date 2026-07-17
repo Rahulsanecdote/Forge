@@ -58,6 +58,61 @@ const clientSlugSchema = z
   .max(80)
   .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
 
+function slugify(value: string) {
+  return value.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80);
+}
+
+const onboardClientSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  website: z.string().trim().url().max(500),
+  industry: z.string().trim().min(1).max(120),
+  locations: z.coerce.number().int().min(1).max(10_000),
+  about: z.string().trim().min(1).max(4_000),
+  audience: z.string().trim().min(1).max(1_000),
+});
+
+export async function createOnboardedClient(formData: FormData) {
+  requireAdmin();
+  const parsed = onboardClientSchema.safeParse({
+    name: stringValue(formData, 'name'),
+    website: stringValue(formData, 'website'),
+    industry: stringValue(formData, 'industry'),
+    locations: stringValue(formData, 'locations'),
+    about: stringValue(formData, 'about'),
+    audience: stringValue(formData, 'audience'),
+  });
+  const slug = slugify(stringValue(formData, 'name'));
+  if (!parsed.success || !slug) redirect('/dashboard/onboarding?status=invalid');
+
+  const supabase = getAdminSupabase();
+  const { name, website, industry, locations, about, audience } = parsed.data;
+  const { data: client, error: clientError } = await supabase
+    .from('clients')
+    .insert({ slug, name, website, industry, locations })
+    .select('id, slug')
+    .single();
+  if (clientError || !client) redirect('/dashboard/onboarding?status=client-error');
+
+  const services = listValue(formData, 'services');
+  const { error: voiceError } = await supabase.from('brand_voices').insert({
+    client_id: client.id,
+    tone: listValue(formData, 'tone'),
+    about,
+    audience,
+    dos: services.map((service) => `Only reference ${service} when supported by the source material.`),
+    donts: ['Do not invent services, offers, locations, or performance claims.'],
+    banned_phrases: listValue(formData, 'banned_phrases'),
+    sample_posts: [],
+  });
+  if (voiceError) {
+    await supabase.from('clients').delete().eq('id', client.id);
+    redirect('/dashboard/onboarding?status=voice-error');
+  }
+
+  revalidatePath('/dashboard');
+  redirectClient(client.slug, 'onboarding-complete');
+}
+
 export async function updateClientProfile(formData: FormData) {
   requireAdmin();
   const id = stringValue(formData, 'client_id');

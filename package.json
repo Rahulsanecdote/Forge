@@ -11,7 +11,7 @@
     "forge:seed": "tsx scripts/add-client.ts examples/acme-coffee.json",
     "forge:run": "tsx scripts/run.ts",
     "forge:serve": "tsx src/inngest/server.ts",
-    "test": "node --import tsx --test src/forge/*.test.ts src/forge/tools/*.test.ts src/lib/admin/*.test.ts",
+    "test": "node --import tsx --test src/forge/*.test.ts src/forge/tools/*.test.ts src/lib/admin/*.test.ts src/lib/onboarding/*.test.ts",
     "typecheck": "tsc --noEmit",
     "env:validate": "node scripts/validate-env.mjs",
     "launch:status": "node .ops/launch-status.mjs",

@@ -24,6 +24,7 @@ function StatusBanner({ status }: { status?: string }) {
   if (!status) return null;
 
   const messages: Record<string, string> = {
+    'onboarding-complete': 'Client created from verified website findings. Review the profile and brand voice before the first run.',
     'profile-saved': 'Client profile saved.',
     'voice-saved': 'Brand voice saved.',
     'run-complete': 'Forge run completed and was logged.',

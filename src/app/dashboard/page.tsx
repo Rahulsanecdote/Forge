@@ -52,6 +52,11 @@ export default async function DashboardPage() {
       </header>
 
       <div className="mx-auto max-w-7xl px-6 py-10">
+        <div className="mb-6 flex justify-end">
+          <Link href="/dashboard/onboarding" className="bg-gold px-4 py-3 font-mono text-xs uppercase tracking-wide text-bg transition hover:bg-gold-soft">
+            Onboard client
+          </Link>
+        </div>
         <div className="flex flex-col justify-between gap-4 border-b border-gold-border pb-8 md:flex-row md:items-end">
           <div>
             <div className="section-label">Live Control Plane</div>

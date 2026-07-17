@@ -134,6 +134,7 @@ npm run typecheck               # must pass
 | 2026-07-16 | Draft previews compare recorded output against the client's current banned phrases; noncompliant historical drafts remain immutable audit records but are visibly blocked from copy/publish workflows. |
 | 2026-07-16 | Phase 02 content operations use a dedicated `content_approvals` row per generated social run. Generation queues a human decision; approval is revalidated against the client's current banned phrases, every mutation independently verifies the admin session, and database access remains server-only under the single-operator service-role model. |
 | 2026-07-17 | Phase 02.5 establishes the AAL foundation against the schema that actually exists: `tool_runs` gains agent/state tracking; database-backed agents, tools, permissions, typed evidence, and audits fail closed before execution; all operator tables use RLS with service-role-only grants. Retry/checkpoint, resume, publishing, and rollback executors remain explicitly deferred rather than represented as built. |
+| 2026-07-17 | Dashboard onboarding replaces the standalone wizard's shared coffee-shop demo values with authenticated, server-side website analysis. Findings come from current-request metadata and Schema.org data, missing evidence stays visibly unknown, private-network targets are rejected, and only operator-confirmed values are persisted. |
 
 ## 9. Conventions
 - Conventional Commits (`feat:`, `fix:`, `docs:`…). One focused change per PR.

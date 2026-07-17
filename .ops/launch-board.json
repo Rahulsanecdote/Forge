@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-07-17T06:31:00.000Z",
+  "updatedAt": "2026-07-17T22:55:00.000Z",
   "project": "forge-agent",
-  "activeLane": "security-readiness",
+  "activeLane": "portal-readiness",
   "lanes": [
     {
       "id": "launch-readiness",
@@ -13,7 +13,7 @@
     {
       "id": "portal-readiness",
       "title": "Phase 02 — Content approval workflow",
-      "status": "parked",
+      "status": "active",
       "phase": "02"
     },
     {
@@ -25,7 +25,7 @@
     {
       "id": "security-readiness",
       "title": "RLS + AAL permission audits",
-      "status": "active",
+      "status": "parked",
       "phase": "02.5"
     },
     {
@@ -42,6 +42,52 @@
     }
   ],
   "blockers": [
+    {
+      "id": "website-onboarding-evidence",
+      "title": "Onboarding findings are isolated and evidence-backed per business",
+      "priority": "P0",
+      "type": "product_correctness",
+      "status": "active",
+      "owner": "engineering",
+      "lane": "portal-readiness",
+      "createdAt": "2026-07-17T22:40:00.000Z",
+      "updatedAt": "2026-07-17T22:55:00.000Z",
+      "requiresHumanApproval": false,
+      "definitionOfDone": [
+        {
+          "item": "Website analysis uses current-request metadata and structured data without shared demo values",
+          "done": true
+        },
+        {
+          "item": "Missing category, services, tone, and location evidence is reported as not found",
+          "done": true
+        },
+        {
+          "item": "Analyzer is admin-authenticated, validates input, blocks private-network targets, and saves confirmed client data",
+          "done": true
+        },
+        {
+          "item": "Production onboarding produces distinct findings for two different business websites",
+          "done": false
+        }
+      ],
+      "evidence": [
+        {
+          "description": "Focused Node tests prove dental and coffee HTML produce distinct categories, services, tone, and locations; evidence-poor HTML returns empty findings with warnings.",
+          "source": "terminal",
+          "capturedAt": "2026-07-17T22:50:00.000Z"
+        },
+        {
+          "description": "TypeScript strict checking and diff validation pass for the protected API route, onboarding UI, and transactional client/brand-voice save flow.",
+          "source": "terminal",
+          "capturedAt": "2026-07-17T22:55:00.000Z"
+        }
+      ],
+      "rollback": {
+        "strategy": "remove the dashboard onboarding route and analyzer API while retaining the existing manual client editor",
+        "verified": false
+      }
+    },
     {
       "id": "agent-authority-foundation",
       "title": "Agent actions are permissioned, evidenced, and RLS-isolated",
