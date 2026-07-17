@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { z } from 'zod';
 import { CopyButton } from '@/components/dashboard/copy-button';
+import { decideContentApproval } from '../../actions';
 import { isAdminAuthenticated } from '@/lib/admin/auth';
 import { loadToolRunDetail } from '@/lib/admin/data';
 import {
@@ -30,7 +31,39 @@ function platformName(value: string | null) {
     .join(' ');
 }
 
-export default async function ToolRunDetailPage({ params }: { params: { id: string } }) {
+function ApprovalStatus({ status }: { status?: string }) {
+  if (!status) return null;
+
+  const messages: Record<string, string> = {
+    'approval-pending': 'Draft generated and queued for approval.',
+    'approval-approved': 'Draft approved for the next publishing step.',
+    'approval-rejected': 'Draft rejected. Generate a revised version before publishing.',
+    'approval-blocked': 'Approval blocked by the current brand policy.',
+    'approval-error': 'The approval decision could not be saved.',
+    'approval-invalid': 'The approval decision was invalid.',
+  };
+  const isError = status === 'approval-blocked' || status.endsWith('error') || status.endsWith('invalid');
+
+  return (
+    <div
+      className={`mb-6 border p-4 font-mono text-xs ${
+        isError
+          ? 'border-red-400/30 bg-red-500/10 text-red-100'
+          : 'border-gold-border bg-gold-dim text-gold'
+      }`}
+    >
+      {messages[status] ?? status}
+    </div>
+  );
+}
+
+export default async function ToolRunDetailPage({
+  params,
+  searchParams,
+}: {
+  params: { id: string };
+  searchParams?: { status?: string };
+}) {
   if (!isAdminAuthenticated()) redirect('/dashboard/login');
 
   const runId = runIdSchema.safeParse(params.id);
@@ -39,7 +72,7 @@ export default async function ToolRunDetailPage({ params }: { params: { id: stri
   const detail = await loadToolRunDetail(runId.data);
   if (!detail) notFound();
 
-  const { run, client, currentBannedPhrases, errors } = detail;
+  const { run, client, approval, currentBannedPhrases, errors } = detail;
   const socialPosts = run.tool === 'create_social_posts' ? parseSocialPostOutput(run.output) : null;
   const bannedPhraseViolations = findBannedPhraseViolations(run.output, currentBannedPhrases);
 
@@ -70,6 +103,7 @@ export default async function ToolRunDetailPage({ params }: { params: { id: stri
       </header>
 
       <div className="mx-auto max-w-7xl px-6 py-10">
+        <ApprovalStatus status={searchParams?.status} />
         <section className="grid gap-6 border-b border-gold-border pb-8 lg:grid-cols-[minmax(0,1fr)_360px]">
           <div>
             <div className="section-label">Generated Output</div>
@@ -98,6 +132,10 @@ export default async function ToolRunDetailPage({ params }: { params: { id: stri
               <dt className="uppercase tracking-wide text-muted-dark">Platform</dt>
               <dd className="mt-1 text-ink">{platformName(socialPosts?.platform ?? null)}</dd>
             </div>
+            <div>
+              <dt className="uppercase tracking-wide text-muted-dark">Approval</dt>
+              <dd className="mt-1 uppercase text-ink">{approval?.status ?? 'not queued'}</dd>
+            </div>
           </dl>
         </section>
 
@@ -111,6 +149,51 @@ export default async function ToolRunDetailPage({ params }: { params: { id: stri
           <div className="mt-6 border border-red-400/40 bg-red-500/10 p-4 font-mono text-xs leading-6 text-red-100">
             Blocked by current brand policy. This historical draft contains prohibited language:{' '}
             {bannedPhraseViolations.join(', ')}. Revise or generate a new draft before publishing.
+          </div>
+        )}
+
+        {approval?.status === 'pending' && (
+          <form action={decideContentApproval} className="mt-6 border border-gold-border bg-surface/50 p-5">
+            <input type="hidden" name="run_id" value={run.id} />
+            <div className="font-mono text-xs uppercase tracking-wide text-muted">Approval Gate</div>
+            <p className="mt-3 max-w-3xl font-sans text-sm leading-6 text-muted">
+              Record the operator decision before this content can move to publishing.
+            </p>
+            <label className="mt-4 block">
+              <span className="font-mono text-[11px] uppercase tracking-wide text-muted-dark">
+                Decision notes
+              </span>
+              <textarea
+                name="notes"
+                rows={3}
+                className="mt-2 w-full resize-y border border-gold-border bg-bg px-4 py-3 font-mono text-sm leading-6 text-ink outline-none focus:border-gold/60"
+              />
+            </label>
+            <div className="mt-4 flex flex-wrap gap-3">
+              <button
+                name="decision"
+                value="approved"
+                disabled={bannedPhraseViolations.length > 0}
+                className="bg-gold px-5 py-3 font-mono text-xs uppercase tracking-wide text-bg transition hover:bg-gold-soft disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Approve Draft
+              </button>
+              <button
+                name="decision"
+                value="rejected"
+                className="border border-red-400/40 px-5 py-3 font-mono text-xs uppercase tracking-wide text-red-100 transition hover:bg-red-500/10"
+              >
+                Reject Draft
+              </button>
+            </div>
+          </form>
+        )}
+
+        {approval && approval.status !== 'pending' && (
+          <div className="mt-6 border border-gold-border bg-surface/50 p-5 font-mono text-xs text-muted">
+            Decision: <span className="uppercase text-gold">{approval.status}</span>
+            {approval.decided_at ? ` on ${formatDate(approval.decided_at)}` : ''}
+            {approval.notes ? ` — ${approval.notes}` : ''}
           </div>
         )}
 

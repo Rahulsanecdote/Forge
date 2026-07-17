@@ -10,6 +10,7 @@ required**. The optional pgvector table is in `supabase/optional/`.
 |---|---|
 | `supabase/migrations/0001_init.sql` | `clients`, `brand_voices`, `tool_runs` |
 | `supabase/migrations/0002_reviews.sql` | `reviews` (+ index) |
+| `supabase/migrations/20260717011053_content_approvals.sql` | `content_approvals` (+ index, RLS, service-role grants) |
 | `supabase/optional/client_memory.sql` | `client_memory` + pgvector (reserved for a later increment; apply by hand) |
 
 Apply locally with `supabase db reset`; in a hosted project, run the SQL files in
@@ -90,6 +91,24 @@ The review sweep selects `status = 'new'` rows, drafts replies, and sets
 `status = 'drafted'` **only when a usable reply was generated** (otherwise the row
 stays `new` for a later retry). See [Scheduled jobs](./scheduled-jobs.md).
 
+### `content_approvals`
+
+Human decision gate for generated content. Social-post runs create one pending row; the
+single-operator dashboard can approve or reject it after current brand-policy checks pass.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid | PK |
+| `run_id` | uuid | unique FK → `tool_runs(id)`, `on delete cascade` |
+| `client_id` | uuid | FK → `clients(id)`, `on delete cascade` |
+| `status` | text | `pending` \| `approved` \| `rejected` |
+| `notes` | text | optional operator decision notes |
+| `requested_at` | timestamptz | default `now()` |
+| `decided_at` | timestamptz | set when the operator decides |
+
+RLS is enabled. Only `service_role` receives table privileges during the single-operator alpha;
+there are no browser-facing policies.
+
 ### `client_memory` (optional — pgvector)
 
 Reserved for a later increment (retrieval over past content + performance
@@ -113,6 +132,7 @@ Index: HNSW `client_memory_embedding_idx ... using hnsw (embedding vector_cosine
 clients (1) ──< (1) brand_voices         # one brand voice per client
 clients (1) ──< (N) tool_runs            # audit log
 clients (1) ──< (N) reviews              # review queue
+clients (1) ──< (N) content_approvals    # generated-content decision gate
 clients (1) ──< (N) client_memory        # optional, reserved
 ```
 

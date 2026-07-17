@@ -1,14 +1,20 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-07-11T04:10:00.000Z",
+  "updatedAt": "2026-07-17T01:15:00.000Z",
   "project": "forge-agent",
-  "activeLane": "launch-readiness",
+  "activeLane": "portal-readiness",
   "lanes": [
     {
       "id": "launch-readiness",
       "title": "Phase 00 \u2014 Foundation",
-      "status": "active",
+      "status": "parked",
       "phase": "00"
+    },
+    {
+      "id": "portal-readiness",
+      "title": "Phase 02 — Content approval workflow",
+      "status": "active",
+      "phase": "02"
     },
     {
       "id": "migration-readiness",
@@ -36,6 +42,51 @@
     }
   ],
   "blockers": [
+    {
+      "id": "content-approval-gate",
+      "title": "Generated content requires an operator decision",
+      "priority": "P0",
+      "type": "migration",
+      "status": "in_progress",
+      "owner": "engineering",
+      "lane": "portal-readiness",
+      "createdAt": "2026-07-17T01:15:00.000Z",
+      "updatedAt": "2026-07-17T01:15:00.000Z",
+      "requiresHumanApproval": true,
+      "definitionOfDone": [
+        {
+          "item": "content_approvals migration applied and verified in production",
+          "done": false
+        },
+        {
+          "item": "Genuine social generation creates one pending approval and opens Draft Preview",
+          "done": false
+        },
+        {
+          "item": "Current brand-policy violations prevent approval",
+          "done": true
+        },
+        {
+          "item": "Operator approve/reject decision persists with notes and timestamp",
+          "done": false
+        },
+        {
+          "item": "Production deployment and end-to-end evidence recorded",
+          "done": false
+        }
+      ],
+      "evidence": [
+        {
+          "description": "Unit tests and server-side checks reject current banned phrases before approval, including hashtag-normalized variants.",
+          "source": "terminal",
+          "capturedAt": "2026-07-17T01:15:00.000Z"
+        }
+      ],
+      "rollback": {
+        "strategy": "disable approval writes and drop public.content_approvals before any publishing integration depends on it",
+        "verified": false
+      }
+    },
     {
       "id": "domain-and-repo",
       "title": "Domain purchased + GitHub repo initialized",

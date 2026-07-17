@@ -28,6 +28,7 @@ function systemPrompt(client: ClientContext): string {
 }
 
 export interface ForgeStep {
+  runId: string;
   tool: string;
   input: unknown;
   output: unknown;
@@ -48,11 +49,29 @@ function buildTools(forge: AnyForgeTool[], ctx: ToolContext, task: string, steps
       inputSchema: t.schema as never,
       execute: async (input: unknown) => {
         const output = await t.execute(input, ctx);
-        steps.push({ tool: t.name, input, output });
-        // Best-effort audit log — also doubles as case-study evidence.
-        await supabase
+        const { data: run, error: runError } = await supabase
           .from('tool_runs')
-          .insert({ client_id: ctx.client.id, task, tool: t.name, input, output });
+          .insert({ client_id: ctx.client.id, task, tool: t.name, input, output })
+          .select('id')
+          .single();
+
+        if (runError || !run) {
+          throw new Error(`Could not record tool run: ${runError?.message ?? 'missing run id'}`);
+        }
+
+        if (t.name === 'create_social_posts') {
+          const { error: approvalError } = await supabase.from('content_approvals').insert({
+            run_id: run.id,
+            client_id: ctx.client.id,
+          });
+
+          if (approvalError) {
+            await supabase.from('tool_runs').delete().eq('id', run.id);
+            throw new Error(`Could not queue content approval: ${approvalError.message}`);
+          }
+        }
+
+        steps.push({ runId: run.id, tool: t.name, input, output });
         return output;
       },
     }),

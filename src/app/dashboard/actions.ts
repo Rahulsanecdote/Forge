@@ -3,8 +3,14 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { clearAdminSession, setAdminSession, verifyAdminPassword } from '@/lib/admin/auth';
-import { getAdminSupabase, loadClientDetail } from '@/lib/admin/data';
+import {
+  clearAdminSession,
+  isAdminAuthenticated,
+  setAdminSession,
+  verifyAdminPassword,
+} from '@/lib/admin/auth';
+import { getAdminSupabase, loadClientDetail, loadToolRunDetail } from '@/lib/admin/data';
+import { findBannedPhraseViolations } from '@/lib/admin/run-output';
 import type { ClientContext } from '@/forge/types';
 
 export async function login(formData: FormData) {
@@ -23,6 +29,10 @@ export async function logout() {
   redirect('/dashboard/login');
 }
 
+function requireAdmin() {
+  if (!isAdminAuthenticated()) redirect('/dashboard/login');
+}
+
 function stringValue(formData: FormData, key: string) {
   return String(formData.get(key) ?? '').trim();
 }
@@ -38,6 +48,10 @@ function redirectClient(slug: string, status: string): never {
   redirect(`/dashboard/clients/${encodeURIComponent(slug)}?status=${encodeURIComponent(status)}`);
 }
 
+function redirectRun(id: string, status: string): never {
+  redirect(`/dashboard/runs/${encodeURIComponent(id)}?status=${encodeURIComponent(status)}`);
+}
+
 const clientSlugSchema = z
   .string()
   .min(1)
@@ -45,6 +59,7 @@ const clientSlugSchema = z
   .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
 
 export async function updateClientProfile(formData: FormData) {
+  requireAdmin();
   const id = stringValue(formData, 'client_id');
   const currentSlug = stringValue(formData, 'current_slug');
   const slug = clientSlugSchema.safeParse(stringValue(formData, 'slug'));
@@ -75,6 +90,7 @@ export async function updateClientProfile(formData: FormData) {
 }
 
 export async function updateBrandVoice(formData: FormData) {
+  requireAdmin();
   const clientId = stringValue(formData, 'client_id');
   const slug = stringValue(formData, 'slug');
 
@@ -102,6 +118,7 @@ export async function updateBrandVoice(formData: FormData) {
 }
 
 export async function runClientTask(formData: FormData) {
+  requireAdmin();
   const slug = stringValue(formData, 'slug');
   const task = stringValue(formData, 'task');
 
@@ -128,9 +145,11 @@ export async function runClientTask(formData: FormData) {
     },
   };
 
+  let approvalRunId: string | null = null;
   try {
     const { runForge } = await import('@/forge/runtime');
-    await runForge({ client, task });
+    const result = await runForge({ client, task });
+    approvalRunId = result.steps.find((step) => step.tool === 'create_social_posts')?.runId ?? null;
   } catch (error) {
     console.error('[dashboard/runClientTask]', error);
     redirectClient(slug, 'run-error');
@@ -138,5 +157,51 @@ export async function runClientTask(formData: FormData) {
 
   revalidatePath('/dashboard');
   revalidatePath(`/dashboard/clients/${slug}`);
+  if (approvalRunId) redirectRun(approvalRunId, 'approval-pending');
   redirectClient(slug, 'run-complete');
+}
+
+const approvalDecisionSchema = z.enum(['approved', 'rejected']);
+
+export async function decideContentApproval(formData: FormData) {
+  requireAdmin();
+  const runId = z.string().uuid().safeParse(stringValue(formData, 'run_id'));
+  const decision = approvalDecisionSchema.safeParse(stringValue(formData, 'decision'));
+  const notes = stringValue(formData, 'notes');
+
+  if (!runId.success || !decision.success) {
+    redirectRun(runId.success ? runId.data : 'invalid', 'approval-invalid');
+  }
+
+  const detail = await loadToolRunDetail(runId.data);
+  if (!detail?.approval || detail.approval.status !== 'pending') {
+    redirectRun(runId.data, 'approval-error');
+  }
+
+  const violations = findBannedPhraseViolations(
+    detail.run.output,
+    detail.currentBannedPhrases,
+  );
+  if (decision.data === 'approved' && violations.length > 0) {
+    redirectRun(runId.data, 'approval-blocked');
+  }
+
+  const { data, error } = await getAdminSupabase()
+    .from('content_approvals')
+    .update({
+      status: decision.data,
+      notes: notes || null,
+      decided_at: new Date().toISOString(),
+    })
+    .eq('id', detail.approval.id)
+    .eq('status', 'pending')
+    .select('id')
+    .maybeSingle();
+
+  if (error || !data) redirectRun(runId.data, 'approval-error');
+
+  revalidatePath('/dashboard');
+  if (detail.client) revalidatePath(`/dashboard/clients/${detail.client.slug}`);
+  revalidatePath(`/dashboard/runs/${runId.data}`);
+  redirectRun(runId.data, `approval-${decision.data}`);
 }

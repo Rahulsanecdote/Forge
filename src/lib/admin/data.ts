@@ -60,17 +60,29 @@ export interface DashboardReview {
   created_at: string | null;
 }
 
+export interface DashboardContentApproval {
+  id: string;
+  run_id: string;
+  client_id: string;
+  status: 'pending' | 'approved' | 'rejected';
+  notes: string | null;
+  requested_at: string | null;
+  decided_at: string | null;
+}
+
 export interface DashboardClientDetail {
   client: DashboardClient;
   brandVoice: DashboardBrandVoice | null;
   toolRuns: DashboardToolRun[];
   reviews: DashboardReview[];
+  contentApprovals: DashboardContentApproval[];
   errors: string[];
 }
 
 export interface DashboardToolRunDetail {
   run: DashboardToolRun;
   client: Pick<DashboardClient, 'id' | 'slug' | 'name'> | null;
+  approval: DashboardContentApproval | null;
   currentBannedPhrases: string[];
   errors: string[];
 }
@@ -180,11 +192,24 @@ export async function loadClientDetail(slug: string): Promise<DashboardClientDet
     return [];
   });
 
+  const contentApprovals = await safeQuery<DashboardContentApproval>(
+    supabase
+      .from('content_approvals')
+      .select('id, run_id, client_id, status, notes, requested_at, decided_at')
+      .eq('client_id', client.id)
+      .order('requested_at', { ascending: false })
+      .limit(12),
+  ).catch((approvalError: Error) => {
+    errors.push(`content_approvals: ${approvalError.message}`);
+    return [];
+  });
+
   return {
     client: client as DashboardClient,
     brandVoice,
     toolRuns,
     reviews,
+    contentApprovals,
     errors,
   };
 }
@@ -202,6 +227,7 @@ export async function loadToolRunDetail(id: string): Promise<DashboardToolRunDet
   if (error || !run) return null;
 
   let client: DashboardToolRunDetail['client'] = null;
+  let approval: DashboardContentApproval | null = null;
   let currentBannedPhrases: string[] = [];
   if (run.client_id) {
     const { data: clientData, error: clientError } = await supabase
@@ -229,11 +255,21 @@ export async function loadToolRunDetail(id: string): Promise<DashboardToolRunDet
           (phrase): phrase is string => typeof phrase === 'string' && phrase.trim().length > 0,
         )
       : [];
+
+    const { data: approvalData, error: approvalError } = await supabase
+      .from('content_approvals')
+      .select('id, run_id, client_id, status, notes, requested_at, decided_at')
+      .eq('run_id', run.id)
+      .maybeSingle();
+
+    if (approvalError) errors.push(`content_approvals: ${approvalError.message}`);
+    approval = (approvalData ?? null) as DashboardContentApproval | null;
   }
 
   return {
     run: run as DashboardToolRun,
     client,
+    approval,
     currentBannedPhrases,
     errors,
   };

@@ -109,7 +109,7 @@ export default async function ClientDetailPage({
   const detail = await loadClientDetail(params.slug);
   if (!detail) notFound();
 
-  const { client, brandVoice, toolRuns, reviews, errors } = detail;
+  const { client, brandVoice, toolRuns, reviews, contentApprovals, errors } = detail;
 
   return (
     <main className="min-h-screen bg-bg text-ink">
@@ -238,7 +238,39 @@ export default async function ClientDetailPage({
           </button>
         </form>
 
-        <section className="mt-6 grid gap-6 xl:grid-cols-2">
+        <section className="mt-6 grid gap-6 xl:grid-cols-3">
+          <div className="border border-gold-border bg-surface/50">
+            <div className="border-b border-gold-border px-4 py-3 font-mono text-xs uppercase tracking-wide text-muted">
+              Content Approvals
+            </div>
+            <div className="divide-y divide-gold-border/70">
+              {contentApprovals.length === 0 && (
+                <div className="px-4 py-6 text-center font-mono text-xs text-muted-dark">
+                  No content awaiting decisions.
+                </div>
+              )}
+              {contentApprovals.map((approval) => (
+                <Link
+                  key={approval.id}
+                  href={`/dashboard/runs/${approval.run_id}`}
+                  className="group block px-4 py-4 transition hover:bg-gold-dim"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="font-mono text-xs uppercase tracking-wide text-gold">
+                      {approval.status}
+                    </div>
+                    <div className="font-mono text-[11px] text-muted-dark">
+                      {formatDate(approval.requested_at)}
+                    </div>
+                  </div>
+                  <div className="mt-3 font-mono text-[11px] uppercase tracking-wide text-muted-dark transition group-hover:text-gold">
+                    Review draft {approval.run_id.slice(0, 8)}
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+
           <div className="border border-gold-border bg-surface/50">
             <div className="border-b border-gold-border px-4 py-3 font-mono text-xs uppercase tracking-wide text-muted">
               Recent Runs

@@ -1,6 +1,6 @@
 # Forge — Build Context for Codex (`AGENTS.md`)
 
-> **Version:** v1.5 · **Updated:** 2026-07-16 · **Repo:** `forge-agent`
+> **Version:** v1.6 · **Updated:** 2026-07-16 · **Repo:** `forge-agent`
 > **How to use:** Codex reads this automatically as `AGENTS.md`. (Also works pasted into a
 > Claude Code / Codex session at start, or renamed `CLAUDE.md`.) Read it fully before
 > changing code. Obey the Non-Negotiables. Append to the Decision Log on any structural
@@ -130,6 +130,7 @@ npm run typecheck               # must pass
 | 2026-07-16 | Tool-run audit records gained a server-rendered detail route with typed social-post previews and a generic JSON fallback; service-role reads remain server-side. |
 | 2026-07-16 | Real social generation now treats each client's `about`, `dos`, and `donts` as a factual ceiling, validates exact structured output, and fails closed on banned phrases; client slugs are validated but editable so Onion can replace the legacy NutriAI identity without losing run history. |
 | 2026-07-16 | Draft previews compare recorded output against the client's current banned phrases; noncompliant historical drafts remain immutable audit records but are visibly blocked from copy/publish workflows. |
+| 2026-07-16 | Phase 02 content operations use a dedicated `content_approvals` row per generated social run. Generation queues a human decision; approval is revalidated against the client's current banned phrases, every mutation independently verifies the admin session, and database access remains server-only under the single-operator service-role model. |
 
 ## 9. Conventions
 - Conventional Commits (`feat:`, `fix:`, `docs:`…). One focused change per PR.
