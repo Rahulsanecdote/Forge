@@ -200,6 +200,22 @@ export async function decideContentApproval(formData: FormData) {
 
   if (error || !data) redirectRun(runId.data, 'approval-error');
 
+  const { error: evidenceError } = await getAdminSupabase().from('forge_run_evidence').insert({
+    run_id: runId.data,
+    kind: 'approval',
+    description: `Content draft ${decision.data} by the single-operator portal.`,
+    payload: { decision: decision.data, notes: notes || null },
+  });
+
+  if (evidenceError) {
+    await getAdminSupabase()
+      .from('content_approvals')
+      .update({ status: 'pending', notes: null, decided_at: null })
+      .eq('id', detail.approval.id)
+      .eq('status', decision.data);
+    redirectRun(runId.data, 'approval-error');
+  }
+
   revalidatePath('/dashboard');
   if (detail.client) revalidatePath(`/dashboard/clients/${detail.client.slug}`);
   revalidatePath(`/dashboard/runs/${runId.data}`);

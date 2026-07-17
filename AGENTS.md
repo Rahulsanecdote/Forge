@@ -1,6 +1,6 @@
 # Forge — Build Context for Codex (`AGENTS.md`)
 
-> **Version:** v1.6 · **Updated:** 2026-07-16 · **Repo:** `forge-agent`
+> **Version:** v1.7 · **Updated:** 2026-07-17 · **Repo:** `forge-agent`
 > **How to use:** Codex reads this automatically as `AGENTS.md`. (Also works pasted into a
 > Claude Code / Codex session at start, or renamed `CLAUDE.md`.) Read it fully before
 > changing code. Obey the Non-Negotiables. Append to the Decision Log on any structural
@@ -27,6 +27,8 @@ src/
   env.ts                         zod-validated env (provider + Supabase + cron overrides)
   supabase.ts                    server-side Supabase client (service role)
   forge/
+    authority-policy.ts           pure permission-level evaluation
+    authority.ts                  fail-closed database-backed agent/tool authorization
     types.ts                     ForgeTool contract, ClientContext, ToolContext{client,model}
     model.ts                     resolveModel(): FORGE_PROVIDER -> AI SDK LanguageModel
     runtime.ts                   runForge({client,task}) — AI SDK tool loop, logs tool_runs
@@ -131,6 +133,7 @@ npm run typecheck               # must pass
 | 2026-07-16 | Real social generation now treats each client's `about`, `dos`, and `donts` as a factual ceiling, validates exact structured output, and fails closed on banned phrases; client slugs are validated but editable so Onion can replace the legacy NutriAI identity without losing run history. |
 | 2026-07-16 | Draft previews compare recorded output against the client's current banned phrases; noncompliant historical drafts remain immutable audit records but are visibly blocked from copy/publish workflows. |
 | 2026-07-16 | Phase 02 content operations use a dedicated `content_approvals` row per generated social run. Generation queues a human decision; approval is revalidated against the client's current banned phrases, every mutation independently verifies the admin session, and database access remains server-only under the single-operator service-role model. |
+| 2026-07-17 | Phase 02.5 establishes the AAL foundation against the schema that actually exists: `tool_runs` gains agent/state tracking; database-backed agents, tools, permissions, typed evidence, and audits fail closed before execution; all operator tables use RLS with service-role-only grants. Retry/checkpoint, resume, publishing, and rollback executors remain explicitly deferred rather than represented as built. |
 
 ## 9. Conventions
 - Conventional Commits (`feat:`, `fix:`, `docs:`…). One focused change per PR.

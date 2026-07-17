@@ -4,6 +4,14 @@
 
 Stack unchanged: Next.js 14 · TypeScript · Supabase · Inngest · Vercel.
 
+> **Implementation correction (2026-07-17):** the original Layer 2 proposal below assumed
+> `forge_agents`, `forge_tools`, `forge_tool_runs`, permission checks, retry/checkpoint, and
+> resume already existed. The repository did not contain them; it contained a post-execution
+> `tool_runs` log. Phase 02.5 therefore extends `tool_runs` in place and adds the agent, tool,
+> permission, evidence, and audit foundation. Existing `content_approvals` remains the gate for
+> generated content. Generic pre-action approval/resume, publishing, retry/checkpoint, and
+> rollback execution are target architecture, not shipped behavior.
+
 ---
 
 ## The core realization: LaunchOps maps to Forge at two layers
@@ -46,7 +54,7 @@ What already exists in Forge, what LaunchOps extends, and what's net-new.
 
 | LaunchOps concept | Forge today | Verdict | Layer |
 |---|---|---|---|
-| Blocker state machine | `forge_tool_runs.status` (pending→running→retrying→succeeded/failed) | **Keep separate.** Dev blockers ≠ runtime tool runs. Different lifecycles. | — |
+| Blocker state machine | `tool_runs.status` (pending→running→succeeded/failed; additional reserved states) | **Keep separate.** Dev blockers ≠ runtime tool runs. Different lifecycles. | — |
 | Launch board | Roadmap phases (HTML) + AAL 3-week plans | **Formalize** into `.ops/launch-board.json` | 1 |
 | Evidence model | `forge_tool_runs.output` + audit log ("actions traceable") | **Extend** → typed, durable, referenced evidence | 2 |
 | Human approval gates | AAL permission levels (read/execute/admin) | **Compose, don't replace.** AAL gates *which agent*; approval gates *whether a human signed off* | 2 |
@@ -129,9 +137,11 @@ Your Phase 00 `.env.local.example` becomes a fail-closed contract. This matters 
 
 This is where the integration earns its keep. Forge's agents run long, side-effectful workflows for clients (publish posts, respond to reviews, eventually spend ad budget). LaunchOps's evidence / approval / rollback / audit model is exactly the governance an agent runtime needs — and AAL doesn't have it yet.
 
-All of this **extends** existing AAL tables. Nothing is renamed.
+The target design below originally assumed existing AAL tables. The shipped Phase 02.5
+foundation instead extends the real `tool_runs` table and introduces the missing registry and
+permission tables without renaming production data.
 
-### Extend `forge_tool_runs` status
+### Extend `tool_runs` status
 
 ```sql
 -- Existing: pending | running | retrying | succeeded | failed
@@ -229,7 +239,9 @@ flowchart TD
   AuditStep -->|clean| Done["status = succeeded"]
 ```
 
-Everything in the existing-AAL boxes is already built. Layer 2 is the gates, approvals, evidence, audit, and rollback wrapped around it.
+Only the permission, run-state, evidence, audit, and generated-content approval portions are
+currently built. Retry/checkpoint, resume, external publishing, and rollback execution remain
+future work and must continue to fail closed until implemented.
 
 ---
 
@@ -248,7 +260,9 @@ Everything in the existing-AAL boxes is already built. Layer 2 is the gates, app
 | Post-execution audit | ✓ | — |
 | Dev-time launch board | ✓ (Layer 1) | — |
 
-Three new tables (`forge_run_evidence`, `forge_approvals`, `forge_run_audits`), three new columns on `forge_tools`, two new run states. No renames, no breaking changes, no new services.
+The shipped foundation adds `forge_agents`, `forge_tools`,
+`forge_agent_tool_permissions`, `forge_run_evidence`, and `forge_run_audits`; extends
+`tool_runs`; and reuses `content_approvals`. No production table is renamed.
 
 ---
 

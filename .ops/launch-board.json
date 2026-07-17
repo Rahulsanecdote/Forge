@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-07-17T05:34:00.000Z",
+  "updatedAt": "2026-07-17T06:20:00.000Z",
   "project": "forge-agent",
-  "activeLane": "portal-readiness",
+  "activeLane": "security-readiness",
   "lanes": [
     {
       "id": "launch-readiness",
@@ -13,7 +13,7 @@
     {
       "id": "portal-readiness",
       "title": "Phase 02 — Content approval workflow",
-      "status": "active",
+      "status": "parked",
       "phase": "02"
     },
     {
@@ -25,7 +25,7 @@
     {
       "id": "security-readiness",
       "title": "RLS + AAL permission audits",
-      "status": "parked",
+      "status": "active",
       "phase": "02.5"
     },
     {
@@ -42,6 +42,66 @@
     }
   ],
   "blockers": [
+    {
+      "id": "agent-authority-foundation",
+      "title": "Agent actions are permissioned, evidenced, and RLS-isolated",
+      "priority": "P0",
+      "type": "migration",
+      "status": "in_progress",
+      "owner": "engineering",
+      "lane": "security-readiness",
+      "createdAt": "2026-07-17T05:50:00.000Z",
+      "updatedAt": "2026-07-17T06:20:00.000Z",
+      "requiresHumanApproval": true,
+      "definitionOfDone": [
+        {
+          "item": "AAL migration applies cleanly and seeds the default agent/tool permissions",
+          "done": true
+        },
+        {
+          "item": "Runtime denies unknown, suspended, explicit-deny, and under-scoped tool calls before execution",
+          "done": true
+        },
+        {
+          "item": "Operator tables have RLS enabled with anon/authenticated privileges revoked",
+          "done": true
+        },
+        {
+          "item": "Successful production execution records terminal state, typed evidence, and audit",
+          "done": false
+        },
+        {
+          "item": "Security advisors and production deployment evidence are recorded",
+          "done": false
+        }
+      ],
+      "evidence": [
+        {
+          "description": "Production migration transaction succeeded; Supabase migration history now records 20260717011053 content_approvals and 20260717053823 agent_authority_foundation.",
+          "source": "supabase-sql-editor",
+          "capturedAt": "2026-07-17T06:10:00.000Z"
+        },
+        {
+          "description": "Catalog verification returned one active default agent, five execute grants, RLS on all 10 operator tables, zero anon/authenticated operator grants, and preserved anon insert-only access to leads.",
+          "source": "supabase-sql-editor",
+          "capturedAt": "2026-07-17T06:12:00.000Z"
+        },
+        {
+          "description": "Unit tests cover active permission ranking plus unknown, suspended, explicit-deny, and under-scoped fail-closed decisions; npm test and npm run typecheck pass.",
+          "source": "terminal",
+          "capturedAt": "2026-07-17T06:20:00.000Z"
+        },
+        {
+          "description": "Supabase Advisor real findings for public/authenticated execution of public.rls_auto_enable() were remediated. Remaining security notices are intentional: anon insert-only leads and RLS tables with no browser policies or grants.",
+          "source": "supabase-advisor",
+          "capturedAt": "2026-07-17T06:18:00.000Z"
+        }
+      ],
+      "rollback": {
+        "strategy": "revert runtime authority wiring, remove AAL tables/columns after exporting evidence, and restore the prior service-role-only tool_runs path",
+        "verified": false
+      }
+    },
     {
       "id": "content-approval-gate",
       "title": "Generated content requires an operator decision",

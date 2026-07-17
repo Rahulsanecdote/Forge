@@ -11,6 +11,7 @@ required**. The optional pgvector table is in `supabase/optional/`.
 | `supabase/migrations/0001_init.sql` | `clients`, `brand_voices`, `tool_runs` |
 | `supabase/migrations/0002_reviews.sql` | `reviews` (+ index) |
 | `supabase/migrations/20260717011053_content_approvals.sql` | `content_approvals` (+ index, RLS, service-role grants) |
+| `supabase/migrations/20260717053823_agent_authority_foundation.sql` | AAL agents, tool registry, permissions, run states, evidence, audits, and operator-table RLS |
 | `supabase/optional/client_memory.sql` | `client_memory` + pgvector (reserved for a later increment; apply by hand) |
 
 Apply locally with `supabase db reset`; in a hosted project, run the SQL files in
@@ -65,7 +66,25 @@ Audit log of every tool the agent runs — cheap, and doubles as case-study data
 | `tool` | text | tool name |
 | `input` | jsonb | tool input |
 | `output` | jsonb | tool output |
+| `agent_id` | uuid | FK → `forge_agents(id)` |
+| `status` | text | `pending` \| `running` \| `awaiting_approval` \| `succeeded` \| `failed` \| `rolled_back` |
+| `started_at` | timestamptz | execution start |
+| `completed_at` | timestamptz | terminal timestamp |
+| `error` | text | bounded failure message |
 | `created_at` | timestamptz | default `now()` |
+
+### Agent Authority Layer
+
+`forge_agents` identifies runtime principals. `forge_tools` is the database-backed tool
+registry, including required permission and future gate/rollback metadata.
+`forge_agent_tool_permissions` grants `read`, `execute`, or `admin` authority per agent/tool.
+The runtime checks all three tables before tool execution and fails closed for unknown,
+suspended, denied, under-scoped, or unregistered combinations.
+
+`forge_run_evidence` stores typed durable evidence (`output`, `approval`, `error`, and future
+external references). `forge_run_audits` records the post-execution result and structured
+findings. The current phase records generation and approval evidence; it does not claim that
+external publishing, retry/checkpoint, resume, or rollback executors exist.
 
 ### `reviews`
 
@@ -133,11 +152,17 @@ clients (1) ──< (1) brand_voices         # one brand voice per client
 clients (1) ──< (N) tool_runs            # audit log
 clients (1) ──< (N) reviews              # review queue
 clients (1) ──< (N) content_approvals    # generated-content decision gate
+forge_agents (1) ──< (N) forge_agent_tool_permissions >── (1) forge_tools
+forge_agents (1) ──< (N) tool_runs
+tool_runs (1) ──< (N) forge_run_evidence
+tool_runs (1) ──< (N) forge_run_audits
 clients (1) ──< (N) client_memory        # optional, reserved
 ```
 
 ## Row-Level Security
 
-This alpha is single-operator: the service-role key in a CLI/server, no RLS
-policies yet. Multi-tenant RLS lands when the cloud portal is built — see
-[Deployment](./deployment.md).
+The alpha remains single-operator. All operator/runtime tables have RLS enabled, no policies
+for `anon` or `authenticated`, explicit privilege revocation for both roles, and server-only
+`service_role` grants. `leads` deliberately permits anon insert only. `profiles` permits an
+authenticated user to select and update only their own row. Tenant-scoped client policies
+remain deferred until client authentication replaces the single-operator portal.
