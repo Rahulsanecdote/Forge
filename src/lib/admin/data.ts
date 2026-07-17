@@ -71,6 +71,7 @@ export interface DashboardClientDetail {
 export interface DashboardToolRunDetail {
   run: DashboardToolRun;
   client: Pick<DashboardClient, 'id' | 'slug' | 'name'> | null;
+  currentBannedPhrases: string[];
   errors: string[];
 }
 
@@ -201,6 +202,7 @@ export async function loadToolRunDetail(id: string): Promise<DashboardToolRunDet
   if (error || !run) return null;
 
   let client: DashboardToolRunDetail['client'] = null;
+  let currentBannedPhrases: string[] = [];
   if (run.client_id) {
     const { data: clientData, error: clientError } = await supabase
       .from('clients')
@@ -212,11 +214,27 @@ export async function loadToolRunDetail(id: string): Promise<DashboardToolRunDet
       errors.push(`client: ${clientError.message}`);
     }
     client = (clientData ?? null) as DashboardToolRunDetail['client'];
+
+    const { data: brandVoiceData, error: brandVoiceError } = await supabase
+      .from('brand_voices')
+      .select('banned_phrases')
+      .eq('client_id', run.client_id)
+      .single();
+
+    if (brandVoiceError && brandVoiceError.code !== 'PGRST116') {
+      errors.push(`brand_voices: ${brandVoiceError.message}`);
+    }
+    currentBannedPhrases = Array.isArray(brandVoiceData?.banned_phrases)
+      ? brandVoiceData.banned_phrases.filter(
+          (phrase): phrase is string => typeof phrase === 'string' && phrase.trim().length > 0,
+        )
+      : [];
   }
 
   return {
     run: run as DashboardToolRun,
     client,
+    currentBannedPhrases,
     errors,
   };
 }

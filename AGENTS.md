@@ -129,6 +129,7 @@ npm run typecheck               # must pass
 | 2026-07-10 | Client operations moved into the portal with per-client profile editing, brand-voice editing, review/run history, and on-demand `runForge` execution from a protected Server Action. |
 | 2026-07-16 | Tool-run audit records gained a server-rendered detail route with typed social-post previews and a generic JSON fallback; service-role reads remain server-side. |
 | 2026-07-16 | Real social generation now treats each client's `about`, `dos`, and `donts` as a factual ceiling, validates exact structured output, and fails closed on banned phrases; client slugs are validated but editable so Onion can replace the legacy NutriAI identity without losing run history. |
+| 2026-07-16 | Draft previews compare recorded output against the client's current banned phrases; noncompliant historical drafts remain immutable audit records but are visibly blocked from copy/publish workflows. |
 
 ## 9. Conventions
 - Conventional Commits (`feat:`, `fix:`, `docs:`…). One focused change per PR.

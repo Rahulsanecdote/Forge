@@ -51,3 +51,8 @@ export function formatRunPayload(payload: unknown) {
     return String(payload);
   }
 }
+
+export function findBannedPhraseViolations(payload: unknown, bannedPhrases: string[]) {
+  const text = formatRunPayload(payload).toLocaleLowerCase();
+  return bannedPhrases.filter((phrase) => text.includes(phrase.toLocaleLowerCase()));
+}

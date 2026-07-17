@@ -4,7 +4,11 @@ import { z } from 'zod';
 import { CopyButton } from '@/components/dashboard/copy-button';
 import { isAdminAuthenticated } from '@/lib/admin/auth';
 import { loadToolRunDetail } from '@/lib/admin/data';
-import { formatRunPayload, parseSocialPostOutput } from '@/lib/admin/run-output';
+import {
+  findBannedPhraseViolations,
+  formatRunPayload,
+  parseSocialPostOutput,
+} from '@/lib/admin/run-output';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,8 +39,9 @@ export default async function ToolRunDetailPage({ params }: { params: { id: stri
   const detail = await loadToolRunDetail(runId.data);
   if (!detail) notFound();
 
-  const { run, client, errors } = detail;
+  const { run, client, currentBannedPhrases, errors } = detail;
   const socialPosts = run.tool === 'create_social_posts' ? parseSocialPostOutput(run.output) : null;
+  const bannedPhraseViolations = findBannedPhraseViolations(run.output, currentBannedPhrases);
 
   return (
     <main className="min-h-screen bg-bg text-ink">
@@ -102,6 +107,13 @@ export default async function ToolRunDetailPage({ params }: { params: { id: stri
           </div>
         )}
 
+        {bannedPhraseViolations.length > 0 && (
+          <div className="mt-6 border border-red-400/40 bg-red-500/10 p-4 font-mono text-xs leading-6 text-red-100">
+            Blocked by current brand policy. This historical draft contains prohibited language:{' '}
+            {bannedPhraseViolations.join(', ')}. Revise or generate a new draft before publishing.
+          </div>
+        )}
+
         {socialPosts && socialPosts.posts.length > 0 ? (
           <section className="mt-8 space-y-5" aria-label="Generated post drafts">
             {socialPosts.posts.map((post, index) => {
@@ -112,7 +124,13 @@ export default async function ToolRunDetailPage({ params }: { params: { id: stri
                     <div className="font-mono text-xs uppercase tracking-wide text-gold">
                       Draft {String(index + 1).padStart(2, '0')}
                     </div>
-                    <CopyButton value={captionWithHashtags} label="Copy post" />
+                    {bannedPhraseViolations.length === 0 ? (
+                      <CopyButton value={captionWithHashtags} label="Copy post" />
+                    ) : (
+                      <span className="font-mono text-[11px] uppercase tracking-wide text-red-200">
+                        Needs revision
+                      </span>
+                    )}
                   </div>
                   <div className="grid lg:grid-cols-[minmax(0,1.35fr)_minmax(280px,0.65fr)]">
                     <div className="p-5 lg:border-r lg:border-gold-border">
