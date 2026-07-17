@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-07-17T06:20:00.000Z",
+  "updatedAt": "2026-07-17T06:31:00.000Z",
   "project": "forge-agent",
   "activeLane": "security-readiness",
   "lanes": [
@@ -47,11 +47,11 @@
       "title": "Agent actions are permissioned, evidenced, and RLS-isolated",
       "priority": "P0",
       "type": "migration",
-      "status": "in_progress",
+      "status": "shipped",
       "owner": "engineering",
       "lane": "security-readiness",
       "createdAt": "2026-07-17T05:50:00.000Z",
-      "updatedAt": "2026-07-17T06:20:00.000Z",
+      "updatedAt": "2026-07-17T06:31:00.000Z",
       "requiresHumanApproval": true,
       "definitionOfDone": [
         {
@@ -68,11 +68,11 @@
         },
         {
           "item": "Successful production execution records terminal state, typed evidence, and audit",
-          "done": false
+          "done": true
         },
         {
           "item": "Security advisors and production deployment evidence are recorded",
-          "done": false
+          "done": true
         }
       ],
       "evidence": [
@@ -95,6 +95,16 @@
           "description": "Supabase Advisor real findings for public/authenticated execution of public.rls_auto_enable() were remediated. Remaining security notices are intentional: anon insert-only leads and RLS tables with no browser policies or grants.",
           "source": "supabase-advisor",
           "capturedAt": "2026-07-17T06:18:00.000Z"
+        },
+        {
+          "description": "Vercel production deployment for commit 8151a5f reached Ready and completed the production Next.js build that local sandbox DNS could not perform.",
+          "source": "vercel",
+          "capturedAt": "2026-07-17T06:26:00.000Z"
+        },
+        {
+          "description": "Production run dc090f5b-0ba7-4c05-aa75-69facf315ae1 completed as succeeded under agent default with start/completion timestamps, no error, one output evidence row, one successful audit, and one pending content approval.",
+          "source": "production-e2e",
+          "capturedAt": "2026-07-17T06:31:00.000Z"
         }
       ],
       "rollback": {
