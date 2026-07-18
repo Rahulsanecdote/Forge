@@ -11,6 +11,7 @@ import {
 } from '@/lib/admin/auth';
 import { getAdminSupabase, loadClientDetail, loadToolRunDetail } from '@/lib/admin/data';
 import { findBannedPhraseViolations } from '@/lib/admin/run-output';
+import { submissionFromFormData } from '@/lib/onboarding/invitations';
 import type { ClientContext } from '@/forge/types';
 
 export async function login(formData: FormData) {
@@ -62,46 +63,41 @@ function slugify(value: string) {
   return value.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80);
 }
 
-const onboardClientSchema = z.object({
-  name: z.string().trim().min(1).max(120),
-  website: z.string().trim().url().max(500),
-  industry: z.string().trim().min(1).max(120),
-  locations: z.coerce.number().int().min(1).max(10_000),
-  about: z.string().trim().min(1).max(4_000),
-  audience: z.string().trim().min(1).max(1_000),
-});
-
 export async function createOnboardedClient(formData: FormData) {
   requireAdmin();
-  const parsed = onboardClientSchema.safeParse({
-    name: stringValue(formData, 'name'),
-    website: stringValue(formData, 'website'),
-    industry: stringValue(formData, 'industry'),
-    locations: stringValue(formData, 'locations'),
-    about: stringValue(formData, 'about'),
-    audience: stringValue(formData, 'audience'),
-  });
+  const parsed = submissionFromFormData(formData);
   const slug = slugify(stringValue(formData, 'name'));
   if (!parsed.success || !slug) redirect('/dashboard/onboarding?status=invalid');
 
   const supabase = getAdminSupabase();
-  const { name, website, industry, locations, about, audience } = parsed.data;
+  const {
+    name, website, industry, locations, about, audience, geographic_market,
+    primary_goal, primary_cta, timezone, posting_frequency, tone, services,
+    banned_phrases,
+  } = parsed.data;
   const { data: client, error: clientError } = await supabase
     .from('clients')
-    .insert({ slug, name, website, industry, locations })
+    .insert({
+      slug, name, website, industry, locations, geographic_market, primary_goal,
+      primary_cta, timezone, posting_frequency, approval_mode: 'review',
+    })
     .select('id, slug')
     .single();
   if (clientError || !client) redirect('/dashboard/onboarding?status=client-error');
 
-  const services = listValue(formData, 'services');
   const { error: voiceError } = await supabase.from('brand_voices').insert({
     client_id: client.id,
-    tone: listValue(formData, 'tone'),
+    tone,
     about,
     audience,
-    dos: services.map((service) => `Only reference ${service} when supported by the source material.`),
+    dos: [
+      ...services.map((service) => `Only reference ${service} when supported by the source material.`),
+      `Focus on this geographic market: ${geographic_market}.`,
+      `Optimize toward: ${primary_goal}.`,
+      `Use this primary call to action: ${primary_cta}.`,
+    ],
     donts: ['Do not invent services, offers, locations, or performance claims.'],
-    banned_phrases: listValue(formData, 'banned_phrases'),
+    banned_phrases,
     sample_posts: [],
   });
   if (voiceError) {
@@ -111,6 +107,117 @@ export async function createOnboardedClient(formData: FormData) {
 
   revalidatePath('/dashboard');
   redirectClient(client.slug, 'onboarding-complete');
+}
+
+function redirectOnboarding(status: string): never {
+  redirect(`/dashboard/onboarding?status=${encodeURIComponent(status)}`);
+}
+
+const submissionDecisionSchema = z.enum(['approved', 'rejected']);
+
+export async function decideOnboardingSubmission(formData: FormData) {
+  requireAdmin();
+  const id = z.string().uuid().safeParse(stringValue(formData, 'submission_id'));
+  const decision = submissionDecisionSchema.safeParse(stringValue(formData, 'decision'));
+  if (!id.success || !decision.success) redirectOnboarding('submission-invalid');
+
+  const supabase = getAdminSupabase();
+  const { data: submission, error } = await supabase
+    .from('onboarding_submissions')
+    .select('id, status, name, website, industry, locations, about, audience, geographic_market, primary_goal, primary_cta, timezone, posting_frequency, tone, services, banned_phrases')
+    .eq('id', id.data)
+    .eq('status', 'pending')
+    .maybeSingle();
+  if (error || !submission) redirectOnboarding('submission-error');
+
+  if (decision.data === 'rejected') {
+    const { error: rejectError } = await supabase
+      .from('onboarding_submissions')
+      .update({ status: 'rejected', reviewed_at: new Date().toISOString() })
+      .eq('id', id.data)
+      .eq('status', 'pending');
+    if (rejectError) redirectOnboarding('submission-error');
+    revalidatePath('/dashboard/onboarding');
+    redirectOnboarding('submission-rejected');
+  }
+
+  const baseSlug = slugify(submission.name);
+  if (!baseSlug) redirectOnboarding('submission-error');
+  const { data: slugConflict } = await supabase.from('clients').select('id').eq('slug', baseSlug).maybeSingle();
+  const slug = slugConflict ? `${baseSlug.slice(0, 70)}-${id.data.slice(0, 6)}` : baseSlug;
+  const { data: client, error: clientError } = await supabase
+    .from('clients')
+    .insert({
+      slug,
+      name: submission.name,
+      website: submission.website,
+      industry: submission.industry,
+      locations: submission.locations,
+      geographic_market: submission.geographic_market,
+      primary_goal: submission.primary_goal,
+      primary_cta: submission.primary_cta,
+      timezone: submission.timezone,
+      posting_frequency: submission.posting_frequency,
+      approval_mode: 'review',
+    })
+    .select('id, slug')
+    .single();
+  if (clientError || !client) redirectOnboarding('submission-error');
+
+  const { error: voiceError } = await supabase.from('brand_voices').insert({
+    client_id: client.id,
+    tone: submission.tone,
+    about: submission.about,
+    audience: submission.audience,
+    dos: [
+      ...submission.services.map((service: string) => `Only reference ${service} when supported by the source material.`),
+      `Focus on this geographic market: ${submission.geographic_market}.`,
+      `Optimize toward: ${submission.primary_goal}.`,
+      `Use this primary call to action: ${submission.primary_cta}.`,
+    ],
+    donts: ['Do not invent services, offers, locations, or performance claims.'],
+    banned_phrases: submission.banned_phrases,
+    sample_posts: [],
+  });
+  if (voiceError) {
+    await supabase.from('clients').delete().eq('id', client.id);
+    redirectOnboarding('submission-error');
+  }
+
+  const { data: reviewed, error: reviewError } = await supabase
+    .from('onboarding_submissions')
+    .update({ status: 'approved', client_id: client.id, reviewed_at: new Date().toISOString() })
+    .eq('id', id.data)
+    .eq('status', 'pending')
+    .select('id')
+    .maybeSingle();
+  if (reviewError || !reviewed) {
+    await supabase.from('clients').delete().eq('id', client.id);
+    redirectOnboarding('submission-error');
+  }
+
+  revalidatePath('/dashboard');
+  revalidatePath('/dashboard/onboarding');
+  redirectClient(client.slug, 'onboarding-complete');
+}
+
+export async function revokeOnboardingInvitation(formData: FormData) {
+  requireAdmin();
+  const id = z.string().uuid().safeParse(stringValue(formData, 'invitation_id'));
+  if (!id.success) redirectOnboarding('invitation-invalid');
+
+  const { data, error } = await getAdminSupabase()
+    .from('onboarding_invitations')
+    .update({ revoked_at: new Date().toISOString() })
+    .eq('id', id.data)
+    .is('completed_at', null)
+    .is('revoked_at', null)
+    .select('id')
+    .maybeSingle();
+  if (error || !data) redirectOnboarding('invitation-error');
+
+  revalidatePath('/dashboard/onboarding');
+  redirectOnboarding('invitation-revoked');
 }
 
 export async function updateClientProfile(formData: FormData) {
@@ -133,6 +240,12 @@ export async function updateClientProfile(formData: FormData) {
       industry: stringValue(formData, 'industry') || null,
       website: stringValue(formData, 'website') || null,
       locations: Number.isFinite(locations) && locations > 0 ? locations : 1,
+      geographic_market: stringValue(formData, 'geographic_market') || null,
+      primary_goal: stringValue(formData, 'primary_goal') || null,
+      primary_cta: stringValue(formData, 'primary_cta') || null,
+      timezone: stringValue(formData, 'timezone') || null,
+      posting_frequency: stringValue(formData, 'posting_frequency') || null,
+      approval_mode: 'review',
     })
     .eq('id', id);
 

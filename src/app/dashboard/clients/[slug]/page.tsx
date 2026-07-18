@@ -170,6 +170,14 @@ export default async function ClientDetailPage({
                 <dd className="mt-1 text-ink">{client.locations ?? 1}</dd>
               </div>
               <div>
+                <dt className="text-muted-dark">Approval</dt>
+                <dd className="mt-1 text-ink">{client.approval_mode}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-dark">Cadence</dt>
+                <dd className="mt-1 text-ink">{client.posting_frequency ?? 'n/a'}</dd>
+              </div>
+              <div>
                 <dt className="text-muted-dark">Created</dt>
                 <dd className="mt-1 text-ink">{formatDate(client.created_at)}</dd>
               </div>
@@ -188,6 +196,12 @@ export default async function ClientDetailPage({
               <Field label="Industry" name="industry" defaultValue={client.industry} />
               <Field label="Website" name="website" defaultValue={client.website} />
               <Field label="Locations" name="locations" type="number" defaultValue={client.locations ?? 1} />
+              <Field label="Geographic Market" name="geographic_market" defaultValue={client.geographic_market} />
+              <Field label="Timezone" name="timezone" defaultValue={client.timezone} />
+              <Field label="Primary Goal" name="primary_goal" defaultValue={client.primary_goal} />
+              <Field label="Primary CTA" name="primary_cta" defaultValue={client.primary_cta} />
+              <Field label="Posting Frequency" name="posting_frequency" defaultValue={client.posting_frequency} />
+              <Field label="Approval Mode" name="approval_mode" defaultValue={client.approval_mode} />
             </div>
             <button className="mt-5 bg-gold px-5 py-3 font-mono text-xs uppercase tracking-wide text-bg transition hover:bg-gold-soft">
               Save Profile

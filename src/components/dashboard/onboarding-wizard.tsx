@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { createOnboardedClient } from '@/app/dashboard/actions';
+import { submitClientOnboarding } from '@/app/onboard/actions';
 
 interface Analysis {
   businessType: string | null;
@@ -23,15 +24,23 @@ const STEP_LABELS: Array<{ id: Step; label: string }> = [
   { id: 'voice', label: 'Voice' },
 ];
 
-export function OnboardingWizard() {
+export function OnboardingWizard({
+  invitationToken,
+  initialName = '',
+}: {
+  invitationToken?: string;
+  initialName?: string;
+}) {
+  const isInvitation = Boolean(invitationToken);
   const [step, setStep] = useState<Step>('business');
-  const [name, setName] = useState('');
+  const [name, setName] = useState(initialName);
   const [website, setWebsite] = useState('');
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [category, setCategory] = useState('');
   const [locations, setLocations] = useState('1');
   const [about, setAbout] = useState('');
   const [tone, setTone] = useState<string[]>([]);
+  const [services, setServices] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -45,11 +54,16 @@ export function OnboardingWizard() {
     setLoading(true);
     setError('');
     try {
-      const response = await fetch('/dashboard/api/onboarding/analyze', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ name, website }),
-      });
+      const response = await fetch(
+        isInvitation
+          ? `/api/onboard/${encodeURIComponent(invitationToken ?? '')}/analyze`
+          : '/dashboard/api/onboarding/analyze',
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ name, website }),
+        },
+      );
       const payload = await response.json() as { analysis?: Analysis; error?: string };
       if (!response.ok || !payload.analysis) throw new Error(payload.error ?? 'Analysis failed.');
       setAnalysis(payload.analysis);
@@ -58,6 +72,7 @@ export function OnboardingWizard() {
       setLocations(String(payload.analysis.locations ?? 1));
       setAbout(payload.analysis.summary ?? '');
       setTone(payload.analysis.tone);
+      setServices(payload.analysis.services);
       setStep('confirm');
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'The website could not be analyzed.');
@@ -177,13 +192,13 @@ export function OnboardingWizard() {
         )}
 
         {step === 'voice' && analysis && (
-          <form action={createOnboardedClient}>
+          <form action={isInvitation ? submitClientOnboarding : createOnboardedClient}>
+            {invitationToken && <input type="hidden" name="invitation_token" value={invitationToken} />}
             <input type="hidden" name="name" value={name} />
             <input type="hidden" name="website" value={website} />
             <input type="hidden" name="industry" value={category} />
             <input type="hidden" name="locations" value={locations} />
             <input type="hidden" name="tone" value={tone.join('\n')} />
-            <input type="hidden" name="services" value={analysis.services.join('\n')} />
             <div className="section-label">Step 03 / Voice</div>
             <h2 className="mt-4 font-serif text-3xl text-ink">Set the factual guardrails</h2>
             <p className="mt-3 max-w-2xl font-sans text-sm leading-6 text-muted">
@@ -202,8 +217,34 @@ export function OnboardingWizard() {
               </div>
             </div>
             <label className="mt-6 block">
+              <span className="font-mono text-[11px] uppercase tracking-wide text-muted">Verified products and services</span>
+              <textarea name="services" value={services.join('\n')} onChange={(event) => setServices(event.target.value.split(/\r?\n/).map((value) => value.trim()).filter(Boolean))} rows={4} required className="mt-2 w-full resize-y border border-line-mid bg-bg px-4 py-3 text-sm leading-6 text-ink outline-none focus:border-gold/60" placeholder="One product or service per line" />
+            </label>
+            <label className="mt-6 block">
               <span className="font-mono text-[11px] uppercase tracking-wide text-muted">Audience</span>
               <input name="audience" required className="mt-2 w-full border border-line-mid bg-bg px-4 py-3 text-sm text-ink outline-none focus:border-gold/60" placeholder="Who this business serves" />
+            </label>
+            <div className="mt-6 grid gap-5 sm:grid-cols-2">
+              <label>
+                <span className="font-mono text-[11px] uppercase tracking-wide text-muted">Geographic market</span>
+                <input name="geographic_market" required className="mt-2 w-full border border-line-mid bg-bg px-4 py-3 text-sm text-ink outline-none focus:border-gold/60" placeholder="Cities, regions, or service area" />
+              </label>
+              <label>
+                <span className="font-mono text-[11px] uppercase tracking-wide text-muted">Timezone</span>
+                <input name="timezone" required defaultValue="America/New_York" className="mt-2 w-full border border-line-mid bg-bg px-4 py-3 font-mono text-sm text-ink outline-none focus:border-gold/60" />
+              </label>
+              <label>
+                <span className="font-mono text-[11px] uppercase tracking-wide text-muted">Primary objective</span>
+                <input name="primary_goal" required className="mt-2 w-full border border-line-mid bg-bg px-4 py-3 text-sm text-ink outline-none focus:border-gold/60" placeholder="What result matters most?" />
+              </label>
+              <label>
+                <span className="font-mono text-[11px] uppercase tracking-wide text-muted">Primary call to action</span>
+                <input name="primary_cta" required className="mt-2 w-full border border-line-mid bg-bg px-4 py-3 text-sm text-ink outline-none focus:border-gold/60" placeholder="Book, call, order, visit, or subscribe" />
+              </label>
+            </div>
+            <label className="mt-6 block">
+              <span className="font-mono text-[11px] uppercase tracking-wide text-muted">Desired posting frequency</span>
+              <input name="posting_frequency" required className="mt-2 w-full border border-line-mid bg-bg px-4 py-3 text-sm text-ink outline-none focus:border-gold/60" placeholder="For example: 3 posts per week" />
             </label>
             <label className="mt-6 block">
               <span className="font-mono text-[11px] uppercase tracking-wide text-muted">Phrases and claims to avoid</span>
@@ -211,7 +252,9 @@ export function OnboardingWizard() {
             </label>
             <div className="mt-8 flex flex-wrap gap-3">
               <button type="button" onClick={() => setStep('confirm')} className="border border-line-mid px-5 py-3 font-mono text-xs uppercase tracking-wide text-muted hover:text-ink">Back</button>
-              <button type="submit" className="bg-gold px-5 py-3 font-mono text-xs uppercase tracking-wide text-bg hover:bg-gold-soft">Create client</button>
+              <button type="submit" disabled={tone.length === 0 || services.length === 0} className="bg-gold px-5 py-3 font-mono text-xs uppercase tracking-wide text-bg hover:bg-gold-soft disabled:cursor-not-allowed disabled:opacity-40">
+                {isInvitation ? 'Submit for review' : 'Create client'}
+              </button>
             </div>
           </form>
         )}

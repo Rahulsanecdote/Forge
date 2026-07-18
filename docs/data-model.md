@@ -12,6 +12,7 @@ required**. The optional pgvector table is in `supabase/optional/`.
 | `supabase/migrations/0002_reviews.sql` | `reviews` (+ index) |
 | `supabase/migrations/20260717011053_content_approvals.sql` | `content_approvals` (+ index, RLS, service-role grants) |
 | `supabase/migrations/20260717053823_agent_authority_foundation.sql` | AAL agents, tool registry, permissions, run states, evidence, audits, and operator-table RLS |
+| `supabase/migrations/20260717233127_client_onboarding_invitations.sql` | Review-only client fields, hashed onboarding invitations, pending submissions, and token RPCs |
 | `supabase/optional/client_memory.sql` | `client_memory` + pgvector (reserved for a later increment; apply by hand) |
 
 Apply locally with `supabase db reset`; in a hosted project, run the SQL files in
@@ -31,6 +32,12 @@ A business Forge runs marketing for.
 | `industry` | text | nullable |
 | `website` | text | nullable |
 | `locations` | int | default 1 |
+| `geographic_market` | text | confirmed service area or market |
+| `primary_goal` | text | operator-reviewed automation objective |
+| `primary_cta` | text | approved call to action |
+| `timezone` | text | scheduling timezone |
+| `posting_frequency` | text | requested content cadence |
+| `approval_mode` | text | constrained to `review` in the current phase |
 | `created_at` | timestamptz | default `now()` |
 
 ### `brand_voices`
@@ -128,6 +135,21 @@ single-operator dashboard can approve or reject it after current brand-policy ch
 RLS is enabled. Only `service_role` receives table privileges during the single-operator alpha;
 there are no browser-facing policies.
 
+### Client onboarding invitations
+
+`onboarding_invitations` stores only a SHA-256 token hash, invitation metadata, expiry,
+revocation/completion state, and a bounded website-analysis count. The one-time plaintext token
+is returned to the authenticated operator only when the invitation is created.
+
+`onboarding_submissions` stores the client-confirmed factual and operational brief with a
+`pending`, `approved`, or `rejected` review state. Submission consumes the invitation in the
+same database transaction. Approval creates the client and brand voice; it never grants the
+client dashboard access and never enables automatic publishing.
+
+Both tables have RLS enabled and explicit `anon` and `authenticated` privilege revocation.
+Token validation is performed by server routes calling service-role-only, security-invoker
+functions; the browser never receives database credentials or direct table access.
+
 ### `client_memory` (optional — pgvector)
 
 Reserved for a later increment (retrieval over past content + performance
@@ -152,6 +174,8 @@ clients (1) ──< (1) brand_voices         # one brand voice per client
 clients (1) ──< (N) tool_runs            # audit log
 clients (1) ──< (N) reviews              # review queue
 clients (1) ──< (N) content_approvals    # generated-content decision gate
+onboarding_invitations (1) ──< (1) onboarding_submissions
+onboarding_submissions (0..1) ──> (1) clients  # after operator approval
 forge_agents (1) ──< (N) forge_agent_tool_permissions >── (1) forge_tools
 forge_agents (1) ──< (N) tool_runs
 tool_runs (1) ──< (N) forge_run_evidence

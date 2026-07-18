@@ -4,6 +4,7 @@ import { z } from 'zod';
 
 const MAX_HTML_BYTES = 750_000;
 const MAX_REDIRECTS = 3;
+const TRACKING_PARAMS = new Set(['fbclid', 'gclid', 'msclkid', 'srsltid']);
 
 const inputSchema = z.object({
   name: z.string().trim().min(1).max(120),
@@ -24,6 +25,20 @@ export interface WebsiteAnalysis {
 
 interface JsonObject {
   [key: string]: unknown;
+}
+
+function withoutTrackingParams(input: URL) {
+  const url = new URL(input);
+  for (const key of [...url.searchParams.keys()]) {
+    if (TRACKING_PARAMS.has(key.toLowerCase()) || key.toLowerCase().startsWith('utm_')) {
+      url.searchParams.delete(key);
+    }
+  }
+  return url;
+}
+
+export function normalizeWebsiteUrl(value: string) {
+  return withoutTrackingParams(new URL(value)).toString();
 }
 
 const CATEGORY_RULES = [
@@ -182,7 +197,7 @@ async function fetchWebsite(startUrl: URL) {
     if (response.status >= 300 && response.status < 400) {
       const location = response.headers.get('location');
       if (!location || redirects === MAX_REDIRECTS) throw new Error('The website redirected too many times.');
-      url = new URL(location, url);
+      url = withoutTrackingParams(new URL(location, url));
       continue;
     }
     if (!response.ok) throw new Error(`The website returned HTTP ${response.status}.`);
@@ -260,7 +275,7 @@ export function analyzeWebsiteHtml(html: string, sourceUrl: string): WebsiteAnal
 
 export async function analyzeWebsite(input: unknown) {
   const parsed = inputSchema.parse(input);
-  const requestedUrl = new URL(parsed.website);
+  const requestedUrl = new URL(normalizeWebsiteUrl(parsed.website));
   const { html, finalUrl } = await fetchWebsite(requestedUrl);
   return analyzeWebsiteHtml(html, finalUrl);
 }

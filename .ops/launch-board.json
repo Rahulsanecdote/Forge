@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-07-17T22:55:00.000Z",
+  "updatedAt": "2026-07-17T23:50:00.000Z",
   "project": "forge-agent",
   "activeLane": "portal-readiness",
   "lanes": [
@@ -42,6 +42,56 @@
     }
   ],
   "blockers": [
+    {
+      "id": "client-onboarding-invitations",
+      "title": "Clients can submit a complete brief through a secure review-only invitation",
+      "priority": "P0",
+      "type": "migration",
+      "status": "active",
+      "owner": "engineering",
+      "lane": "portal-readiness",
+      "createdAt": "2026-07-17T23:30:00.000Z",
+      "updatedAt": "2026-07-17T23:50:00.000Z",
+      "requiresHumanApproval": true,
+      "definitionOfDone": [
+        {
+          "item": "Invitation schema and service-role-only RPC grants are applied and catalog-verified in production",
+          "done": false
+        },
+        {
+          "item": "Tokens are random, stored only as hashes, expire, are revocable, and have bounded analysis attempts",
+          "done": true
+        },
+        {
+          "item": "Client intake captures the operational brief and creates a pending submission without activating automation",
+          "done": true
+        },
+        {
+          "item": "An authenticated operator can review, reject, or create a review-only client from a submission",
+          "done": true
+        },
+        {
+          "item": "A production invitation loads, analyzes a real website, submits once, and appears in the operator review queue",
+          "done": false
+        }
+      ],
+      "evidence": [
+        {
+          "description": "Focused tests cover random URL-safe token hashing, complete-brief validation, tracking-parameter normalization, cross-business isolation, and missing-evidence behavior.",
+          "source": "terminal",
+          "capturedAt": "2026-07-17T23:48:00.000Z"
+        },
+        {
+          "description": "TypeScript strict checking passes for public token routes, service-role RPC boundaries, invitation controls, and operator review actions.",
+          "source": "terminal",
+          "capturedAt": "2026-07-17T23:50:00.000Z"
+        }
+      ],
+      "rollback": {
+        "strategy": "revoke outstanding invitations, remove public onboarding routes, then drop invitation functions and tables while retaining operator-created clients",
+        "verified": false
+      }
+    },
     {
       "id": "website-onboarding-evidence",
       "title": "Onboarding findings are isolated and evidence-backed per business",

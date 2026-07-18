@@ -1,6 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { analyzeWebsiteHtml } from './website-analysis';
+import { analyzeWebsiteHtml, normalizeWebsiteUrl } from './website-analysis';
+
+test('removes advertising trackers without changing functional query parameters', () => {
+  assert.equal(
+    normalizeWebsiteUrl('https://example.com/menu?location=jersey-city&utm_source=email&srsltid=abc'),
+    'https://example.com/menu?location=jersey-city',
+  );
+});
 
 test('extracts a dental business from its own structured data and copy', () => {
   const result = analyzeWebsiteHtml(`

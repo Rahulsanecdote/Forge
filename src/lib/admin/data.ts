@@ -8,6 +8,12 @@ export interface DashboardClient {
   industry: string | null;
   website: string | null;
   locations: number | null;
+  geographic_market: string | null;
+  primary_goal: string | null;
+  primary_cta: string | null;
+  timezone: string | null;
+  posting_frequency: string | null;
+  approval_mode: 'review';
   created_at: string | null;
 }
 
@@ -113,7 +119,7 @@ export async function loadDashboardData(): Promise<DashboardData> {
   const clients = await safeQuery<DashboardClient>(
     supabase
       .from('clients')
-      .select('id, slug, name, industry, website, locations, created_at')
+      .select('id, slug, name, industry, website, locations, geographic_market, primary_goal, primary_cta, timezone, posting_frequency, approval_mode, created_at')
       .order('created_at', { ascending: false })
       .limit(8),
   ).catch((error: Error) => {
@@ -152,7 +158,7 @@ export async function loadClientDetail(slug: string): Promise<DashboardClientDet
 
   const { data: client, error } = await supabase
     .from('clients')
-    .select('id, slug, name, industry, website, locations, created_at')
+    .select('id, slug, name, industry, website, locations, geographic_market, primary_goal, primary_cta, timezone, posting_frequency, approval_mode, created_at')
     .eq('slug', slug)
     .single();
 
