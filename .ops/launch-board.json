@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-07-17T23:50:00.000Z",
+  "updatedAt": "2026-07-18T00:10:00.000Z",
   "project": "forge-agent",
   "activeLane": "portal-readiness",
   "lanes": [
@@ -51,12 +51,12 @@
       "owner": "engineering",
       "lane": "portal-readiness",
       "createdAt": "2026-07-17T23:30:00.000Z",
-      "updatedAt": "2026-07-17T23:50:00.000Z",
+      "updatedAt": "2026-07-18T00:10:00.000Z",
       "requiresHumanApproval": true,
       "definitionOfDone": [
         {
           "item": "Invitation schema and service-role-only RPC grants are applied and catalog-verified in production",
-          "done": false
+          "done": true
         },
         {
           "item": "Tokens are random, stored only as hashes, expire, are revocable, and have bounded analysis attempts",
@@ -85,6 +85,11 @@
           "description": "TypeScript strict checking passes for public token routes, service-role RPC boundaries, invitation controls, and operator review actions.",
           "source": "terminal",
           "capturedAt": "2026-07-17T23:50:00.000Z"
+        },
+        {
+          "description": "Production migration completed successfully. Catalog verification found RLS on both invitation tables, zero anon/authenticated table or function grants, 14 service-role table grants, two service-role RPC grants, and all six client operating fields.",
+          "source": "supabase-sql-editor",
+          "capturedAt": "2026-07-18T00:10:00.000Z"
         }
       ],
       "rollback": {
