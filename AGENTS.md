@@ -1,6 +1,6 @@
 # Forge — Build Context for Codex (`AGENTS.md`)
 
-> **Version:** v1.8 · **Updated:** 2026-07-17 · **Repo:** `forge-agent`
+> **Version:** v1.9 · **Updated:** 2026-07-18 · **Repo:** `forge-agent`
 > **How to use:** Codex reads this automatically as `AGENTS.md`. (Also works pasted into a
 > Claude Code / Codex session at start, or renamed `CLAUDE.md`.) Read it fully before
 > changing code. Obey the Non-Negotiables. Append to the Decision Log on any structural
@@ -136,6 +136,7 @@ npm run typecheck               # must pass
 | 2026-07-17 | Phase 02.5 establishes the AAL foundation against the schema that actually exists: `tool_runs` gains agent/state tracking; database-backed agents, tools, permissions, typed evidence, and audits fail closed before execution; all operator tables use RLS with service-role-only grants. Retry/checkpoint, resume, publishing, and rollback executors remain explicitly deferred rather than represented as built. |
 | 2026-07-17 | Dashboard onboarding replaces the standalone wizard's shared coffee-shop demo values with authenticated, server-side website analysis. Findings come from current-request metadata and Schema.org data, missing evidence stays visibly unknown, private-network targets are rejected, and only operator-confirmed values are persisted. |
 | 2026-07-17 | Client-assisted onboarding uses expiring, revocable, single-use invitation tokens stored only as hashes. Public routes can analyze and submit a complete factual brief through service-role-only RPCs, but submissions remain pending until the authenticated operator approves a review-only client; client auth and autonomous publishing remain deferred. |
+| 2026-07-18 | The production Vercel root now enters the operator app at `/dashboard`; the public marketing surface remains available at `/marketing` so the app URL no longer defaults to the landing page during product previews. |
 
 ## 9. Conventions
 - Conventional Commits (`feat:`, `fix:`, `docs:`…). One focused change per PR.

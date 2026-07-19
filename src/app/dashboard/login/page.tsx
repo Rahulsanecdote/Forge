@@ -17,7 +17,7 @@ export default function DashboardLogin({
   return (
     <main className="min-h-screen bg-bg px-6 py-8 text-ink">
       <div className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-md flex-col justify-center">
-        <Link href="/" className="font-mono text-xs uppercase tracking-wide text-muted hover:text-gold">
+        <Link href="/dashboard/login" className="font-mono text-xs uppercase tracking-wide text-muted hover:text-gold">
           Forge
         </Link>
 

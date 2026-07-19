@@ -16,7 +16,7 @@ export default function OnboardingCompletePage() {
         <p className="mx-auto mt-4 max-w-md text-sm leading-6 text-muted">
           Forge will review the business facts, guardrails, and operating goals before any automation is activated.
         </p>
-        <Link href="/" className="mt-8 inline-block border border-line-mid px-4 py-3 font-mono text-xs uppercase tracking-wide text-muted hover:text-ink">Forge home</Link>
+        <Link href="/marketing" className="mt-8 inline-block border border-line-mid px-4 py-3 font-mono text-xs uppercase tracking-wide text-muted hover:text-ink">Forge site</Link>
       </div>
     </main>
   );

@@ -23,7 +23,7 @@ export default function Nav() {
     >
       <nav className="container-forge flex items-center justify-between py-4">
         {/* Brand */}
-        <Link href="/" className="group flex items-center gap-2" onClick={() => setOpen(false)}>
+        <Link href="/marketing" className="group flex items-center gap-2" onClick={() => setOpen(false)}>
           <span className="font-bebas text-2xl tracking-wide text-ink transition-colors group-hover:text-gold">
             FORGE
           </span>

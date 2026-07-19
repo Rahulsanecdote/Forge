@@ -3,11 +3,11 @@ import { site } from '@/lib/site-config';
 import { posts } from '@/lib/blog/posts';
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const routes = ['', '/pricing', '/contact', '/blog'].map((path) => ({
+  const routes = ['/marketing', '/pricing', '/contact', '/blog'].map((path) => ({
     url: `${site.domain}${path}`,
     lastModified: new Date(),
     changeFrequency: 'weekly' as const,
-    priority: path === '' ? 1 : 0.8,
+    priority: path === '/marketing' ? 1 : 0.8,
   }));
 
   const blogRoutes = posts.map((p) => ({

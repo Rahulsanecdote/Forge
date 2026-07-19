@@ -36,7 +36,7 @@ export default async function DashboardPage() {
       <header className="border-b border-gold-border bg-bg/90 px-6 py-4">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
           <div>
-            <Link href="/" className="font-bebas text-3xl tracking-wide text-ink">
+            <Link href="/dashboard" className="font-bebas text-3xl tracking-wide text-ink">
               Forge
             </Link>
             <div className="font-mono text-[11px] uppercase tracking-wide text-muted">

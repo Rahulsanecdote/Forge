@@ -50,7 +50,7 @@ export const metadata: Metadata = {
   authors: [{ name: site.name }],
   openGraph: {
     type: 'website',
-    url: site.domain,
+    url: `${site.domain}/marketing`,
     title: `${site.name} — AI that runs your marketing`,
     description: site.description,
     siteName: site.name,

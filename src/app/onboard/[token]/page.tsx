@@ -41,7 +41,7 @@ export default async function ClientOnboardingPage({
           <p className="mt-4 text-sm leading-6 text-muted">
             It may have expired, been completed, or been replaced. Ask your Forge contact for a new link.
           </p>
-          <Link href="/" className="mt-7 inline-block border border-line-mid px-4 py-3 font-mono text-xs uppercase tracking-wide text-muted hover:text-ink">Forge home</Link>
+          <Link href="/marketing" className="mt-7 inline-block border border-line-mid px-4 py-3 font-mono text-xs uppercase tracking-wide text-muted hover:text-ink">Forge site</Link>
         </div>
       </main>
     );
@@ -51,7 +51,7 @@ export default async function ClientOnboardingPage({
     <main className="min-h-screen bg-bg text-ink">
       <header className="border-b border-gold-border bg-bg/90 px-6 py-4">
         <div className="mx-auto max-w-6xl">
-          <Link href="/" className="font-bebas text-3xl tracking-wide text-ink">Forge</Link>
+          <Link href="/marketing" className="font-bebas text-3xl tracking-wide text-ink">Forge</Link>
           <div className="font-mono text-[11px] uppercase tracking-wide text-muted">Secure client intake</div>
         </div>
       </header>
