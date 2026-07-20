@@ -15,7 +15,8 @@
     "typecheck": "tsc --noEmit",
     "env:validate": "node scripts/validate-env.mjs",
     "launch:status": "node .ops/launch-status.mjs",
-    "launch:validate": "node scripts/validate-launch-board.mjs"
+    "launch:validate": "node scripts/validate-launch-board.mjs",
+    "launch:onboarding:e2e": "node --import tsx scripts/verify-onboarding-e2e.ts"
   },
   "keywords": [],
   "author": "",
