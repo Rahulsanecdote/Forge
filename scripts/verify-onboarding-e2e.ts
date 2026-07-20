@@ -105,15 +105,15 @@ function defaultSites(label: string): [E2ESite, E2ESite] {
       bannedPhrases: ['guaranteed results', 'medical claims'],
     },
     {
-      name: `LaunchOps Sico International ${label}`,
-      website: cliValue('site-b-url', process.env.LAUNCHOPS_SITE_B_URL ?? 'https://www.sicointernational.com/about'),
-      fallbackCategory: 'Gemstone Supplier',
-      fallbackServices: ['rare gemstones', 'rubies', 'sapphires', 'gemstone certification'],
-      audience: 'Jewelry buyers and trade clients looking for rare certified gemstones.',
-      geographicMarket: 'London and international gemstone buyers',
-      primaryGoal: 'Convert qualified gemstone inquiries into consultations.',
-      primaryCta: 'Get in touch about a gemstone request',
-      bannedPhrases: ['investment guarantee', 'flawless promise'],
+      name: `LaunchOps Aspen Dental ${label}`,
+      website: cliValue('site-b-url', process.env.LAUNCHOPS_SITE_B_URL ?? 'https://www.aspendental.com/'),
+      fallbackCategory: 'Dentist',
+      fallbackServices: ['dental implants', 'teeth whitening', 'orthodontics'],
+      audience: 'Dental patients looking for accessible preventive and restorative care.',
+      geographicMarket: 'United States dental patients',
+      primaryGoal: 'Convert website visitors into scheduled dental appointments.',
+      primaryCta: 'Book a dental appointment',
+      bannedPhrases: ['pain-free guarantee', 'perfect smile guaranteed'],
     },
   ];
 }
@@ -250,8 +250,24 @@ async function verifyPendingSubmission(
 }
 
 function assertDistinct(a: WebsiteAnalysis, b: WebsiteAnalysis) {
+  const analyses: Array<[string, WebsiteAnalysis]> = [
+    ['site A', a],
+    ['site B', b],
+  ];
+
+  analyses.forEach(([label, analysis]) => {
+    if (!analysis.suggestedCategory && !analysis.businessType) {
+      throw new Error(`Production analysis for ${label} did not find an evidence-backed category.`);
+    }
+    if (analysis.services.length === 0) {
+      throw new Error(`Production analysis for ${label} did not find evidence-backed services.`);
+    }
+    if (analysis.evidence.length === 0) {
+      throw new Error(`Production analysis for ${label} did not capture source evidence.`);
+    }
+  });
+
   const normalizedA = JSON.stringify({
-    sourceUrl: a.sourceUrl,
     businessType: a.businessType,
     suggestedCategory: a.suggestedCategory,
     services: a.services,
@@ -259,7 +275,6 @@ function assertDistinct(a: WebsiteAnalysis, b: WebsiteAnalysis) {
     summary: a.summary,
   });
   const normalizedB = JSON.stringify({
-    sourceUrl: b.sourceUrl,
     businessType: b.businessType,
     suggestedCategory: b.suggestedCategory,
     services: b.services,

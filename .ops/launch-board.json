@@ -47,11 +47,11 @@
       "title": "Clients can submit a complete brief through a secure review-only invitation",
       "priority": "P0",
       "type": "migration",
-      "status": "active",
+      "status": "shipped",
       "owner": "engineering",
       "lane": "portal-readiness",
       "createdAt": "2026-07-17T23:30:00.000Z",
-      "updatedAt": "2026-07-18T00:10:00.000Z",
+      "updatedAt": "2026-07-20T02:24:46.596Z",
       "requiresHumanApproval": true,
       "definitionOfDone": [
         {
@@ -72,7 +72,7 @@
         },
         {
           "item": "A production invitation loads, analyzes a real website, submits once, and appears in the operator review queue",
-          "done": false
+          "done": true
         }
       ],
       "evidence": [
@@ -90,6 +90,11 @@
           "description": "Production migration completed successfully. Catalog verification found RLS on both invitation tables, zero anon/authenticated table or function grants, 14 service-role table grants, two service-role RPC grants, and all six client operating fields.",
           "source": "supabase-sql-editor",
           "capturedAt": "2026-07-18T00:10:00.000Z"
+        },
+        {
+          "description": "Production onboarding E2E created invitation 49b7185c-28a5-45c9-81cd-365d45bd45b3, loaded https://forge-agent-ten.vercel.app/onboard/Vr7DT0nJ3U6CiFSwmtP7Cr4aCYclX6NZyVnaTRgX_Hk, analyzed https://unchainedcoffee.com/, submitted once through submit_onboarding_invitation, and verified pending submission d12afdf6-73a7-448a-8913-633b61bfacd7 in the operator review queue.",
+          "source": "terminal",
+          "capturedAt": "2026-07-20T02:24:46.596Z"
         }
       ],
       "rollback": {
