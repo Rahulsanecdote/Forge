@@ -1,6 +1,6 @@
 # Forge — Build Context for Codex (`AGENTS.md`)
 
-> **Version:** v1.15 · **Updated:** 2026-07-20 · **Repo:** `forge-agent`
+> **Version:** v1.16 · **Updated:** 2026-07-20 · **Repo:** `forge-agent`
 > **How to use:** Codex reads this automatically as `AGENTS.md`. (Also works pasted into a
 > Claude Code / Codex session at start, or renamed `CLAUDE.md`.) Read it fully before
 > changing code. Obey the Non-Negotiables. Append to the Decision Log on any structural
@@ -143,6 +143,7 @@ npm run typecheck               # must pass
 | 2026-07-20 | Website onboarding now reads a bounded first chunk from large HTML pages instead of failing solely on `content-length`, and includes visible body copy in the keyword pass so real SMB sites with sparse metadata can still produce evidence-backed service findings. |
 | 2026-07-20 | Operator onboarding views hide LaunchOps E2E fixture records by default while retaining them as database evidence, and approved onboarding submissions now seed normalized brand-voice directives plus starter sample posts instead of blank examples. |
 | 2026-07-20 | Lane A starts with Google Business Profile review ingestion wired into `review-sweep`: per-client account/location IDs override global env IDs, missing credentials degrade to existing manual review rows, and imported reviews are deduped by source review id before drafting replies. |
+| 2026-07-20 | `research_keywords` now keeps LLM clustering separate from metrics enrichment: DataForSEO Keyword Overview supplies real volume, CPC, paid competition, search intent, and keyword difficulty when server-only credentials exist; otherwise the tool returns explicit ideation-only metadata rather than fabricated numbers. |
 
 ## 9. Conventions
 - Conventional Commits (`feat:`, `fix:`, `docs:`…). One focused change per PR.

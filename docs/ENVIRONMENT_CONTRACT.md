@@ -16,6 +16,10 @@ Fail-closed rules for every environment variable Forge carries. Validated by
 | `GOOGLE_BUSINESS_PROFILE_ACCESS_TOKEN` | Optional short-lived server-only credential for review import. Prefer refresh-token credentials in production. |
 | `GOOGLE_BUSINESS_PROFILE_REFRESH_TOKEN` + `GOOGLE_OAUTH_CLIENT_ID` + `GOOGLE_OAUTH_CLIENT_SECRET` | Optional server-only OAuth credentials for GBP review import. |
 | `GOOGLE_BUSINESS_PROFILE_ACCOUNT_ID` / `GOOGLE_BUSINESS_PROFILE_LOCATION_ID` | Optional global GBP account/location fallback. Per-client dashboard values override these. |
+| `DATAFORSEO_LOGIN` + `DATAFORSEO_PASSWORD` | Optional server-only credentials for `research_keywords` metrics. Missing credentials keep the tool in ideation-only mode. |
+| `DATAFORSEO_LOCATION_CODE` / `DATAFORSEO_LOCATION_NAME` | Optional DataForSEO target location for keyword metrics. Defaults to US location code `2840`. |
+| `DATAFORSEO_LANGUAGE_CODE` / `DATAFORSEO_LANGUAGE_NAME` | Optional DataForSEO target language for keyword metrics. Defaults to `en`. |
+| `DATAFORSEO_INCLUDE_CLICKSTREAM` | Optional `true`/`false`; when true, asks DataForSEO for clickstream-normalized keyword volume where available. |
 
 ## Public (must never contain secrets)
 

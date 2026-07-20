@@ -101,7 +101,9 @@ data rather than fabricating numbers.
 ## `research_keywords`
 
 Generate clustered SEO keyword ideas with search intent and a content angle per
-cluster. **Ideation only** — no volume or difficulty data.
+cluster. When `DATAFORSEO_LOGIN` and `DATAFORSEO_PASSWORD` are configured, the
+tool also enriches generated keywords with real DataForSEO Keyword Overview
+metrics. Without those credentials it stays in ideation-only mode and says so.
 
 **Input**
 
@@ -124,7 +126,26 @@ cluster. **Ideation only** — no volume or difficulty data.
       "content_angle": "..."
     }
   ],
-  "note": "Ideation only. Wire a data provider (e.g. DataForSEO) for real volume and difficulty."
+  "keyword_metrics": [
+    {
+      "keyword": "...",
+      "search_volume": 1200,
+      "keyword_difficulty": 42,
+      "cpc": 3.14,
+      "competition": 0.37,
+      "competition_level": "MEDIUM",
+      "search_intent": "commercial",
+      "monthly_searches": [{ "year": 2026, "month": 6, "search_volume": 1200 }],
+      "source": "dataforseo"
+    }
+  ],
+  "data_source": {
+    "provider": "dataforseo",
+    "configured": true,
+    "location": "2840",
+    "language": "en"
+  },
+  "note": "Keyword clusters are LLM-generated; volume, CPC, competition, search intent, and difficulty metrics are from DataForSEO Keyword Overview."
 }
 ```
 

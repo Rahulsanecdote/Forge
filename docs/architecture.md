@@ -53,6 +53,12 @@ themselves (via the AI SDK's `generateText`) with a prompt built from
 `ctx.client.brandVoice`, then parse a JSON block out of the response with
 `parseJsonBlock()`.
 
+`research_keywords` keeps its cluster generation provider-agnostic, then
+optionally enriches the generated keyword strings through the server-only
+DataForSEO Keyword Overview provider. Missing or failing credentials never lead
+to invented volume or difficulty; the output carries an explicit data-source
+warning instead.
+
 ## The registry
 
 `src/forge/registry.ts` is the tool suite:
