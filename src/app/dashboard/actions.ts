@@ -106,6 +106,53 @@ function redirectRun(id: string, status: string): never {
   redirect(`/dashboard/runs/${encodeURIComponent(id)}?status=${encodeURIComponent(status)}`);
 }
 
+function clientContextFromDetail(detail: NonNullable<Awaited<ReturnType<typeof loadClientDetail>>>): ClientContext {
+  return {
+    id: detail.client.id,
+    slug: detail.client.slug,
+    name: detail.client.name,
+    industry: detail.client.industry,
+    website: detail.client.website,
+    locations: detail.client.locations ?? 1,
+    googleBusinessAccountId: detail.client.google_business_account_id,
+    googleBusinessLocationId: detail.client.google_business_location_id,
+    brandVoice: {
+      tone: detail.brandVoice?.tone ?? [],
+      about: detail.brandVoice?.about ?? '',
+      audience: detail.brandVoice?.audience ?? '',
+      dos: detail.brandVoice?.dos ?? [],
+      donts: detail.brandVoice?.donts ?? [],
+      samplePosts: detail.brandVoice?.sample_posts ?? [],
+      bannedPhrases: detail.brandVoice?.banned_phrases ?? [],
+    },
+  };
+}
+
+function errorMessage(error: unknown) {
+  return (error instanceof Error ? error.message : String(error)).slice(0, 2000);
+}
+
+async function markDashboardRunFailed(runId: string, error: unknown) {
+  const message = errorMessage(error);
+  const supabase = getAdminSupabase();
+  await supabase
+    .from('tool_runs')
+    .update({ status: 'failed', error: message, completed_at: new Date().toISOString() })
+    .eq('id', runId);
+  await supabase.from('forge_run_evidence').insert({
+    run_id: runId,
+    kind: 'error',
+    description: 'Tool execution failed from the operator dashboard.',
+    payload: { message },
+  });
+  await supabase.from('forge_run_audits').insert({
+    run_id: runId,
+    status: 'failed',
+    summary: 'The dashboard tool run did not complete successfully.',
+    findings: [{ severity: 'P0', code: 'execution_failed', message }],
+  });
+}
+
 const clientSlugSchema = z
   .string()
   .min(1)
@@ -365,25 +412,7 @@ export async function runClientTask(formData: FormData) {
   const detail = await loadClientDetail(slug);
   if (!detail) redirect('/dashboard?status=client-missing');
 
-  const client: ClientContext = {
-    id: detail.client.id,
-    slug: detail.client.slug,
-    name: detail.client.name,
-    industry: detail.client.industry,
-    website: detail.client.website,
-    locations: detail.client.locations ?? 1,
-    googleBusinessAccountId: detail.client.google_business_account_id,
-    googleBusinessLocationId: detail.client.google_business_location_id,
-    brandVoice: {
-      tone: detail.brandVoice?.tone ?? [],
-      about: detail.brandVoice?.about ?? '',
-      audience: detail.brandVoice?.audience ?? '',
-      dos: detail.brandVoice?.dos ?? [],
-      donts: detail.brandVoice?.donts ?? [],
-      samplePosts: detail.brandVoice?.sample_posts ?? [],
-      bannedPhrases: detail.brandVoice?.banned_phrases ?? [],
-    },
-  };
+  const client = clientContextFromDetail(detail);
 
   let approvalRunId: string | null = null;
   try {
@@ -399,6 +428,99 @@ export async function runClientTask(formData: FormData) {
   revalidatePath(`/dashboard/clients/${slug}`);
   if (approvalRunId) redirectRun(approvalRunId, 'approval-pending');
   redirectClient(slug, 'run-complete');
+}
+
+export async function runKeywordResearch(formData: FormData) {
+  await requireAdmin();
+  const slug = stringValue(formData, 'slug');
+  const topic = stringValue(formData, 'topic');
+  const location = stringValue(formData, 'location');
+  const countValue = Number.parseInt(stringValue(formData, 'count') || '20', 10);
+  const count = Number.isFinite(countValue) ? Math.min(Math.max(countValue, 5), 40) : 20;
+
+  if (!slug || !topic) redirectClient(slug || 'unknown', 'keyword-invalid');
+
+  const detail = await loadClientDetail(slug);
+  if (!detail) redirect('/dashboard?status=client-missing');
+
+  const input = {
+    topic,
+    count,
+    ...(location ? { location } : {}),
+  };
+  const task = `Research SEO keyword clusters for ${topic}${location ? ` in ${location}` : ''}.`;
+  const supabase = getAdminSupabase();
+  let runId: string | null = null;
+
+  try {
+    const [{ DEFAULT_AGENT_KEY, assertToolPermission }, { resolveModel }, { researchKeywords }] =
+      await Promise.all([
+        import('@/forge/authority'),
+        import('@/forge/model'),
+        import('@/forge/tools/research-keywords'),
+      ]);
+    const authority = await assertToolPermission({
+      agentKey: DEFAULT_AGENT_KEY,
+      toolName: researchKeywords.name,
+    });
+    if (authority.verificationGates.length > 0 || authority.requiresApproval) {
+      throw new Error('Keyword research requires an authority gate that is not configured in the dashboard.');
+    }
+
+    const { data: run, error: runError } = await supabase
+      .from('tool_runs')
+      .insert({
+        agent_id: authority.agentId,
+        client_id: detail.client.id,
+        task,
+        tool: researchKeywords.name,
+        input,
+        status: 'running',
+        started_at: new Date().toISOString(),
+      })
+      .select('id')
+      .single();
+    if (runError || !run) {
+      throw new Error(`Could not record keyword run: ${runError?.message ?? 'missing run id'}`);
+    }
+    runId = run.id;
+
+    const output = await researchKeywords.execute(input, {
+      client: clientContextFromDetail(detail),
+      model: resolveModel(),
+    });
+
+    const { error: outputError } = await supabase
+      .from('tool_runs')
+      .update({ output, status: 'succeeded', completed_at: new Date().toISOString(), error: null })
+      .eq('id', run.id);
+    if (outputError) throw new Error(`Could not persist keyword output: ${outputError.message}`);
+
+    const { error: evidenceError } = await supabase.from('forge_run_evidence').insert({
+      run_id: run.id,
+      kind: 'output',
+      description: 'Structured keyword research output produced from the operator dashboard.',
+      payload: output,
+    });
+    if (evidenceError) throw new Error(`Could not record keyword evidence: ${evidenceError.message}`);
+
+    const { error: auditError } = await supabase.from('forge_run_audits').insert({
+      run_id: run.id,
+      status: 'succeeded',
+      summary: 'research_keywords completed and produced durable keyword evidence.',
+      findings: [],
+    });
+    if (auditError) throw new Error(`Could not record keyword audit: ${auditError.message}`);
+  } catch (error) {
+    console.error('[dashboard/runKeywordResearch]', error);
+    if (runId) await markDashboardRunFailed(runId, error);
+    redirectClient(slug, 'keyword-error');
+  }
+
+  revalidatePath('/dashboard');
+  revalidatePath(`/dashboard/clients/${slug}`);
+  if (!runId) redirectClient(slug, 'keyword-error');
+  redirectRun(runId, 'keyword-complete');
 }
 
 const approvalDecisionSchema = z.enum(['approved', 'rejected']);

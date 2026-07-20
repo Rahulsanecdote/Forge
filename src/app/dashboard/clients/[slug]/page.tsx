@@ -1,6 +1,12 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import { logout, runClientTask, updateBrandVoice, updateClientProfile } from '../../actions';
+import {
+  logout,
+  runClientTask,
+  runKeywordResearch,
+  updateBrandVoice,
+  updateClientProfile,
+} from '../../actions';
 import { isAdminAuthenticated } from '@/lib/admin/auth';
 import { loadClientDetail } from '@/lib/admin/data';
 
@@ -28,11 +34,14 @@ function StatusBanner({ status }: { status?: string }) {
     'profile-saved': 'Client profile saved.',
     'voice-saved': 'Brand voice saved.',
     'run-complete': 'Forge run completed and was logged.',
+    'keyword-complete': 'Keyword research completed with DataForSEO metrics when credentials are configured.',
     'profile-invalid': 'Enter a valid profile name and lowercase URL slug.',
     'profile-error': 'Client profile could not be saved.',
     'voice-error': 'Brand voice could not be saved.',
     'run-error': 'Forge could not complete that run. Check provider keys and server logs.',
     'run-invalid': 'Enter a task before running Forge.',
+    'keyword-error': 'Keyword research could not complete. Check provider keys and server logs.',
+    'keyword-invalid': 'Enter a keyword topic before running research.',
   };
 
   const isError = status.endsWith('error') || status.endsWith('invalid');
@@ -220,19 +229,50 @@ export default async function ClientDetailPage({
             </button>
           </form>
 
-          <form action={runClientTask} className="border border-gold-border bg-surface/50 p-5">
-            <input type="hidden" name="slug" value={client.slug} />
-            <div className="font-mono text-xs uppercase tracking-wide text-muted">Run Forge</div>
-            <TextArea
-              label="Task"
-              name="task"
-              rows={8}
-              defaultValue="Write 3 Google Business Profile posts for this week and keep them on brand."
-            />
-            <button className="mt-5 bg-gold px-5 py-3 font-mono text-xs uppercase tracking-wide text-bg transition hover:bg-gold-soft">
-              Run Agent
-            </button>
-          </form>
+          <div className="space-y-6">
+            <form action={runKeywordResearch} className="border border-gold-border bg-surface/50 p-5">
+              <input type="hidden" name="slug" value={client.slug} />
+              <div className="font-mono text-xs uppercase tracking-wide text-muted">
+                Keyword Research / DataForSEO
+              </div>
+              <p className="mt-3 font-sans text-sm leading-6 text-muted">
+                Run the keyword tool directly. If DataForSEO env vars are present, this includes
+                search volume, CPC, competition, intent, and difficulty.
+              </p>
+              <div className="mt-5 grid gap-4 md:grid-cols-[minmax(0,1fr)_120px]">
+                <Field
+                  label="Topic"
+                  name="topic"
+                  defaultValue={client.industry ? `${client.industry} marketing` : client.name}
+                />
+                <Field label="Count" name="count" type="number" defaultValue={20} />
+              </div>
+              <div className="mt-4">
+                <Field
+                  label="Location"
+                  name="location"
+                  defaultValue={client.geographic_market}
+                />
+              </div>
+              <button className="mt-5 bg-gold px-5 py-3 font-mono text-xs uppercase tracking-wide text-bg transition hover:bg-gold-soft">
+                Run Keyword Research
+              </button>
+            </form>
+
+            <form action={runClientTask} className="border border-gold-border bg-surface/50 p-5">
+              <input type="hidden" name="slug" value={client.slug} />
+              <div className="font-mono text-xs uppercase tracking-wide text-muted">Run Forge</div>
+              <TextArea
+                label="Task"
+                name="task"
+                rows={8}
+                defaultValue="Write 3 Google Business Profile posts for this week and keep them on brand."
+              />
+              <button className="mt-5 bg-gold px-5 py-3 font-mono text-xs uppercase tracking-wide text-bg transition hover:bg-gold-soft">
+                Run Agent
+              </button>
+            </form>
+          </div>
         </section>
 
         <form action={updateBrandVoice} className="mt-6 border border-gold-border bg-surface/50 p-5">

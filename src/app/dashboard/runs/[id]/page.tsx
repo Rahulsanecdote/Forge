@@ -8,6 +8,7 @@ import { loadToolRunDetail } from '@/lib/admin/data';
 import {
   findBannedPhraseViolations,
   formatRunPayload,
+  parseKeywordResearchOutput,
   parseSocialPostOutput,
 } from '@/lib/admin/run-output';
 
@@ -29,6 +30,11 @@ function platformName(value: string | null) {
     .split('_')
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');
+}
+
+function metricText(value: number | null, options?: Intl.NumberFormatOptions) {
+  if (value === null) return 'n/a';
+  return new Intl.NumberFormat('en-US', options).format(value);
 }
 
 function ApprovalStatus({ status }: { status?: string }) {
@@ -76,6 +82,7 @@ export default async function ToolRunDetailPage({
 
   const { run, client, approval, currentBannedPhrases, errors } = detail;
   const socialPosts = run.tool === 'create_social_posts' ? parseSocialPostOutput(run.output) : null;
+  const keywordResearch = run.tool === 'research_keywords' ? parseKeywordResearchOutput(run.output) : null;
   const bannedPhraseViolations = findBannedPhraseViolations(run.output, currentBannedPhrases);
 
   return (
@@ -110,7 +117,11 @@ export default async function ToolRunDetailPage({
           <div>
             <div className="section-label">Generated Output</div>
             <h2 className="mt-4 max-w-3xl font-serif text-4xl text-ink">
-              {socialPosts ? `${socialPosts.posts.length} generated drafts` : 'Agent run detail'}
+              {socialPosts
+                ? `${socialPosts.posts.length} generated drafts`
+                : keywordResearch
+                  ? 'Keyword research'
+                  : 'Agent run detail'}
             </h2>
             <p className="mt-3 max-w-3xl font-sans text-sm leading-6 text-muted">
               {run.task ?? 'No task description was recorded for this run.'}
@@ -131,12 +142,24 @@ export default async function ToolRunDetailPage({
               <dd className="mt-1 text-ink">{client?.name ?? 'Unassigned'}</dd>
             </div>
             <div>
-              <dt className="uppercase tracking-wide text-muted-dark">Platform</dt>
-              <dd className="mt-1 text-ink">{platformName(socialPosts?.platform ?? null)}</dd>
+              <dt className="uppercase tracking-wide text-muted-dark">
+                {keywordResearch ? 'Data Source' : 'Platform'}
+              </dt>
+              <dd className="mt-1 text-ink">
+                {keywordResearch
+                  ? (keywordResearch.dataSource?.provider ?? 'n/a')
+                  : platformName(socialPosts?.platform ?? null)}
+              </dd>
             </div>
             <div>
-              <dt className="uppercase tracking-wide text-muted-dark">Approval</dt>
-              <dd className="mt-1 uppercase text-ink">{approval?.status ?? 'not queued'}</dd>
+              <dt className="uppercase tracking-wide text-muted-dark">
+                {keywordResearch ? 'Configured' : 'Approval'}
+              </dt>
+              <dd className="mt-1 uppercase text-ink">
+                {keywordResearch
+                  ? (keywordResearch.dataSource?.configured ? 'yes' : 'no')
+                  : (approval?.status ?? 'not queued')}
+              </dd>
             </div>
           </dl>
         </section>
@@ -199,7 +222,114 @@ export default async function ToolRunDetailPage({
           </div>
         )}
 
-        {socialPosts && socialPosts.posts.length > 0 ? (
+        {keywordResearch ? (
+          <section className="mt-8 space-y-6" aria-label="Keyword research output">
+            <div className="border border-gold-border bg-surface/50 p-5">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <div className="font-mono text-xs uppercase tracking-wide text-muted">
+                    DataForSEO Metrics
+                  </div>
+                  <h3 className="mt-3 font-serif text-3xl text-ink">{keywordResearch.topic}</h3>
+                </div>
+                {keywordResearch.dataSource && (
+                  <dl className="grid grid-cols-2 gap-x-5 gap-y-2 font-mono text-[11px] uppercase tracking-wide">
+                    <div>
+                      <dt className="text-muted-dark">Provider</dt>
+                      <dd className="mt-1 text-gold">{keywordResearch.dataSource.provider}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-muted-dark">Language</dt>
+                      <dd className="mt-1 text-ink">{keywordResearch.dataSource.language}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-muted-dark">Location</dt>
+                      <dd className="mt-1 text-ink">{keywordResearch.dataSource.location}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-muted-dark">Configured</dt>
+                      <dd className="mt-1 text-ink">{keywordResearch.dataSource.configured ? 'yes' : 'no'}</dd>
+                    </div>
+                  </dl>
+                )}
+              </div>
+
+              {(keywordResearch.dataSource?.warning || keywordResearch.note) && (
+                <div className="mt-5 border border-gold-border bg-gold-dim p-4 font-mono text-xs leading-6 text-gold">
+                  {keywordResearch.dataSource?.warning ?? keywordResearch.note}
+                </div>
+              )}
+
+              {keywordResearch.metrics.length > 0 ? (
+                <div className="mt-6 overflow-x-auto">
+                  <table className="min-w-full border-collapse font-mono text-xs">
+                    <thead className="border-b border-gold-border text-muted-dark">
+                      <tr>
+                        <th className="py-3 pr-4 text-left uppercase tracking-wide">Keyword</th>
+                        <th className="px-4 py-3 text-right uppercase tracking-wide">Volume</th>
+                        <th className="px-4 py-3 text-right uppercase tracking-wide">Difficulty</th>
+                        <th className="px-4 py-3 text-right uppercase tracking-wide">CPC</th>
+                        <th className="px-4 py-3 text-right uppercase tracking-wide">Competition</th>
+                        <th className="py-3 pl-4 text-left uppercase tracking-wide">Intent</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gold-border/70">
+                      {keywordResearch.metrics.map((metric) => (
+                        <tr key={metric.keyword}>
+                          <td className="py-3 pr-4 text-ink">{metric.keyword}</td>
+                          <td className="px-4 py-3 text-right text-muted">
+                            {metricText(metric.searchVolume)}
+                          </td>
+                          <td className="px-4 py-3 text-right text-muted">
+                            {metricText(metric.keywordDifficulty)}
+                          </td>
+                          <td className="px-4 py-3 text-right text-muted">
+                            {metricText(metric.cpc, { style: 'currency', currency: 'USD' })}
+                          </td>
+                          <td className="px-4 py-3 text-right text-muted">
+                            {metric.competitionLevel ?? metricText(metric.competition)}
+                          </td>
+                          <td className="py-3 pl-4 text-gold">{metric.searchIntent ?? 'n/a'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="mt-5 font-sans text-sm leading-6 text-muted">
+                  No provider metrics were returned for this run. The clusters below are still available.
+                </p>
+              )}
+            </div>
+
+            <div className="grid gap-5 lg:grid-cols-2">
+              {keywordResearch.clusters.map((cluster, index) => (
+                <article key={`${cluster.theme}-${index}`} className="border border-gold-border bg-surface/50 p-5">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="font-mono text-xs uppercase tracking-wide text-gold">
+                      {cluster.intent}
+                    </div>
+                    <div className="font-mono text-[11px] uppercase tracking-wide text-muted-dark">
+                      Cluster {String(index + 1).padStart(2, '0')}
+                    </div>
+                  </div>
+                  <h3 className="mt-3 font-serif text-2xl text-ink">{cluster.theme}</h3>
+                  <p className="mt-3 font-sans text-sm leading-6 text-muted">{cluster.contentAngle}</p>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {cluster.keywords.map((keyword) => (
+                      <span
+                        key={keyword}
+                        className="border border-gold-border px-2 py-1 font-mono text-xs text-gold-soft"
+                      >
+                        {keyword}
+                      </span>
+                    ))}
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
+        ) : socialPosts && socialPosts.posts.length > 0 ? (
           <section className="mt-8 space-y-5" aria-label="Generated post drafts">
             {socialPosts.posts.map((post, index) => {
               const captionWithHashtags = [post.caption, post.hashtags.join(' ')].filter(Boolean).join('\n\n');
