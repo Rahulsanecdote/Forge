@@ -204,6 +204,16 @@ export default async function ClientDetailPage({
               <Field label="Primary CTA" name="primary_cta" defaultValue={client.primary_cta} />
               <Field label="Posting Frequency" name="posting_frequency" defaultValue={client.posting_frequency} />
               <Field label="Approval Mode" name="approval_mode" defaultValue={client.approval_mode} />
+              <Field
+                label="Google Business Account ID"
+                name="google_business_account_id"
+                defaultValue={client.google_business_account_id}
+              />
+              <Field
+                label="Google Business Location ID"
+                name="google_business_location_id"
+                defaultValue={client.google_business_location_id}
+              />
             </div>
             <button className="mt-5 bg-gold px-5 py-3 font-mono text-xs uppercase tracking-wide text-bg transition hover:bg-gold-soft">
               Save Profile
@@ -338,9 +348,14 @@ export default async function ClientDetailPage({
                       {review.author ?? 'Customer'} · {review.rating}/5 · {review.status}
                     </div>
                     <div className="font-mono text-[11px] text-muted-dark">
-                      {formatDate(review.created_at)}
+                      {formatDate(review.reviewed_at ?? review.created_at)}
                     </div>
                   </div>
+                  {review.external_review_id && (
+                    <div className="mt-2 font-mono text-[11px] uppercase tracking-wide text-muted-dark">
+                      Google review {review.external_review_id}
+                    </div>
+                  )}
                   <p className="mt-2 font-sans text-sm leading-6 text-muted">{review.text}</p>
                   {review.draft_reply && (
                     <p className="mt-3 border-l border-gold-border pl-3 font-sans text-sm leading-6 text-ink">

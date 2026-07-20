@@ -19,14 +19,16 @@ scheduling and durable, retryable steps.
 
 - **Schedule:** `FORGE_REVIEW_CRON` (default `0 8 * * *` — daily 08:00 UTC).
 - **What it does:** for each client, selects `reviews` rows with `status = 'new'`,
-  calls `draft_review_responses`, and writes the drafts back.
+  calls `draft_review_responses`, and writes the drafts back. Before drafting,
+  it attempts to import fresh Google Business Profile reviews for any client
+  with a configured GBP account/location ID.
 - **Correctness guarantees:**
   - A review is marked `status = 'drafted'` **only when the model returned a
     usable reply**. Malformed or short output leaves the row `new`, so a later
     sweep retries it instead of silently dropping it.
   - Supabase update errors are checked and **thrown**, so Inngest retries the step
     rather than recording a false success.
-- Returns the count of reviews actually drafted.
+- Returns the count of reviews imported and actually drafted.
 
 ## Running them locally
 
@@ -83,6 +85,17 @@ drives the crons. See [Deployment](./deployment.md).
 
 ## Feeding reviews automatically
 
-Right now reviews are inserted manually (or by your own integration). Wiring a
-Google Business Profile (or other) source to populate `reviews` with
-`status = 'new'` is on the roadmap (increment 2).
+Google Business Profile review ingestion is wired into `review-sweep`. Configure
+`GOOGLE_BUSINESS_PROFILE_ACCESS_TOKEN` or refresh-token OAuth credentials, then
+set the GBP account/location IDs either globally in env or per client in the
+dashboard profile form. Imported Google reviews are deduped by
+`client_id + platform + external_review_id` and inserted with `status = 'new'`.
+
+You can run the importer directly without waiting for the cron:
+
+```bash
+npm run forge:reviews:import -- acme-coffee
+```
+
+If credentials or location IDs are missing, the importer returns a configured
+`false` result and the review sweep continues with any existing manual rows.

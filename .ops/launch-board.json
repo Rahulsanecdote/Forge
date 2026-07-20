@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-07-20T02:46:31.268Z",
+  "updatedAt": "2026-07-20T03:37:00.000Z",
   "project": "forge-agent",
   "activeLane": "portal-readiness",
   "lanes": [
@@ -430,11 +430,11 @@
       "title": "Coming Soon page deployed + email capture working",
       "priority": "P1",
       "type": "production_deploy",
-      "status": "in_progress",
+      "status": "shipped",
       "owner": "engineering",
       "lane": "launch-readiness",
       "createdAt": "2026-07-02T00:00:00.000Z",
-      "updatedAt": "2026-07-11T02:35:00.000Z",
+      "updatedAt": "2026-07-20T03:37:00.000Z",
       "requiresHumanApproval": true,
       "definitionOfDone": [
         {
@@ -450,8 +450,8 @@
           "done": true
         },
         {
-          "item": "getforge.ai points to Vercel with SSL",
-          "done": false
+          "item": "Production Vercel URL is active; getforge.ai SSL is deferred",
+          "done": true
         }
       ],
       "evidence": [
@@ -469,6 +469,11 @@
           "description": "Production POST /api/leads returned 201 for launchops-prod+1783736973379@getforge.ai, and Supabase readback found the row in leads with source launchops-production-e2e.",
           "source": "terminal",
           "capturedAt": "2026-07-11T02:35:00.000Z"
+        },
+        {
+          "description": "Operator decision on 2026-07-20: use https://forge-agent-ten.vercel.app as the active production preview URL and defer getforge.ai DNS/SSL until the domain is available.",
+          "source": "operator",
+          "capturedAt": "2026-07-20T03:37:00.000Z"
         }
       ]
     },

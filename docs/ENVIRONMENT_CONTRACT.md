@@ -13,6 +13,9 @@ Fail-closed rules for every environment variable Forge carries. Validated by
 | `ANTHROPIC_API_KEY` (or provider key matching `FORGE_PROVIDER`) | Required for the agent runtime. |
 | `INNGEST_SIGNING_KEY` | Required in production once Inngest jobs are live. |
 | `STRIPE_WEBHOOK_SECRET` | Required once billing is live (Phase 03). |
+| `GOOGLE_BUSINESS_PROFILE_ACCESS_TOKEN` | Optional short-lived server-only credential for review import. Prefer refresh-token credentials in production. |
+| `GOOGLE_BUSINESS_PROFILE_REFRESH_TOKEN` + `GOOGLE_OAUTH_CLIENT_ID` + `GOOGLE_OAUTH_CLIENT_SECRET` | Optional server-only OAuth credentials for GBP review import. |
+| `GOOGLE_BUSINESS_PROFILE_ACCOUNT_ID` / `GOOGLE_BUSINESS_PROFILE_LOCATION_ID` | Optional global GBP account/location fallback. Per-client dashboard values override these. |
 
 ## Public (must never contain secrets)
 

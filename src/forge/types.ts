@@ -18,6 +18,8 @@ export interface ClientContext {
   industry: string | null;
   website: string | null;
   locations: number;
+  googleBusinessAccountId?: string | null;
+  googleBusinessLocationId?: string | null;
   brandVoice: BrandVoice;
 }
 

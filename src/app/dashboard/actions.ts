@@ -55,6 +55,10 @@ function uniqueList(values: string[]) {
   });
 }
 
+function isMissingGoogleBusinessColumns(error: { message?: string } | null) {
+  return Boolean(error?.message && /google_business_/i.test(error.message));
+}
+
 function sentenceFragment(value: string) {
   return value.trim().replace(/[\s.。!?]+$/g, '');
 }
@@ -287,24 +291,35 @@ export async function updateClientProfile(formData: FormData) {
     redirectClient(currentSlug || 'unknown', 'profile-invalid');
   }
 
-  const { error } = await getAdminSupabase()
+  const update = {
+    slug: slug.data,
+    name,
+    industry: stringValue(formData, 'industry') || null,
+    website: stringValue(formData, 'website') || null,
+    locations: Number.isFinite(locations) && locations > 0 ? locations : 1,
+    geographic_market: stringValue(formData, 'geographic_market') || null,
+    primary_goal: stringValue(formData, 'primary_goal') || null,
+    primary_cta: stringValue(formData, 'primary_cta') || null,
+    timezone: stringValue(formData, 'timezone') || null,
+    posting_frequency: stringValue(formData, 'posting_frequency') || null,
+    approval_mode: 'review',
+    google_business_account_id: stringValue(formData, 'google_business_account_id') || null,
+    google_business_location_id: stringValue(formData, 'google_business_location_id') || null,
+  };
+
+  const supabase = getAdminSupabase();
+  const { error } = await supabase
     .from('clients')
-    .update({
-      slug: slug.data,
-      name,
-      industry: stringValue(formData, 'industry') || null,
-      website: stringValue(formData, 'website') || null,
-      locations: Number.isFinite(locations) && locations > 0 ? locations : 1,
-      geographic_market: stringValue(formData, 'geographic_market') || null,
-      primary_goal: stringValue(formData, 'primary_goal') || null,
-      primary_cta: stringValue(formData, 'primary_cta') || null,
-      timezone: stringValue(formData, 'timezone') || null,
-      posting_frequency: stringValue(formData, 'posting_frequency') || null,
-      approval_mode: 'review',
-    })
+    .update(update)
     .eq('id', id);
 
-  if (error) redirectClient(currentSlug, 'profile-error');
+  if (isMissingGoogleBusinessColumns(error)) {
+    const { google_business_account_id, google_business_location_id, ...baseUpdate } = update;
+    const { error: fallbackError } = await supabase.from('clients').update(baseUpdate).eq('id', id);
+    if (fallbackError) redirectClient(currentSlug, 'profile-error');
+  } else if (error) {
+    redirectClient(currentSlug, 'profile-error');
+  }
 
   revalidatePath('/dashboard');
   revalidatePath(`/dashboard/clients/${currentSlug}`);
@@ -357,6 +372,8 @@ export async function runClientTask(formData: FormData) {
     industry: detail.client.industry,
     website: detail.client.website,
     locations: detail.client.locations ?? 1,
+    googleBusinessAccountId: detail.client.google_business_account_id,
+    googleBusinessLocationId: detail.client.google_business_location_id,
     brandVoice: {
       tone: detail.brandVoice?.tone ?? [],
       about: detail.brandVoice?.about ?? '',

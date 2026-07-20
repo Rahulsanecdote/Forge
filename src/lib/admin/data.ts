@@ -14,6 +14,8 @@ export interface DashboardClient {
   timezone: string | null;
   posting_frequency: string | null;
   approval_mode: 'review';
+  google_business_account_id: string | null;
+  google_business_location_id: string | null;
   created_at: string | null;
 }
 
@@ -63,6 +65,8 @@ export interface DashboardReview {
   status: string;
   draft_reply: string | null;
   needs_manager: boolean | null;
+  external_review_id: string | null;
+  reviewed_at: string | null;
   created_at: string | null;
 }
 
@@ -106,6 +110,34 @@ export function getAdminSupabase() {
   });
 }
 
+const clientColumns =
+  'id, slug, name, industry, website, locations, geographic_market, primary_goal, primary_cta, timezone, posting_frequency, approval_mode, google_business_account_id, google_business_location_id, created_at';
+const baseClientColumns =
+  'id, slug, name, industry, website, locations, geographic_market, primary_goal, primary_cta, timezone, posting_frequency, approval_mode, created_at';
+const reviewColumns =
+  'id, author, rating, text, platform, status, draft_reply, needs_manager, external_review_id, reviewed_at, created_at';
+const baseReviewColumns = 'id, author, rating, text, platform, status, draft_reply, needs_manager, created_at';
+
+function isMissingGoogleBusinessColumns(error: Error) {
+  return /google_business_|external_review_id|reviewed_at/i.test(error.message);
+}
+
+function normalizeClient(client: Partial<DashboardClient>): DashboardClient {
+  return {
+    ...(client as DashboardClient),
+    google_business_account_id: client.google_business_account_id ?? null,
+    google_business_location_id: client.google_business_location_id ?? null,
+  };
+}
+
+function normalizeReview(review: Partial<DashboardReview>): DashboardReview {
+  return {
+    ...(review as DashboardReview),
+    external_review_id: review.external_review_id ?? null,
+    reviewed_at: review.reviewed_at ?? null,
+  };
+}
+
 async function safeQuery<T>(query: PromiseLike<{ data: unknown; error: { message: string } | null }>) {
   const { data, error } = await query;
   if (error) throw new Error(error.message);
@@ -119,10 +151,21 @@ export async function loadDashboardData(): Promise<DashboardData> {
   const clients = await safeQuery<DashboardClient>(
     supabase
       .from('clients')
-      .select('id, slug, name, industry, website, locations, geographic_market, primary_goal, primary_cta, timezone, posting_frequency, approval_mode, created_at')
+      .select(clientColumns)
       .order('created_at', { ascending: false })
       .limit(8),
-  ).catch((error: Error) => {
+  )
+    .catch((error: Error) => {
+      if (!isMissingGoogleBusinessColumns(error)) throw error;
+      return safeQuery<DashboardClient>(
+        supabase
+          .from('clients')
+          .select(baseClientColumns)
+          .order('created_at', { ascending: false })
+          .limit(8),
+      ).then((rows) => rows.map(normalizeClient));
+    })
+    .catch((error: Error) => {
     errors.push(`clients: ${error.message}`);
     return [];
   });
@@ -158,9 +201,19 @@ export async function loadClientDetail(slug: string): Promise<DashboardClientDet
 
   const { data: client, error } = await supabase
     .from('clients')
-    .select('id, slug, name, industry, website, locations, geographic_market, primary_goal, primary_cta, timezone, posting_frequency, approval_mode, created_at')
+    .select(clientColumns)
     .eq('slug', slug)
-    .single();
+    .single()
+    .then(async (result) => {
+      if (!result.error || !isMissingGoogleBusinessColumns(new Error(result.error.message))) {
+        return result;
+      }
+      const fallback = await supabase.from('clients').select(baseClientColumns).eq('slug', slug).single();
+      return {
+        ...fallback,
+        data: fallback.data ? normalizeClient(fallback.data as Partial<DashboardClient>) : fallback.data,
+      };
+    });
 
   if (error || !client) return null;
 
@@ -189,11 +242,23 @@ export async function loadClientDetail(slug: string): Promise<DashboardClientDet
   const reviews = await safeQuery<DashboardReview>(
     supabase
       .from('reviews')
-      .select('id, author, rating, text, platform, status, draft_reply, needs_manager, created_at')
+      .select(reviewColumns)
       .eq('client_id', client.id)
       .order('created_at', { ascending: false })
       .limit(12),
-  ).catch((reviewError: Error) => {
+  )
+    .catch((reviewError: Error) => {
+      if (!isMissingGoogleBusinessColumns(reviewError)) throw reviewError;
+      return safeQuery<DashboardReview>(
+        supabase
+          .from('reviews')
+          .select(baseReviewColumns)
+          .eq('client_id', client.id)
+          .order('created_at', { ascending: false })
+          .limit(12),
+      ).then((rows) => rows.map(normalizeReview));
+    })
+    .catch((reviewError: Error) => {
     errors.push(`reviews: ${reviewError.message}`);
     return [];
   });
@@ -211,7 +276,7 @@ export async function loadClientDetail(slug: string): Promise<DashboardClientDet
   });
 
   return {
-    client: client as DashboardClient,
+    client: normalizeClient(client as Partial<DashboardClient>),
     brandVoice,
     toolRuns,
     reviews,

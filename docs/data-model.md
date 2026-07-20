@@ -38,6 +38,8 @@ A business Forge runs marketing for.
 | `timezone` | text | scheduling timezone |
 | `posting_frequency` | text | requested content cadence |
 | `approval_mode` | text | constrained to `review` in the current phase |
+| `google_business_account_id` | text | optional per-client GBP account override |
+| `google_business_location_id` | text | optional per-client GBP location override |
 | `created_at` | timestamptz | default `now()` |
 
 ### `brand_voices`
@@ -95,8 +97,8 @@ external publishing, retry/checkpoint, resume, or rollback executors exist.
 
 ### `reviews`
 
-Queue for the review-sweep cron. New reviews land here with `status = 'new'` (fed
-by an integration in a later increment; insert by hand to test now).
+Queue for the review-sweep cron. New reviews land here with `status = 'new'`,
+either through Google Business Profile ingestion or by hand for testing.
 
 | Column | Type | Notes |
 |---|---|---|
@@ -109,9 +111,18 @@ by an integration in a later increment; insert by hand to test now).
 | `status` | text | not null, default `'new'` — `'new'` \| `'drafted'` \| `'posted'` |
 | `draft_reply` | text | filled by the sweep |
 | `needs_manager` | boolean | default `false` |
+| `external_review_id` | text | source review id for dedupe |
+| `external_review_name` | text | full source resource name, when provided |
+| `reviewed_at` | timestamptz | when the customer review was created at the source |
+| `updated_at` | timestamptz | when the source review was last updated |
+| `reviewer_profile_photo_url` | text | source reviewer avatar, when provided |
+| `metadata` | jsonb | source-specific non-secret metadata |
 | `created_at` | timestamptz | default `now()` |
 
-Index: `reviews_client_status_idx on reviews (client_id, status)`.
+Indexes: `reviews_client_status_idx on reviews (client_id, status)`,
+`reviews_client_reviewed_at_idx on reviews (client_id, reviewed_at desc)`, and
+the partial unique index `reviews_google_external_review_idx` for external GBP
+dedupe.
 
 The review sweep selects `status = 'new'` rows, drafts replies, and sets
 `status = 'drafted'` **only when a usable reply was generated** (otherwise the row

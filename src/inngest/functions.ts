@@ -3,6 +3,7 @@ import { listClients } from '../forge/clients';
 import { runForge } from '../forge/runtime';
 import { resolveModel } from '../forge/model';
 import { draftReviewResponses } from '../forge/tools/draft-review-responses';
+import { importGoogleBusinessProfileReviewsForClient } from '../forge/data/google-business-profile';
 import { supabase } from '../supabase';
 import { env } from '../env';
 
@@ -40,7 +41,13 @@ export const reviewSweep = inngest.createFunction(
     const model = resolveModel();
 
     let drafted = 0;
+    let imported = 0;
     for (const client of clients) {
+      const importedForClient = await step.run(`import-reviews-${client.slug}`, () =>
+        importGoogleBusinessProfileReviewsForClient(client),
+      );
+      imported += importedForClient.imported;
+
       const handled = await step.run(`reviews-${client.slug}`, async () => {
         const { data: pending } = await supabase
           .from('reviews')
@@ -95,7 +102,7 @@ export const reviewSweep = inngest.createFunction(
       drafted += handled;
     }
 
-    return { drafted };
+    return { imported, drafted };
   },
 );
 
