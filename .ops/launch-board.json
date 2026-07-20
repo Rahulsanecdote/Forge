@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-07-18T00:10:00.000Z",
+  "updatedAt": "2026-07-20T02:46:31.268Z",
   "project": "forge-agent",
   "activeLane": "portal-readiness",
   "lanes": [
@@ -107,11 +107,11 @@
       "title": "Onboarding findings are isolated and evidence-backed per business",
       "priority": "P0",
       "type": "product_correctness",
-      "status": "active",
+      "status": "shipped",
       "owner": "engineering",
       "lane": "portal-readiness",
       "createdAt": "2026-07-17T22:40:00.000Z",
-      "updatedAt": "2026-07-17T22:55:00.000Z",
+      "updatedAt": "2026-07-20T02:46:31.268Z",
       "requiresHumanApproval": false,
       "definitionOfDone": [
         {
@@ -128,7 +128,7 @@
         },
         {
           "item": "Production onboarding produces distinct findings for two different business websites",
-          "done": false
+          "done": true
         }
       ],
       "evidence": [
@@ -141,6 +141,11 @@
           "description": "TypeScript strict checking and diff validation pass for the protected API route, onboarding UI, and transactional client/brand-voice save flow.",
           "source": "terminal",
           "capturedAt": "2026-07-17T22:55:00.000Z"
+        },
+        {
+          "description": "Production LaunchOps onboarding E2E created two invitation-backed analyses at https://forge-agent-ten.vercel.app: Unchained Coffee returned category Coffee Shop, services coffee and espresso, and tone community-focused; Aspen Dental returned category Dentist, services whitening and implants, and tones community-focused, premium, professional, and warm. The run submitted one pending operator-review row 097b43bd-ee4d-438b-91a6-87217bf27f2b.",
+          "source": "terminal",
+          "capturedAt": "2026-07-20T02:46:31.268Z"
         }
       ],
       "rollback": {
