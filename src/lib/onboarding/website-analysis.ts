@@ -3,6 +3,7 @@ import { isIP } from 'node:net';
 import { z } from 'zod';
 
 const MAX_HTML_BYTES = 750_000;
+const MAX_VISIBLE_TEXT_CHARS = 40_000;
 const MAX_REDIRECTS = 3;
 const TRACKING_PARAMS = new Set(['fbclid', 'gclid', 'msclkid', 'srsltid']);
 
@@ -76,6 +77,16 @@ function decodeHtml(value: string) {
 
 function cleanText(value: string) {
   return decodeHtml(value.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim());
+}
+
+function visibleBodyText(html: string) {
+  const body = html.match(/<body\b[^>]*>([\s\S]*?)<\/body>/i)?.[1] ?? html;
+  return cleanText(
+    body
+      .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, ' ')
+      .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, ' ')
+      .replace(/<noscript\b[^>]*>[\s\S]*?<\/noscript>/gi, ' '),
+  ).slice(0, MAX_VISIBLE_TEXT_CHARS);
 }
 
 function firstTag(html: string, tag: string) {
@@ -185,6 +196,42 @@ async function assertPublicUrl(url: URL) {
   }
 }
 
+async function readBoundedHtml(response: Response) {
+  const reader = response.body?.getReader();
+  if (!reader) {
+    const html = await response.text();
+    return Buffer.byteLength(html, 'utf8') > MAX_HTML_BYTES
+      ? Buffer.from(html, 'utf8').subarray(0, MAX_HTML_BYTES).toString('utf8')
+      : html;
+  }
+
+  const decoder = new TextDecoder();
+  let bytesRead = 0;
+  let html = '';
+
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    const remaining = MAX_HTML_BYTES - bytesRead;
+    if (remaining <= 0) {
+      await reader.cancel().catch(() => undefined);
+      break;
+    }
+
+    const chunk = value.byteLength > remaining ? value.subarray(0, remaining) : value;
+    html += decoder.decode(chunk, { stream: value.byteLength <= remaining });
+    bytesRead += chunk.byteLength;
+
+    if (value.byteLength > remaining) {
+      await reader.cancel().catch(() => undefined);
+      break;
+    }
+  }
+
+  return html + decoder.decode();
+}
+
 async function fetchWebsite(startUrl: URL) {
   let url = startUrl;
   for (let redirects = 0; redirects <= MAX_REDIRECTS; redirects += 1) {
@@ -203,10 +250,7 @@ async function fetchWebsite(startUrl: URL) {
     if (!response.ok) throw new Error(`The website returned HTTP ${response.status}.`);
     const contentType = response.headers.get('content-type') ?? '';
     if (!contentType.toLowerCase().includes('text/html')) throw new Error('The URL did not return an HTML page.');
-    const contentLength = Number(response.headers.get('content-length') ?? '0');
-    if (contentLength > MAX_HTML_BYTES) throw new Error('The website page is too large to analyze.');
-    const html = await response.text();
-    if (Buffer.byteLength(html, 'utf8') > MAX_HTML_BYTES) throw new Error('The website page is too large to analyze.');
+    const html = await readBoundedHtml(response);
     return { html, finalUrl: url.toString() };
   }
   throw new Error('The website could not be loaded.');
@@ -221,7 +265,8 @@ export function analyzeWebsiteHtml(html: string, sourceUrl: string): WebsiteAnal
   const title = firstTag(html, 'title');
   const description = metaContent(html, 'description') || metaContent(html, 'og:description');
   const headings = unique((html.match(/<h[1-3]\b[^>]*>[\s\S]*?<\/h[1-3]>/gi) ?? []).map(cleanText), 12);
-  const pageText = [title, description, ...headings, ...types].join(' ').toLowerCase();
+  const bodyText = visibleBodyText(html);
+  const pageText = [title, description, ...headings, ...types, bodyText].join(' ').toLowerCase();
 
   const category = CATEGORY_RULES.find((rule) => rule.terms.some((term) => pageText.includes(term)))?.category ?? null;
   const structuredServices: string[] = [];

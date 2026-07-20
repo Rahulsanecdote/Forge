@@ -45,6 +45,24 @@ test('extracts coffee details without leaking them into unrelated businesses', (
   assert.ok(result.tone.includes('warm'));
 });
 
+test('uses visible body copy for service evidence when metadata is sparse', () => {
+  const result = analyzeWebsiteHtml(`
+    <html><head>
+      <title>Corner Plate</title>
+      <meta name="description" content="Neighborhood restaurant serving guests daily." />
+    </head><body>
+      <nav>Home Order Online</nav>
+      <p>Breakfast, lunch, dinner, catering, and delivery are available for local customers.</p>
+      <script>const ignored = "bookkeeping legal advice";</script>
+    </body></html>
+  `, 'https://cornerplate.example');
+
+  assert.equal(result.suggestedCategory, 'Restaurant');
+  assert.deepEqual(result.services, ['delivery', 'catering', 'breakfast', 'lunch', 'dinner']);
+  assert.ok(!result.services.includes('bookkeeping'));
+  assert.ok(!result.services.includes('legal advice'));
+});
+
 test('reports absent evidence instead of inventing generic findings', () => {
   const result = analyzeWebsiteHtml('<html><head><title>Northstar</title></head><body><h1>Welcome</h1></body></html>', 'https://northstar.example');
 
