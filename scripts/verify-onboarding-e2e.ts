@@ -8,6 +8,7 @@ import {
 
 type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 const REQUEST_TIMEOUT_MS = 15_000;
+const DEFAULT_PRODUCTION_APP_URL = 'https://forge-agent-ten.vercel.app';
 
 interface WebsiteAnalysis {
   businessType: string | null;
@@ -83,7 +84,7 @@ function requiredEnv(name: string) {
 }
 
 function appUrl() {
-  return cliValue('app-url', process.env.NEXT_PUBLIC_APP_URL ?? 'https://forge-agent-ten.vercel.app').replace(/\/$/, '');
+  return cliValue('app-url', process.env.LAUNCHOPS_APP_URL ?? DEFAULT_PRODUCTION_APP_URL).replace(/\/$/, '');
 }
 
 function nowLabel() {
