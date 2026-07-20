@@ -6,8 +6,9 @@ import { hashInvitationToken, invitationTokenSchema } from '@/lib/onboarding/inv
 
 export const dynamic = 'force-dynamic';
 
-export async function POST(request: Request, { params }: { params: { token: string } }) {
-  const token = invitationTokenSchema.safeParse(params.token);
+export async function POST(request: Request, { params }: { params: Promise<{ token: string }> }) {
+  const { token: rawToken } = await params;
+  const token = invitationTokenSchema.safeParse(rawToken);
   if (!token.success) return NextResponse.json({ error: 'Invalid invitation.' }, { status: 404 });
 
   const { data: claimed, error: claimError } = await getAdminSupabase()

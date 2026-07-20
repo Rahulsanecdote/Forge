@@ -21,17 +21,17 @@ export async function login(formData: FormData) {
     redirect('/dashboard/login?error=invalid');
   }
 
-  setAdminSession();
+  await setAdminSession();
   redirect('/dashboard');
 }
 
 export async function logout() {
-  clearAdminSession();
+  await clearAdminSession();
   redirect('/dashboard/login');
 }
 
-function requireAdmin() {
-  if (!isAdminAuthenticated()) redirect('/dashboard/login');
+async function requireAdmin() {
+  if (!(await isAdminAuthenticated())) redirect('/dashboard/login');
 }
 
 function stringValue(formData: FormData, key: string) {
@@ -64,7 +64,7 @@ function slugify(value: string) {
 }
 
 export async function createOnboardedClient(formData: FormData) {
-  requireAdmin();
+  await requireAdmin();
   const parsed = submissionFromFormData(formData);
   const slug = slugify(stringValue(formData, 'name'));
   if (!parsed.success || !slug) redirect('/dashboard/onboarding?status=invalid');
@@ -116,7 +116,7 @@ function redirectOnboarding(status: string): never {
 const submissionDecisionSchema = z.enum(['approved', 'rejected']);
 
 export async function decideOnboardingSubmission(formData: FormData) {
-  requireAdmin();
+  await requireAdmin();
   const id = z.string().uuid().safeParse(stringValue(formData, 'submission_id'));
   const decision = submissionDecisionSchema.safeParse(stringValue(formData, 'decision'));
   if (!id.success || !decision.success) redirectOnboarding('submission-invalid');
@@ -202,7 +202,7 @@ export async function decideOnboardingSubmission(formData: FormData) {
 }
 
 export async function revokeOnboardingInvitation(formData: FormData) {
-  requireAdmin();
+  await requireAdmin();
   const id = z.string().uuid().safeParse(stringValue(formData, 'invitation_id'));
   if (!id.success) redirectOnboarding('invitation-invalid');
 
@@ -221,7 +221,7 @@ export async function revokeOnboardingInvitation(formData: FormData) {
 }
 
 export async function updateClientProfile(formData: FormData) {
-  requireAdmin();
+  await requireAdmin();
   const id = stringValue(formData, 'client_id');
   const currentSlug = stringValue(formData, 'current_slug');
   const slug = clientSlugSchema.safeParse(stringValue(formData, 'slug'));
@@ -258,7 +258,7 @@ export async function updateClientProfile(formData: FormData) {
 }
 
 export async function updateBrandVoice(formData: FormData) {
-  requireAdmin();
+  await requireAdmin();
   const clientId = stringValue(formData, 'client_id');
   const slug = stringValue(formData, 'slug');
 
@@ -286,7 +286,7 @@ export async function updateBrandVoice(formData: FormData) {
 }
 
 export async function runClientTask(formData: FormData) {
-  requireAdmin();
+  await requireAdmin();
   const slug = stringValue(formData, 'slug');
   const task = stringValue(formData, 'task');
 
@@ -332,7 +332,7 @@ export async function runClientTask(formData: FormData) {
 const approvalDecisionSchema = z.enum(['approved', 'rejected']);
 
 export async function decideContentApproval(formData: FormData) {
-  requireAdmin();
+  await requireAdmin();
   const runId = z.string().uuid().safeParse(stringValue(formData, 'run_id'));
   const decision = approvalDecisionSchema.safeParse(stringValue(formData, 'decision'));
   const notes = stringValue(formData, 'notes');

@@ -12,8 +12,9 @@ function formatDate(value: string) {
   return new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
 }
 
-export default async function OnboardingPage({ searchParams }: { searchParams?: { status?: string } }) {
-  if (!isAdminAuthenticated()) redirect('/dashboard/login');
+export default async function OnboardingPage({ searchParams }: { searchParams?: Promise<{ status?: string }> }) {
+  if (!(await isAdminAuthenticated())) redirect('/dashboard/login');
+  const query = await searchParams;
   const operations = await loadOnboardingOperations();
 
   return (
@@ -32,9 +33,9 @@ export default async function OnboardingPage({ searchParams }: { searchParams?: 
           <div className="section-label">Verified intake</div>
           <h1 className="mt-4 font-serif text-4xl text-ink">Onboard a business from its real website</h1>
         </div>
-        {searchParams?.status && (
-          <div className={`mb-6 border p-4 font-mono text-xs ${searchParams.status.endsWith('error') || searchParams.status.endsWith('invalid') ? 'border-red-400/30 bg-red-500/10 text-red-100' : 'border-gold-border bg-gold-dim text-gold'}`}>
-            {searchParams.status === 'submission-rejected' ? 'Submission rejected.' : searchParams.status === 'invalid' ? 'Complete all required operating fields.' : searchParams.status}
+        {query?.status && (
+          <div className={`mb-6 border p-4 font-mono text-xs ${query.status.endsWith('error') || query.status.endsWith('invalid') ? 'border-red-400/30 bg-red-500/10 text-red-100' : 'border-gold-border bg-gold-dim text-gold'}`}>
+            {query.status === 'submission-rejected' ? 'Submission rejected.' : query.status === 'invalid' ? 'Complete all required operating fields.' : query.status}
           </div>
         )}
         <InviteLinkCreator />

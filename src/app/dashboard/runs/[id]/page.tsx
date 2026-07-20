@@ -61,12 +61,14 @@ export default async function ToolRunDetailPage({
   params,
   searchParams,
 }: {
-  params: { id: string };
-  searchParams?: { status?: string };
+  params: Promise<{ id: string }>;
+  searchParams?: Promise<{ status?: string }>;
 }) {
-  if (!isAdminAuthenticated()) redirect('/dashboard/login');
+  if (!(await isAdminAuthenticated())) redirect('/dashboard/login');
 
-  const runId = runIdSchema.safeParse(params.id);
+  const { id } = await params;
+  const query = await searchParams;
+  const runId = runIdSchema.safeParse(id);
   if (!runId.success) notFound();
 
   const detail = await loadToolRunDetail(runId.data);
@@ -103,7 +105,7 @@ export default async function ToolRunDetailPage({
       </header>
 
       <div className="mx-auto max-w-7xl px-6 py-10">
-        <ApprovalStatus status={searchParams?.status} />
+        <ApprovalStatus status={query?.status} />
         <section className="grid gap-6 border-b border-gold-border pb-8 lg:grid-cols-[minmax(0,1fr)_360px]">
           <div>
             <div className="section-label">Generated Output</div>

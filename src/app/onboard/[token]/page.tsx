@@ -16,10 +16,12 @@ export default async function ClientOnboardingPage({
   params,
   searchParams,
 }: {
-  params: { token: string };
-  searchParams?: { status?: string };
+  params: Promise<{ token: string }>;
+  searchParams?: Promise<{ status?: string }>;
 }) {
-  const token = invitationTokenSchema.safeParse(params.token);
+  const { token: rawToken } = await params;
+  const query = await searchParams;
+  const token = invitationTokenSchema.safeParse(rawToken);
   const invitation = token.success
     ? await getAdminSupabase()
         .from('onboarding_invitations')
@@ -63,9 +65,9 @@ export default async function ClientOnboardingPage({
             Your answers are submitted to Forge for review. This form does not publish content or connect accounts.
           </p>
         </div>
-        {searchParams?.status && (
+        {query?.status && (
           <div className="mb-6 border border-red-400/30 bg-red-500/10 p-4 font-mono text-xs text-red-100">
-            {searchParams.status === 'invalid'
+            {query.status === 'invalid'
               ? 'Complete every required field and choose at least one tone and service.'
               : 'This invitation could not be submitted. Ask your Forge contact for a new link.'}
           </div>

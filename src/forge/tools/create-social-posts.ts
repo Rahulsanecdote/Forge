@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { generateText } from 'ai';
 import { findBannedPhraseViolations } from '../compliance';
 import { parseJsonBlock } from '../util';
 import type { ClientContext, ForgeTool } from '../types';
@@ -71,6 +70,7 @@ export const createSocialPosts: ForgeTool<Input> = {
     'Generate ready-to-publish social posts in the client brand voice for a given topic and platform.',
   schema,
   async execute(input, ctx) {
+    const { generateText } = await import('ai');
     const bv = ctx.client.brandVoice;
     const prompt = buildSocialPostsPrompt(input, ctx.client);
 

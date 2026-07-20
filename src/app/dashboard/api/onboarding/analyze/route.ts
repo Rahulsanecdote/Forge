@@ -6,7 +6,7 @@ import { analyzeWebsite } from '@/lib/onboarding/website-analysis';
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
-  if (!isAdminAuthenticated()) {
+  if (!(await isAdminAuthenticated())) {
     return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
   }
 

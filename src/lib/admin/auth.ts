@@ -25,19 +25,19 @@ export function isAdminConfigured() {
   return Boolean(getAdminPassword());
 }
 
-export function isAdminAuthenticated() {
+export async function isAdminAuthenticated() {
   const password = getAdminPassword();
   if (!password) return false;
 
-  const token = cookies().get(COOKIE_NAME)?.value;
+  const token = (await cookies()).get(COOKIE_NAME)?.value;
   return Boolean(token && safeEqual(token, createToken(password)));
 }
 
-export function setAdminSession() {
+export async function setAdminSession() {
   const password = getAdminPassword();
   if (!password) throw new Error('FORGE_ADMIN_PASSWORD is not configured.');
 
-  cookies().set(COOKIE_NAME, createToken(password), {
+  (await cookies()).set(COOKIE_NAME, createToken(password), {
     httpOnly: true,
     maxAge: 60 * 60 * 8,
     path: '/dashboard',
@@ -46,8 +46,8 @@ export function setAdminSession() {
   });
 }
 
-export function clearAdminSession() {
-  cookies().delete(COOKIE_NAME);
+export async function clearAdminSession() {
+  (await cookies()).delete(COOKIE_NAME);
 }
 
 export function verifyAdminPassword(input: string) {

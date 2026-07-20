@@ -102,12 +102,14 @@ export default async function ClientDetailPage({
   params,
   searchParams,
 }: {
-  params: { slug: string };
-  searchParams?: { status?: string };
+  params: Promise<{ slug: string }>;
+  searchParams?: Promise<{ status?: string }>;
 }) {
-  if (!isAdminAuthenticated()) redirect('/dashboard/login');
+  if (!(await isAdminAuthenticated())) redirect('/dashboard/login');
 
-  const detail = await loadClientDetail(params.slug);
+  const { slug } = await params;
+  const query = await searchParams;
+  const detail = await loadClientDetail(slug);
   if (!detail) notFound();
 
   const { client, brandVoice, toolRuns, reviews, contentApprovals, errors } = detail;
@@ -139,7 +141,7 @@ export default async function ClientDetailPage({
               Keep the business profile current, tune the writing constraints, then run Forge
               against a concrete marketing task.
             </p>
-            <StatusBanner status={searchParams?.status} />
+            <StatusBanner status={query?.status} />
             {errors.length > 0 && (
               <div className="mt-6 border border-red-400/30 bg-red-500/10 p-4">
                 <div className="font-mono text-xs uppercase tracking-wide text-red-200">

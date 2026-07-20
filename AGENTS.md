@@ -1,6 +1,6 @@
 # Forge — Build Context for Codex (`AGENTS.md`)
 
-> **Version:** v1.9 · **Updated:** 2026-07-18 · **Repo:** `forge-agent`
+> **Version:** v1.10 · **Updated:** 2026-07-18 · **Repo:** `forge-agent`
 > **How to use:** Codex reads this automatically as `AGENTS.md`. (Also works pasted into a
 > Claude Code / Codex session at start, or renamed `CLAUDE.md`.) Read it fully before
 > changing code. Obey the Non-Negotiables. Append to the Decision Log on any structural
@@ -137,6 +137,7 @@ npm run typecheck               # must pass
 | 2026-07-17 | Dashboard onboarding replaces the standalone wizard's shared coffee-shop demo values with authenticated, server-side website analysis. Findings come from current-request metadata and Schema.org data, missing evidence stays visibly unknown, private-network targets are rejected, and only operator-confirmed values are persisted. |
 | 2026-07-17 | Client-assisted onboarding uses expiring, revocable, single-use invitation tokens stored only as hashes. Public routes can analyze and submit a complete factual brief through service-role-only RPCs, but submissions remain pending until the authenticated operator approves a review-only client; client auth and autonomous publishing remain deferred. |
 | 2026-07-18 | The production Vercel root now enters the operator app at `/dashboard`; the public marketing surface remains available at `/marketing` so the app URL no longer defaults to the landing page during product previews. |
+| 2026-07-18 | Next.js dependency remediation targets the lower-risk security backport line (`next@15.5.20` with React 19) rather than a direct Next 16 jump; App Router route props and cookie access were moved to the async Next 15 shape, and `outputFileTracingRoot` is pinned to this repo so builds ignore unrelated parent lockfiles. |
 
 ## 9. Conventions
 - Conventional Commits (`feat:`, `fix:`, `docs:`…). One focused change per PR.

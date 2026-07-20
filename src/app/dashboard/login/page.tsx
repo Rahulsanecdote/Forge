@@ -5,14 +5,15 @@ import { isAdminAuthenticated, isAdminConfigured } from '@/lib/admin/auth';
 
 export const dynamic = 'force-dynamic';
 
-export default function DashboardLogin({
+export default async function DashboardLogin({
   searchParams,
 }: {
-  searchParams?: { error?: string };
+  searchParams?: Promise<{ error?: string }>;
 }) {
-  if (isAdminAuthenticated()) redirect('/dashboard');
+  if (await isAdminAuthenticated()) redirect('/dashboard');
 
   const configured = isAdminConfigured();
+  const query = await searchParams;
 
   return (
     <main className="min-h-screen bg-bg px-6 py-8 text-ink">
@@ -35,7 +36,7 @@ export default function DashboardLogin({
             </div>
           )}
 
-          {searchParams?.error === 'invalid' && (
+          {query?.error === 'invalid' && (
             <div className="mt-6 border border-red-400/30 bg-red-500/10 p-4 font-mono text-xs leading-5 text-red-200">
               Invalid admin password.
             </div>

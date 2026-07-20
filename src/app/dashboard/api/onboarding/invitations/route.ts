@@ -10,7 +10,7 @@ const requestSchema = z.object({
 });
 
 export async function POST(request: Request) {
-  if (!isAdminAuthenticated()) {
+  if (!(await isAdminAuthenticated())) {
     return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
   }
 

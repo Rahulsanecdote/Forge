@@ -27,7 +27,7 @@ function EmptyRow({ label, colSpan }: { label: string; colSpan: number }) {
 }
 
 export default async function DashboardPage() {
-  if (!isAdminAuthenticated()) redirect('/dashboard/login');
+  if (!(await isAdminAuthenticated())) redirect('/dashboard/login');
 
   const data = await loadDashboardData();
 
