@@ -1,6 +1,6 @@
 # Forge — Build Context for Codex (`AGENTS.md`)
 
-> **Version:** v1.13 · **Updated:** 2026-07-20 · **Repo:** `forge-agent`
+> **Version:** v1.14 · **Updated:** 2026-07-20 · **Repo:** `forge-agent`
 > **How to use:** Codex reads this automatically as `AGENTS.md`. (Also works pasted into a
 > Claude Code / Codex session at start, or renamed `CLAUDE.md`.) Read it fully before
 > changing code. Obey the Non-Negotiables. Append to the Decision Log on any structural
@@ -141,6 +141,7 @@ npm run typecheck               # must pass
 | 2026-07-19 | LaunchOps onboarding proof now has a repeatable production E2E harness (`npm run launch:onboarding:e2e`) that creates service-role invitations, verifies public token pages, runs production website analysis for two businesses, submits one complete brief, and verifies the pending operator-review row without printing secrets. |
 | 2026-07-20 | The LaunchOps onboarding E2E harness defaults to the production Vercel app URL, not local `.env` app URLs, and its distinct-website gate now requires each production analysis to return an evidence-backed category, services, and source evidence before it can close the LaunchOps blocker. |
 | 2026-07-20 | Website onboarding now reads a bounded first chunk from large HTML pages instead of failing solely on `content-length`, and includes visible body copy in the keyword pass so real SMB sites with sparse metadata can still produce evidence-backed service findings. |
+| 2026-07-20 | Operator onboarding views hide LaunchOps E2E fixture records by default while retaining them as database evidence, and approved onboarding submissions now seed normalized brand-voice directives plus starter sample posts instead of blank examples. |
 
 ## 9. Conventions
 - Conventional Commits (`feat:`, `fix:`, `docs:`…). One focused change per PR.

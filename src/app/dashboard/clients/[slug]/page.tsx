@@ -62,13 +62,13 @@ function Field({
   type?: string;
 }) {
   return (
-    <label className="flex flex-col gap-2">
+    <label className="flex min-w-0 flex-col gap-2">
       <span className="font-mono text-xs uppercase tracking-wide text-muted">{label}</span>
       <input
         name={name}
         type={type}
         defaultValue={defaultValue ?? ''}
-        className="border border-gold-border bg-bg px-4 py-3 font-mono text-sm text-ink outline-none transition placeholder:text-muted-dark focus:border-gold/60"
+        className="w-full min-w-0 border border-gold-border bg-bg px-4 py-3 font-mono text-sm text-ink outline-none transition placeholder:text-muted-dark focus:border-gold/60"
       />
     </label>
   );
@@ -86,13 +86,13 @@ function TextArea({
   rows?: number;
 }) {
   return (
-    <label className="flex flex-col gap-2">
+    <label className="flex min-w-0 flex-col gap-2">
       <span className="font-mono text-xs uppercase tracking-wide text-muted">{label}</span>
       <textarea
         name={name}
         rows={rows}
         defaultValue={defaultValue ?? ''}
-        className="resize-y border border-gold-border bg-bg px-4 py-3 font-mono text-sm leading-6 text-ink outline-none transition placeholder:text-muted-dark focus:border-gold/60"
+        className="w-full min-w-0 resize-y border border-gold-border bg-bg px-4 py-3 font-mono text-sm leading-6 text-ink outline-none transition placeholder:text-muted-dark focus:border-gold/60"
       />
     </label>
   );

@@ -45,6 +45,55 @@ function listValue(formData: FormData, key: string) {
     .filter(Boolean);
 }
 
+function uniqueList(values: string[]) {
+  const seen = new Set<string>();
+  return values.filter((value) => {
+    const key = value.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function sentenceFragment(value: string) {
+  return value.trim().replace(/[\s.。!?]+$/g, '');
+}
+
+function directive(label: string, value: string) {
+  const cleaned = sentenceFragment(value);
+  return cleaned ? `${label}: ${cleaned}.` : null;
+}
+
+function brandVoiceFromOnboarding(input: {
+  name: string;
+  industry: string;
+  services: string[];
+  geographicMarket: string;
+  primaryGoal: string;
+  primaryCta: string;
+}) {
+  const services = uniqueList(input.services).slice(0, 6);
+  const cta = sentenceFragment(input.primaryCta);
+  const goal = sentenceFragment(input.primaryGoal);
+  const market = sentenceFragment(input.geographicMarket);
+  const category = sentenceFragment(input.industry);
+  const firstService = services[0] ?? category.toLowerCase();
+
+  return {
+    dos: [
+      ...services.map((service) => `Only reference ${service} when supported by the source material.`),
+      directive('Focus on this geographic market', market),
+      directive('Optimize toward', goal),
+      directive('Use this primary call to action', cta),
+    ].filter((value): value is string => Boolean(value)),
+    donts: ['Do not invent services, offers, locations, or performance claims.'],
+    samplePosts: [
+      `${input.name} helps ${market || 'local customers'} with ${firstService}. ${cta || 'Reach out to learn more'}.`,
+      `Looking for ${category || 'trusted service'} support? Keep ${input.name} in mind when ${goal || 'you are ready for the next step'}.`,
+    ],
+  };
+}
+
 function redirectClient(slug: string, status: string): never {
   redirect(`/dashboard/clients/${encodeURIComponent(slug)}?status=${encodeURIComponent(status)}`);
 }
@@ -75,6 +124,14 @@ export async function createOnboardedClient(formData: FormData) {
     primary_goal, primary_cta, timezone, posting_frequency, tone, services,
     banned_phrases,
   } = parsed.data;
+  const brandVoice = brandVoiceFromOnboarding({
+    name,
+    industry,
+    services,
+    geographicMarket: geographic_market,
+    primaryGoal: primary_goal,
+    primaryCta: primary_cta,
+  });
   const { data: client, error: clientError } = await supabase
     .from('clients')
     .insert({
@@ -90,15 +147,10 @@ export async function createOnboardedClient(formData: FormData) {
     tone,
     about,
     audience,
-    dos: [
-      ...services.map((service) => `Only reference ${service} when supported by the source material.`),
-      `Focus on this geographic market: ${geographic_market}.`,
-      `Optimize toward: ${primary_goal}.`,
-      `Use this primary call to action: ${primary_cta}.`,
-    ],
-    donts: ['Do not invent services, offers, locations, or performance claims.'],
+    dos: brandVoice.dos,
+    donts: brandVoice.donts,
     banned_phrases,
-    sample_posts: [],
+    sample_posts: brandVoice.samplePosts,
   });
   if (voiceError) {
     await supabase.from('clients').delete().eq('id', client.id);
@@ -143,6 +195,14 @@ export async function decideOnboardingSubmission(formData: FormData) {
 
   const baseSlug = slugify(submission.name);
   if (!baseSlug) redirectOnboarding('submission-error');
+  const brandVoice = brandVoiceFromOnboarding({
+    name: submission.name,
+    industry: submission.industry,
+    services: submission.services,
+    geographicMarket: submission.geographic_market,
+    primaryGoal: submission.primary_goal,
+    primaryCta: submission.primary_cta,
+  });
   const { data: slugConflict } = await supabase.from('clients').select('id').eq('slug', baseSlug).maybeSingle();
   const slug = slugConflict ? `${baseSlug.slice(0, 70)}-${id.data.slice(0, 6)}` : baseSlug;
   const { data: client, error: clientError } = await supabase
@@ -169,15 +229,10 @@ export async function decideOnboardingSubmission(formData: FormData) {
     tone: submission.tone,
     about: submission.about,
     audience: submission.audience,
-    dos: [
-      ...submission.services.map((service: string) => `Only reference ${service} when supported by the source material.`),
-      `Focus on this geographic market: ${submission.geographic_market}.`,
-      `Optimize toward: ${submission.primary_goal}.`,
-      `Use this primary call to action: ${submission.primary_cta}.`,
-    ],
-    donts: ['Do not invent services, offers, locations, or performance claims.'],
+    dos: brandVoice.dos,
+    donts: brandVoice.donts,
     banned_phrases: submission.banned_phrases,
-    sample_posts: [],
+    sample_posts: brandVoice.samplePosts,
   });
   if (voiceError) {
     await supabase.from('clients').delete().eq('id', client.id);

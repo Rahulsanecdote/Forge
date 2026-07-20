@@ -12,10 +12,21 @@ function formatDate(value: string) {
   return new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
 }
 
+function isLaunchOpsFixture(value: { business_name?: string; name?: string; email?: string | null }) {
+  const business = value.business_name ?? value.name ?? '';
+  return business.startsWith('LaunchOps ') || value.email?.startsWith('launchops+') === true;
+}
+
 export default async function OnboardingPage({ searchParams }: { searchParams?: Promise<{ status?: string }> }) {
   if (!(await isAdminAuthenticated())) redirect('/dashboard/login');
   const query = await searchParams;
   const operations = await loadOnboardingOperations();
+  const visibleInvitations = operations.invitations.filter((invitation) => !isLaunchOpsFixture(invitation));
+  const pendingSubmissions = operations.submissions
+    .filter((submission) => submission.status === 'pending')
+    .filter((submission) => !isLaunchOpsFixture(submission));
+  const hiddenFixtures = operations.invitations.length + operations.submissions.length -
+    visibleInvitations.length - operations.submissions.filter((submission) => !isLaunchOpsFixture(submission)).length;
 
   return (
     <main className="min-h-screen bg-bg text-ink">
@@ -41,14 +52,21 @@ export default async function OnboardingPage({ searchParams }: { searchParams?: 
         <InviteLinkCreator />
 
         <section className="border-b border-gold-border py-7">
-          <div className="section-label">Recent invitations</div>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="section-label">Recent invitations</div>
+            {hiddenFixtures > 0 && (
+              <div className="font-mono text-[10px] uppercase tracking-wide text-muted-dark">
+                {hiddenFixtures} LaunchOps evidence record{hiddenFixtures === 1 ? '' : 's'} hidden
+              </div>
+            )}
+          </div>
           <div className="mt-5 overflow-x-auto border border-line">
             <table className="w-full min-w-[720px] text-left">
               <thead className="border-b border-line bg-surface/50 font-mono text-[10px] uppercase tracking-wide text-muted-dark">
                 <tr><th className="px-4 py-3">Business</th><th className="px-4 py-3">Recipient</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Expires</th><th className="px-4 py-3">Action</th></tr>
               </thead>
               <tbody className="divide-y divide-line font-mono text-xs">
-                {operations.invitations.map((invitation) => {
+                {visibleInvitations.map((invitation) => {
                   const expired = new Date(invitation.expires_at).getTime() <= Date.now();
                   const status = invitation.completed_at ? 'completed' : invitation.revoked_at ? 'revoked' : expired ? 'expired' : 'active';
                   return (
@@ -68,7 +86,7 @@ export default async function OnboardingPage({ searchParams }: { searchParams?: 
                     </tr>
                   );
                 })}
-                {operations.invitations.length === 0 && <tr><td colSpan={5} className="px-4 py-6 text-center text-muted-dark">No invitations created.</td></tr>}
+                {visibleInvitations.length === 0 && <tr><td colSpan={5} className="px-4 py-6 text-center text-muted-dark">No client invitations created.</td></tr>}
               </tbody>
             </table>
           </div>
@@ -78,7 +96,7 @@ export default async function OnboardingPage({ searchParams }: { searchParams?: 
           <div className="section-label">Pending client submissions</div>
           {operations.errors.length > 0 && <p className="mt-4 font-mono text-xs text-red-200">{operations.errors.join(' ')}</p>}
           <div className="mt-6 space-y-5">
-            {operations.submissions.filter((submission) => submission.status === 'pending').map((submission) => (
+            {pendingSubmissions.map((submission) => (
               <article key={submission.id} className="border border-gold-border bg-surface/50">
                 <div className="flex flex-wrap items-start justify-between gap-4 border-b border-gold-border p-5">
                   <div>
@@ -116,7 +134,7 @@ export default async function OnboardingPage({ searchParams }: { searchParams?: 
                 </div>
               </article>
             ))}
-            {operations.submissions.every((submission) => submission.status !== 'pending') && (
+            {pendingSubmissions.length === 0 && (
               <div className="border border-line px-5 py-8 text-center font-mono text-xs text-muted-dark">No pending submissions.</div>
             )}
           </div>
