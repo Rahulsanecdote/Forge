@@ -48,6 +48,12 @@ const schema = z.object({
   META_PAGE_ACCESS_TOKEN: optionalConfigSchema,
   META_GRAPH_VERSION: optionalConfigSchema,
 
+  // Image generation (post creatives). Server-only. Reuses the matching provider key
+  // (GOOGLE_GENERATIVE_AI_API_KEY for google, OPENAI_API_KEY for openai).
+  FORGE_IMAGE_PROVIDER: optionalConfigSchema, // 'google' (default) | 'openai'
+  FORGE_IMAGE_MODEL: optionalConfigSchema, // defaults per provider if unset
+  FORGE_IMAGE_BUCKET: optionalConfigSchema, // Supabase Storage bucket; default content-images
+
   // DataForSEO keyword metrics. Server-only.
   DATAFORSEO_LOGIN: optionalConfigSchema,
   DATAFORSEO_PASSWORD: optionalConfigSchema,
@@ -83,6 +89,9 @@ const runtimeEnv = {
   META_PAGE_ID: process.env.META_PAGE_ID,
   META_PAGE_ACCESS_TOKEN: process.env.META_PAGE_ACCESS_TOKEN,
   META_GRAPH_VERSION: process.env.META_GRAPH_VERSION,
+  FORGE_IMAGE_PROVIDER: process.env.FORGE_IMAGE_PROVIDER,
+  FORGE_IMAGE_MODEL: process.env.FORGE_IMAGE_MODEL,
+  FORGE_IMAGE_BUCKET: process.env.FORGE_IMAGE_BUCKET,
   DATAFORSEO_LOGIN: process.env.DATAFORSEO_LOGIN,
   DATAFORSEO_PASSWORD: process.env.DATAFORSEO_PASSWORD,
   DATAFORSEO_LOCATION_CODE: process.env.DATAFORSEO_LOCATION_CODE,
