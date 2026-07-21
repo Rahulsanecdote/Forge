@@ -660,24 +660,50 @@ export async function generatePostImage(formData: FormData) {
   redirectRun(runId.data, status);
 }
 
-// Publish an approved Google Business social-post run as Google local posts. Requires an
-// approved content_approvals record and google_business platform; re-checks banned-phrase
-// compliance, is idempotent against prior published_url evidence, and records each
-// published post as durable evidence. Fails closed on every gap.
+// Publish an approved social-post run to its platform (Google Business, Facebook, or
+// Instagram) right now. The heavy lifting — approval re-check, banned-phrase re-check,
+// idempotency, per-channel publish, and durable evidence — lives in publishApprovedRun,
+// the single fail-closed path shared with the scheduled-publish cron. This action only
+// resolves the client slug for revalidation and maps the outcome to a status banner.
 export async function publishApprovedContent(formData: FormData) {
   await requireAdmin();
   const runId = z.string().uuid().safeParse(stringValue(formData, 'run_id'));
   if (!runId.success) redirectRun('invalid', 'publish-invalid');
 
   const detail = await loadToolRunDetail(runId.data);
+  if (!detail || !detail.client) redirectRun(runId.data, 'publish-error');
+
+  const { publishApprovedRun } = await import('@/forge/data/publish');
+  const outcome = await publishApprovedRun(runId.data);
+
+  revalidatePath('/dashboard');
+  revalidatePath(`/dashboard/clients/${detail.client.slug}`);
+  revalidatePath(`/dashboard/runs/${runId.data}`);
+  redirectRun(runId.data, outcome.status);
+}
+
+// Schedule an approved social-post run to publish at a future time. Applies the same
+// pre-publish gates as immediate publishing (approved, supported platform, no banned
+// phrases, not already published, and — for Instagram — an image per post) so we never
+// queue something that can't ever go live. The scheduled-publish cron re-checks all of
+// this at fire time; these gates just give the operator fast, honest feedback.
+export async function scheduleApprovedContent(formData: FormData) {
+  await requireAdmin();
+  const runId = z.string().uuid().safeParse(stringValue(formData, 'run_id'));
+  if (!runId.success) redirectRun('invalid', 'schedule-invalid');
+
+  const { parseScheduledFor } = await import('@/forge/data/schedule-mapping');
+  const when = parseScheduledFor(stringValue(formData, 'scheduled_for'), new Date());
+  if (!when.ok) redirectRun(runId.data, when.reason === 'past' ? 'schedule-past' : 'schedule-invalid');
+
+  const detail = await loadToolRunDetail(runId.data);
   if (
     !detail ||
     !detail.client ||
     detail.run.tool !== 'create_social_posts' ||
-    !detail.approval ||
-    detail.approval.status !== 'approved'
+    detail.approval?.status !== 'approved'
   ) {
-    redirectRun(runId.data, 'publish-error');
+    redirectRun(runId.data, 'schedule-error');
   }
 
   const parsed = parseSocialPostOutput(detail.run.output);
@@ -687,11 +713,11 @@ export async function publishApprovedContent(formData: FormData) {
       parsed.platform !== 'facebook' &&
       parsed.platform !== 'instagram')
   ) {
-    redirectRun(runId.data, 'publish-unsupported');
+    redirectRun(runId.data, 'schedule-unsupported');
   }
 
   if (findBannedPhraseViolations(detail.run.output, detail.currentBannedPhrases).length > 0) {
-    redirectRun(runId.data, 'publish-blocked');
+    redirectRun(runId.data, 'schedule-blocked');
   }
 
   const supabase = getAdminSupabase();
@@ -701,104 +727,58 @@ export async function publishApprovedContent(formData: FormData) {
     .eq('run_id', runId.data)
     .eq('kind', 'published_url')
     .limit(1);
-  if (alreadyPublished && alreadyPublished.length > 0) redirectRun(runId.data, 'publish-already');
+  if (alreadyPublished && alreadyPublished.length > 0) redirectRun(runId.data, 'schedule-already');
 
-  const clientDetail = await loadClientDetail(detail.client.slug);
-  if (!clientDetail) redirectRun(runId.data, 'publish-error');
-
-  const client = clientContextFromDetail(clientDetail);
-  const messages = parsed.posts.map((post) =>
-    [post.caption, post.hashtags.join(' ')].filter(Boolean).join('\n\n'),
-  );
-
-  let status = 'publish-error';
-  try {
-    // One published_url evidence row per live post, whichever channel published it.
-    let evidence: Array<{ reference: string; description: string; payload: Record<string, unknown> }> = [];
-    let failureStatus: string | null = null;
-
-    if (parsed.platform === 'google_business') {
-      const { publishApprovedSocialPostsToGoogle } = await import('@/forge/data/google-business-profile');
-      const result = await publishApprovedSocialPostsToGoogle({ client, summaries: messages });
-      if (result.published) {
-        evidence = result.posts.map((post) => ({
-          reference: post.searchUrl ?? post.name,
-          description: 'Google Business local post published from the operator dashboard.',
-          payload: { name: post.name, searchUrl: post.searchUrl },
-        }));
-      } else {
-        failureStatus = result.code === 'unconfigured' ? 'publish-unconfigured' : 'publish-error';
-      }
-    } else if (parsed.platform === 'facebook') {
-      const { publishApprovedFacebookPosts } = await import('@/forge/data/meta');
-      const result = await publishApprovedFacebookPosts({ messages, link: client.website });
-      if (result.published) {
-        evidence = result.posts.map((post) => ({
-          reference: post.url,
-          description: 'Facebook page post published from the operator dashboard.',
-          payload: { id: post.id, url: post.url },
-        }));
-      } else {
-        failureStatus = result.code === 'unconfigured' ? 'publish-unconfigured' : 'publish-error';
-      }
-    } else {
-      // instagram — each post must have a generated image (a public URL).
-      const { data: assets } = await supabase
-        .from('content_assets')
-        .select('post_index, public_url')
-        .eq('run_id', runId.data)
-        .eq('kind', 'image');
-      const imageByIndex = new Map<number, string>(
-        ((assets ?? []) as Array<{ post_index: number; public_url: string }>).map((row) => [
-          row.post_index,
-          row.public_url,
-        ]),
-      );
-      const { publishApprovedInstagramPosts } = await import('@/forge/data/instagram');
-      const result = await publishApprovedInstagramPosts({
-        posts: parsed.posts.map((post, index) => ({
-          caption: post.caption,
-          hashtags: post.hashtags,
-          imageUrl: imageByIndex.get(index) ?? null,
-        })),
-      });
-      if (result.published) {
-        evidence = result.posts.map((post) => ({
-          reference: post.url,
-          description: 'Instagram post published from the operator dashboard.',
-          payload: { mediaId: post.mediaId, url: post.url },
-        }));
-      } else {
-        failureStatus =
-          result.code === 'unconfigured'
-            ? 'publish-unconfigured'
-            : result.code === 'missing_image'
-              ? 'publish-missing-image'
-              : 'publish-error';
-      }
+  if (parsed.platform === 'instagram') {
+    const { data: assets } = await supabase
+      .from('content_assets')
+      .select('post_index')
+      .eq('run_id', runId.data)
+      .eq('kind', 'image');
+    const withImage = new Set((assets ?? []).map((row: { post_index: number }) => row.post_index));
+    if (parsed.posts.some((_, index) => !withImage.has(index))) {
+      redirectRun(runId.data, 'schedule-missing-image');
     }
-
-    if (evidence.length > 0) {
-      for (const row of evidence) {
-        await supabase.from('forge_run_evidence').insert({
-          run_id: runId.data,
-          kind: 'published_url',
-          description: row.description,
-          reference: row.reference,
-          payload: row.payload,
-        });
-      }
-      status = 'publish-complete';
-    } else {
-      status = failureStatus ?? 'publish-error';
-    }
-  } catch (error) {
-    console.error('[dashboard/publishApprovedContent]', error);
-    status = 'publish-error';
   }
+
+  // One schedule per run: re-scheduling replaces the prior pending row and re-arms it.
+  const { error } = await supabase.from('content_schedules').upsert(
+    {
+      run_id: runId.data,
+      client_id: detail.client.id,
+      scheduled_for: when.at,
+      status: 'pending',
+      attempts: 0,
+      last_error: null,
+      published_at: null,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'run_id' },
+  );
+  if (error) redirectRun(runId.data, 'schedule-error');
 
   revalidatePath('/dashboard');
   revalidatePath(`/dashboard/clients/${detail.client.slug}`);
   revalidatePath(`/dashboard/runs/${runId.data}`);
-  redirectRun(runId.data, status);
+  redirectRun(runId.data, 'schedule-set');
+}
+
+// Cancel a pending publish schedule for a run. Only pending schedules can be canceled;
+// once the cron has claimed or published one, this is a no-op mapped to schedule-error.
+export async function cancelScheduledContent(formData: FormData) {
+  await requireAdmin();
+  const runId = z.string().uuid().safeParse(stringValue(formData, 'run_id'));
+  if (!runId.success) redirectRun('invalid', 'schedule-invalid');
+
+  const { data, error } = await getAdminSupabase()
+    .from('content_schedules')
+    .update({ status: 'canceled', updated_at: new Date().toISOString() })
+    .eq('run_id', runId.data)
+    .eq('status', 'pending')
+    .select('id')
+    .maybeSingle();
+
+  revalidatePath('/dashboard');
+  revalidatePath(`/dashboard/runs/${runId.data}`);
+  redirectRun(runId.data, error || !data ? 'schedule-error' : 'schedule-canceled');
 }

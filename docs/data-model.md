@@ -13,6 +13,8 @@ required**. The optional pgvector table is in `supabase/optional/`.
 | `supabase/migrations/20260717011053_content_approvals.sql` | `content_approvals` (+ index, RLS, service-role grants) |
 | `supabase/migrations/20260717053823_agent_authority_foundation.sql` | AAL agents, tool registry, permissions, run states, evidence, audits, and operator-table RLS |
 | `supabase/migrations/20260717233127_client_onboarding_invitations.sql` | Review-only client fields, hashed onboarding invitations, pending submissions, and token RPCs |
+| `supabase/migrations/20260721140000_content_assets.sql` | `content_assets` (+ index, RLS, public `content-images` bucket) |
+| `supabase/migrations/20260721160000_content_schedules.sql` | `content_schedules` (+ due index, RLS, service-role grants) |
 | `supabase/optional/client_memory.sql` | `client_memory` + pgvector (reserved for a later increment; apply by hand) |
 
 Apply locally with `supabase db reset`; in a hosted project, run the SQL files in
@@ -181,6 +183,32 @@ external channels (e.g. Instagram, which requires a fetchable `image_url`) consu
 RLS is enabled; only `service_role` has table privileges. The `content-images` Storage
 bucket is public-read (objects fetchable by URL); writes go through the service role.
 
+### `content_schedules`
+
+Deferred publishing for an approved social-post run. One row per run (`unique(run_id)`):
+an operator picks a future time from the run's publishing panel, and the
+`scheduled-publish` cron claims due rows and publishes them through the same
+fail-closed `publishApprovedRun` path as the immediate "Publish" button. See
+[Scheduled jobs](./scheduled-jobs.md).
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid | PK |
+| `run_id` | uuid | **unique** FK → `tool_runs(id)`, `on delete cascade` |
+| `client_id` | uuid | FK → `clients(id)`, `on delete set null` |
+| `scheduled_for` | timestamptz | not null — when to publish (UTC) |
+| `status` | text | `pending` \| `publishing` \| `published` \| `failed` \| `canceled` |
+| `attempts` | int | default 0 — incremented when the cron claims the row |
+| `last_error` | text | publish outcome status when `failed` |
+| `published_at` | timestamptz | set when publishing succeeds |
+| `created_at` | timestamptz | default `now()` |
+| `updated_at` | timestamptz | default `now()` |
+
+Index: `content_schedules_due_idx on (status, scheduled_for)` for the cron's due query.
+The cron claims each row atomically (`pending → publishing`, guarded by status) so
+overlapping runs never publish the same run twice. RLS is enabled; only `service_role`
+has table privileges.
+
 ### Client onboarding invitations
 
 `onboarding_invitations` stores only a SHA-256 token hash, invitation metadata, expiry,
@@ -220,6 +248,8 @@ clients (1) ──< (1) brand_voices         # one brand voice per client
 clients (1) ──< (N) tool_runs            # audit log
 clients (1) ──< (N) reviews              # review queue
 clients (1) ──< (N) content_approvals    # generated-content decision gate
+tool_runs (1) ──< (N) content_assets     # generated post creatives (images)
+tool_runs (1) ──< (1) content_schedules  # deferred publish schedule (one per run)
 onboarding_invitations (1) ──< (1) onboarding_submissions
 onboarding_submissions (0..1) ──> (1) clients  # after operator approval
 forge_agents (1) ──< (N) forge_agent_tool_permissions >── (1) forge_tools

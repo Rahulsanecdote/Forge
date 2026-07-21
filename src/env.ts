@@ -34,6 +34,7 @@ const schema = z.object({
   // Scheduled jobs (Inngest). Cron strings; sensible defaults applied if unset.
   FORGE_CONTENT_CRON: optionalConfigSchema,
   FORGE_REVIEW_CRON: optionalConfigSchema,
+  FORGE_PUBLISH_CRON: optionalConfigSchema,
 
   // Google Business Profile review ingestion. Server-only.
   GOOGLE_BUSINESS_PROFILE_ACCESS_TOKEN: optionalConfigSchema,
@@ -81,6 +82,7 @@ const runtimeEnv = {
   FORGE_API_KEY: process.env.FORGE_API_KEY,
   FORGE_CONTENT_CRON: process.env.FORGE_CONTENT_CRON,
   FORGE_REVIEW_CRON: process.env.FORGE_REVIEW_CRON,
+  FORGE_PUBLISH_CRON: process.env.FORGE_PUBLISH_CRON,
   GOOGLE_BUSINESS_PROFILE_ACCESS_TOKEN: process.env.GOOGLE_BUSINESS_PROFILE_ACCESS_TOKEN,
   GOOGLE_BUSINESS_PROFILE_REFRESH_TOKEN: process.env.GOOGLE_BUSINESS_PROFILE_REFRESH_TOKEN,
   GOOGLE_BUSINESS_PROFILE_ACCOUNT_ID: process.env.GOOGLE_BUSINESS_PROFILE_ACCOUNT_ID,
