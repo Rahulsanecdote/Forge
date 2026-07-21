@@ -681,7 +681,12 @@ export async function publishApprovedContent(formData: FormData) {
   }
 
   const parsed = parseSocialPostOutput(detail.run.output);
-  if (!parsed || (parsed.platform !== 'google_business' && parsed.platform !== 'facebook')) {
+  if (
+    !parsed ||
+    (parsed.platform !== 'google_business' &&
+      parsed.platform !== 'facebook' &&
+      parsed.platform !== 'instagram')
+  ) {
     redirectRun(runId.data, 'publish-unsupported');
   }
 
@@ -710,7 +715,7 @@ export async function publishApprovedContent(formData: FormData) {
   try {
     // One published_url evidence row per live post, whichever channel published it.
     let evidence: Array<{ reference: string; description: string; payload: Record<string, unknown> }> = [];
-    let unconfigured = false;
+    let failureStatus: string | null = null;
 
     if (parsed.platform === 'google_business') {
       const { publishApprovedSocialPostsToGoogle } = await import('@/forge/data/google-business-profile');
@@ -722,9 +727,9 @@ export async function publishApprovedContent(formData: FormData) {
           payload: { name: post.name, searchUrl: post.searchUrl },
         }));
       } else {
-        unconfigured = result.code === 'unconfigured';
+        failureStatus = result.code === 'unconfigured' ? 'publish-unconfigured' : 'publish-error';
       }
-    } else {
+    } else if (parsed.platform === 'facebook') {
       const { publishApprovedFacebookPosts } = await import('@/forge/data/meta');
       const result = await publishApprovedFacebookPosts({ messages, link: client.website });
       if (result.published) {
@@ -734,7 +739,42 @@ export async function publishApprovedContent(formData: FormData) {
           payload: { id: post.id, url: post.url },
         }));
       } else {
-        unconfigured = result.code === 'unconfigured';
+        failureStatus = result.code === 'unconfigured' ? 'publish-unconfigured' : 'publish-error';
+      }
+    } else {
+      // instagram — each post must have a generated image (a public URL).
+      const { data: assets } = await supabase
+        .from('content_assets')
+        .select('post_index, public_url')
+        .eq('run_id', runId.data)
+        .eq('kind', 'image');
+      const imageByIndex = new Map<number, string>(
+        ((assets ?? []) as Array<{ post_index: number; public_url: string }>).map((row) => [
+          row.post_index,
+          row.public_url,
+        ]),
+      );
+      const { publishApprovedInstagramPosts } = await import('@/forge/data/instagram');
+      const result = await publishApprovedInstagramPosts({
+        posts: parsed.posts.map((post, index) => ({
+          caption: post.caption,
+          hashtags: post.hashtags,
+          imageUrl: imageByIndex.get(index) ?? null,
+        })),
+      });
+      if (result.published) {
+        evidence = result.posts.map((post) => ({
+          reference: post.url,
+          description: 'Instagram post published from the operator dashboard.',
+          payload: { mediaId: post.mediaId, url: post.url },
+        }));
+      } else {
+        failureStatus =
+          result.code === 'unconfigured'
+            ? 'publish-unconfigured'
+            : result.code === 'missing_image'
+              ? 'publish-missing-image'
+              : 'publish-error';
       }
     }
 
@@ -750,7 +790,7 @@ export async function publishApprovedContent(formData: FormData) {
       }
       status = 'publish-complete';
     } else {
-      status = unconfigured ? 'publish-unconfigured' : 'publish-error';
+      status = failureStatus ?? 'publish-error';
     }
   } catch (error) {
     console.error('[dashboard/publishApprovedContent]', error);

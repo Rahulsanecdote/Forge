@@ -94,8 +94,9 @@ function ApprovalStatus({ status }: { status?: string }) {
     'publish-already': 'This run was already published to Google Business.',
     'publish-blocked': 'Not published — the draft contains a banned phrase. Revise and regenerate.',
     'publish-unsupported': 'Only approved Google Business posts can be published here.',
-    'publish-unconfigured': 'Not published — configure a write-scoped Google token and account/location IDs first.',
-    'publish-error': 'Publishing to Google Business failed. Check the Google write scope and server logs.',
+    'publish-unconfigured': 'Not published — configure the channel credentials (Google token / Meta page token / Instagram account) first.',
+    'publish-missing-image': 'Not published — every Instagram post needs a generated image first.',
+    'publish-error': 'Publishing failed. Check the channel credentials and server logs.',
     'publish-invalid': 'That publish request was invalid.',
     'image-generated': 'Image generated and attached to the post.',
     'image-unconfigured': 'Image not generated — set FORGE_IMAGE_PROVIDER and its API key first.',
@@ -107,6 +108,7 @@ function ApprovalStatus({ status }: { status?: string }) {
     status === 'publish-blocked' ||
     status === 'publish-unsupported' ||
     status === 'publish-unconfigured' ||
+    status === 'publish-missing-image' ||
     status === 'image-unconfigured' ||
     status.endsWith('error') ||
     status.endsWith('invalid');
@@ -166,7 +168,9 @@ export default async function ToolRunDetailPage({
       ? 'Google Business'
       : socialPosts?.platform === 'facebook'
         ? 'Facebook'
-        : null;
+        : socialPosts?.platform === 'instagram'
+          ? 'Instagram'
+          : null;
 
   const postImages = new Map<number, string>(
     socialPosts
