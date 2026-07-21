@@ -11,6 +11,8 @@ export interface KeywordMetric {
   competition: number | null;
   competition_level: string | null;
   search_intent: string | null;
+  opportunity_score: number | null;
+  opportunity_label: 'high' | 'medium' | 'low' | 'unknown';
   monthly_searches: Array<{ year: number; month: number; search_volume: number }>;
   source: 'dataforseo';
 }
@@ -137,6 +139,63 @@ function monthlySearches(value: unknown): KeywordMetric['monthly_searches'] {
     .filter((item): item is KeywordMetric['monthly_searches'][number] => Boolean(item));
 }
 
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function intentScore(intent: string | null) {
+  switch (intent?.toLowerCase()) {
+    case 'transactional':
+      return 20;
+    case 'commercial':
+      return 16;
+    case 'local':
+      return 14;
+    case 'informational':
+      return 7;
+    default:
+      return 0;
+  }
+}
+
+function opportunityLabel(score: number | null): KeywordMetric['opportunity_label'] {
+  if (score === null) return 'unknown';
+  if (score >= 60) return 'high';
+  if (score >= 35) return 'medium';
+  return 'low';
+}
+
+export function scoreKeywordOpportunity(metric: {
+  search_volume: number | null;
+  keyword_difficulty: number | null;
+  cpc: number | null;
+  competition: number | null;
+  search_intent: string | null;
+}): Pick<KeywordMetric, 'opportunity_score' | 'opportunity_label'> {
+  const hasEvidence =
+    metric.search_volume !== null ||
+    metric.keyword_difficulty !== null ||
+    metric.cpc !== null ||
+    metric.competition !== null ||
+    metric.search_intent !== null;
+
+  if (!hasEvidence) {
+    return { opportunity_score: null, opportunity_label: 'unknown' };
+  }
+
+  const volumeScore =
+    metric.search_volume === null ? 0 : clamp(Math.log10(metric.search_volume + 1) * 10, 0, 40);
+  const difficultyScore =
+    metric.keyword_difficulty === null ? 10 : clamp(30 - metric.keyword_difficulty * 0.3, 0, 30);
+  const cpcScore = metric.cpc === null ? 0 : clamp(metric.cpc * 4, 0, 12);
+  const paidCompetitionPenalty = metric.competition === null ? 0 : clamp(metric.competition * 8, 0, 8);
+  const score = Math.round(
+    clamp(volumeScore + difficultyScore + cpcScore + intentScore(metric.search_intent) - paidCompetitionPenalty, 0, 100),
+  );
+
+  return { opportunity_score: score, opportunity_label: opportunityLabel(score) };
+}
+
 function metricFromItem(item: Record<string, unknown>): KeywordMetric | null {
   const keyword = asString(item.keyword);
   if (!keyword) return null;
@@ -146,7 +205,7 @@ function metricFromItem(item: Record<string, unknown>): KeywordMetric | null {
   const properties = asRecord(item.keyword_properties);
   const intent = asRecord(item.search_intent_info);
 
-  return {
+  const base = {
     keyword,
     search_volume: asInteger(info?.search_volume),
     keyword_difficulty: asInteger(properties?.keyword_difficulty),
@@ -154,9 +213,24 @@ function metricFromItem(item: Record<string, unknown>): KeywordMetric | null {
     competition: asNumber(info?.competition),
     competition_level: asString(info?.competition_level),
     search_intent: asString(intent?.main_intent),
+  };
+
+  return {
+    ...base,
+    ...scoreKeywordOpportunity(base),
     monthly_searches: monthlySearches(info?.monthly_searches),
     source: 'dataforseo',
   };
+}
+
+function sortKeywordMetrics(metrics: KeywordMetric[]) {
+  return [...metrics].sort((a, b) => {
+    const scoreDiff = (b.opportunity_score ?? -1) - (a.opportunity_score ?? -1);
+    if (scoreDiff !== 0) return scoreDiff;
+    const volumeDiff = (b.search_volume ?? -1) - (a.search_volume ?? -1);
+    if (volumeDiff !== 0) return volumeDiff;
+    return a.keyword.localeCompare(b.keyword);
+  });
 }
 
 export function parseDataForSeoKeywordOverviewResponse(payload: unknown): KeywordMetric[] {
@@ -179,7 +253,7 @@ export function parseDataForSeoKeywordOverviewResponse(payload: unknown): Keywor
     }
   }
 
-  return metrics;
+  return sortKeywordMetrics(metrics);
 }
 
 function summarizeDataForSeoError(payload: unknown, fallback: string) {

@@ -46,6 +46,8 @@ const keywordMetricSchema = z
     competition: z.number().nullable(),
     competition_level: z.string().nullable(),
     search_intent: z.string().nullable(),
+    opportunity_score: z.number().nullable().optional(),
+    opportunity_label: z.enum(['high', 'medium', 'low', 'unknown']).optional(),
   })
   .passthrough();
 
@@ -83,6 +85,8 @@ export interface KeywordResearchOutput {
     competition: number | null;
     competitionLevel: string | null;
     searchIntent: string | null;
+    opportunityScore: number | null;
+    opportunityLabel: 'high' | 'medium' | 'low' | 'unknown';
   }>;
   dataSource: {
     provider: string;
@@ -130,6 +134,8 @@ export function parseKeywordResearchOutput(output: unknown): KeywordResearchOutp
       competition: metric.competition,
       competitionLevel: metric.competition_level,
       searchIntent: metric.search_intent,
+      opportunityScore: metric.opportunity_score ?? null,
+      opportunityLabel: metric.opportunity_label ?? 'unknown',
     })),
     dataSource: parsed.data.data_source
       ? {

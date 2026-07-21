@@ -4,6 +4,7 @@ import {
   buildDataForSeoKeywordOverviewPayload,
   normalizeKeywordList,
   parseDataForSeoKeywordOverviewResponse,
+  scoreKeywordOpportunity,
 } from './data/keywords';
 
 test('normalizes keyword lists for DataForSEO limits without duplicates', () => {
@@ -80,6 +81,8 @@ test('parses DataForSEO keyword overview metrics without inventing missing field
       competition: 0.42,
       competition_level: 'MEDIUM',
       search_intent: 'commercial',
+      opportunity_score: 81,
+      opportunity_label: 'high',
       monthly_searches: [{ year: 2026, month: 6, search_volume: 12100 }],
       source: 'dataforseo',
     },
@@ -91,8 +94,34 @@ test('parses DataForSEO keyword overview metrics without inventing missing field
       competition: null,
       competition_level: null,
       search_intent: null,
+      opportunity_score: null,
+      opportunity_label: 'unknown',
       monthly_searches: [],
       source: 'dataforseo',
     },
   ]);
+});
+
+test('scores keyword opportunities only from returned provider evidence', () => {
+  assert.deepEqual(
+    scoreKeywordOpportunity({
+      search_volume: null,
+      keyword_difficulty: null,
+      cpc: null,
+      competition: null,
+      search_intent: null,
+    }),
+    { opportunity_score: null, opportunity_label: 'unknown' },
+  );
+
+  const strong = scoreKeywordOpportunity({
+    search_volume: 8100,
+    keyword_difficulty: 12,
+    cpc: 2.4,
+    competition: 0.18,
+    search_intent: 'transactional',
+  });
+
+  assert.equal(strong.opportunity_label, 'high');
+  assert.equal(typeof strong.opportunity_score, 'number');
 });

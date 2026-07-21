@@ -26,6 +26,25 @@ function listText(values: string[] | null | undefined) {
   return (values ?? []).join('\n');
 }
 
+function firstSentence(value: string | null | undefined) {
+  return value?.split(/[.!?]/)[0]?.trim() || null;
+}
+
+function keywordTopicDefault({
+  client,
+  brandVoice,
+}: Pick<NonNullable<Awaited<ReturnType<typeof loadClientDetail>>>, 'client' | 'brandVoice'>) {
+  const about = firstSentence(brandVoice?.about);
+  const audience = brandVoice?.audience?.trim();
+  const cta = client.primary_cta?.trim();
+  const market = client.geographic_market?.trim();
+  const industry = client.industry?.trim();
+
+  return [about ?? cta ?? industry ?? client.name, audience ?? market]
+    .filter((value): value is string => Boolean(value))
+    .join(' for ');
+}
+
 function StatusBanner({ status }: { status?: string }) {
   if (!status) return null;
 
@@ -236,14 +255,15 @@ export default async function ClientDetailPage({
                 Keyword Research / DataForSEO
               </div>
               <p className="mt-3 font-sans text-sm leading-6 text-muted">
-                Run the keyword tool directly. If DataForSEO env vars are present, this includes
-                search volume, CPC, competition, intent, and difficulty.
+                Run the keyword tool directly against customer buying intent. If DataForSEO env vars
+                are present, this includes search volume, CPC, competition, intent, difficulty, and
+                an opportunity score.
               </p>
               <div className="mt-5 grid gap-4 md:grid-cols-[minmax(0,1fr)_120px]">
                 <Field
                   label="Topic"
                   name="topic"
-                  defaultValue={client.industry ? `${client.industry} marketing` : client.name}
+                  defaultValue={keywordTopicDefault({ client, brandVoice })}
                 />
                 <Field label="Count" name="count" type="number" defaultValue={20} />
               </div>

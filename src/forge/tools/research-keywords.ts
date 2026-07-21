@@ -47,16 +47,34 @@ function uniqueKeywordsFromClusters(clusters: KeywordCluster[]) {
   return keywords;
 }
 
+function maybeLine(label: string, value: string | string[] | null | undefined) {
+  const text = Array.isArray(value) ? value.filter(Boolean).join(', ') : value;
+  return text && text.trim() ? `${label}: ${text.trim()}.` : '';
+}
+
 export const researchKeywords: ForgeTool<Input> = {
   name: 'research_keywords',
   description:
     'Generate clustered SEO keyword ideas with search intent and a content angle per cluster. Adds real DataForSEO volume/difficulty metrics when configured.',
   schema,
   async execute(input, ctx) {
+    const bv = ctx.client.brandVoice;
     const prompt = [
-      `Generate about ${input.count} SEO keyword ideas for ${ctx.client.name} around: ${input.topic}.`,
-      ctx.client.industry ? `Industry: ${ctx.client.industry}.` : '',
+      `Generate about ${input.count} SEO keyword ideas for ${ctx.client.name} around this customer demand seed: ${input.topic}.`,
+      maybeLine('Industry', ctx.client.industry),
+      maybeLine('Website', ctx.client.website),
+      maybeLine('Geographic market', ctx.client.geographicMarket),
+      maybeLine('Primary goal', ctx.client.primaryGoal),
+      maybeLine('Primary call to action', ctx.client.primaryCta),
+      maybeLine('Audience', bv.audience),
+      maybeLine('Business summary', bv.about),
+      maybeLine('Required factual guardrails', bv.dos),
+      maybeLine('Do not claim', [...bv.donts, ...bv.bannedPhrases]),
       input.location ? `Include local-intent variants for ${input.location}.` : '',
+      "Generate keywords that the client's customers would search before buying, booking, visiting, ordering, or comparing the client's offering.",
+      'Do not generate keywords about marketing, branding, advertising, running, designing, or promoting this type of business unless the seed explicitly asks for those B2B services.',
+      'Do not use placeholders such as "[City]", "[service]", or "near me" when a concrete location is available. If no concrete location is provided, prefer non-local customer intent.',
+      'Keep every keyword grounded in the provided business facts. Do not invent products, offers, locations, or guarantees.',
       'Group them into themed clusters. For each cluster give the search intent (informational | commercial | transactional | local) and one concrete content angle.',
       'Do NOT include search volume, CPC, competition, or difficulty numbers in this JSON — provider data is added separately after generation.',
       '',

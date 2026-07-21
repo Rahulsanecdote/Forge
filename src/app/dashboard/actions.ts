@@ -114,6 +114,9 @@ function clientContextFromDetail(detail: NonNullable<Awaited<ReturnType<typeof l
     industry: detail.client.industry,
     website: detail.client.website,
     locations: detail.client.locations ?? 1,
+    geographicMarket: detail.client.geographic_market,
+    primaryGoal: detail.client.primary_goal,
+    primaryCta: detail.client.primary_cta,
     googleBusinessAccountId: detail.client.google_business_account_id,
     googleBusinessLocationId: detail.client.google_business_location_id,
     brandVoice: {

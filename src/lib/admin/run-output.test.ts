@@ -39,6 +39,8 @@ test('parses keyword research output for dashboard metrics preview', () => {
         competition: 0.41,
         competition_level: 'MEDIUM',
         search_intent: 'commercial',
+        opportunity_score: 67,
+        opportunity_label: 'high',
       },
     ],
     data_source: {
@@ -69,6 +71,8 @@ test('parses keyword research output for dashboard metrics preview', () => {
         competition: 0.41,
         competitionLevel: 'MEDIUM',
         searchIntent: 'commercial',
+        opportunityScore: 67,
+        opportunityLabel: 'high',
       },
     ],
     dataSource: {

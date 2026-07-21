@@ -18,6 +18,9 @@ export interface ClientContext {
   industry: string | null;
   website: string | null;
   locations: number;
+  geographicMarket?: string | null;
+  primaryGoal?: string | null;
+  primaryCta?: string | null;
   googleBusinessAccountId?: string | null;
   googleBusinessLocationId?: string | null;
   brandVoice: BrandVoice;

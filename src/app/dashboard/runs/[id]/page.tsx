@@ -37,6 +37,13 @@ function metricText(value: number | null, options?: Intl.NumberFormatOptions) {
   return new Intl.NumberFormat('en-US', options).format(value);
 }
 
+function opportunityClass(label: string) {
+  if (label === 'high') return 'text-emerald-300';
+  if (label === 'medium') return 'text-gold';
+  if (label === 'low') return 'text-muted';
+  return 'text-muted-dark';
+}
+
 function ApprovalStatus({ status }: { status?: string }) {
   if (!status) return null;
 
@@ -262,10 +269,16 @@ export default async function ToolRunDetailPage({
 
               {keywordResearch.metrics.length > 0 ? (
                 <div className="mt-6 overflow-x-auto">
+                  <p className="mb-4 font-sans text-sm leading-6 text-muted">
+                    Start with rows marked high or medium that also match the client&apos;s product and
+                    audience. Scores are directional and use only returned provider fields; they are
+                    not a promise of ranking or revenue.
+                  </p>
                   <table className="min-w-full border-collapse font-mono text-xs">
                     <thead className="border-b border-gold-border text-muted-dark">
                       <tr>
                         <th className="py-3 pr-4 text-left uppercase tracking-wide">Keyword</th>
+                        <th className="px-4 py-3 text-right uppercase tracking-wide">Opportunity</th>
                         <th className="px-4 py-3 text-right uppercase tracking-wide">Volume</th>
                         <th className="px-4 py-3 text-right uppercase tracking-wide">Difficulty</th>
                         <th className="px-4 py-3 text-right uppercase tracking-wide">CPC</th>
@@ -277,6 +290,11 @@ export default async function ToolRunDetailPage({
                       {keywordResearch.metrics.map((metric) => (
                         <tr key={metric.keyword}>
                           <td className="py-3 pr-4 text-ink">{metric.keyword}</td>
+                          <td className={`px-4 py-3 text-right uppercase ${opportunityClass(metric.opportunityLabel)}`}>
+                            {metric.opportunityScore === null
+                              ? 'unknown'
+                              : `${metric.opportunityScore} · ${metric.opportunityLabel}`}
+                          </td>
                           <td className="px-4 py-3 text-right text-muted">
                             {metricText(metric.searchVolume)}
                           </td>
