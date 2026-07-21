@@ -232,6 +232,8 @@ see [Scheduled jobs](./scheduled-jobs.md).
 | `client_id` | uuid | FK → `clients(id)`, `on delete set null` |
 | `platform` | text | `instagram` \| `facebook` |
 | `external_id` | text | platform post/media id |
+| `post_index` | int | which post in the run this metric belongs to |
+| `caption` | text | the generated caption, captured for performance memory |
 | `permalink` | text | link to the live post, when known |
 | `likes` / `comments` / `shares` / `saved` | int | engagement counts (null when unavailable) |
 | `reach` / `impressions` / `video_views` / `interactions` | int | delivery + interaction totals (null when unavailable) |
@@ -240,6 +242,15 @@ see [Scheduled jobs](./scheduled-jobs.md).
 | `created_at` | timestamptz | default `now()` |
 
 RLS is enabled; only `service_role` has table privileges.
+
+**Performance memory.** Because each metric row carries the `caption` that earned it,
+the generator can learn from what worked: `create_social_posts` calls
+`loadTopPerformingPosts(clientId)`, which ranks a client's past posts by an engagement
+score (`interactions`, or a weighted sum of likes/comments/shares/saves) and injects
+the best few into the generation prompt as "what resonated" guidance — write fresh
+copy, never reuse wording, stay within the factual ceiling. It's best-effort: with no
+metrics yet, generation is unchanged. (Semantic retrieval over post history via the
+optional `client_memory` pgvector table remains a future enhancement.)
 
 ### Client onboarding invitations
 

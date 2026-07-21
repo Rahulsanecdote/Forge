@@ -79,34 +79,39 @@ export async function refreshRunMetrics(runId: string): Promise<RefreshMetricsRe
     }
 
     const parsed = parseSocialPostOutput(run.output);
-    const platform = parsed?.platform;
-    if (platform !== 'instagram' && platform !== 'facebook') {
+    if (!parsed || (parsed.platform !== 'instagram' && parsed.platform !== 'facebook')) {
       return {
         refreshed: false,
         code: 'unsupported',
         reason: 'Per-post metrics are only available for Instagram and Facebook.',
       };
     }
+    const platform = parsed.platform;
 
     const accessToken = env.META_PAGE_ACCESS_TOKEN?.trim();
     if (!accessToken) {
       return { refreshed: false, code: 'unconfigured', reason: 'Missing META_PAGE_ACCESS_TOKEN.' };
     }
 
+    // Ordered by insertion so each published_url row lines up with the post it came
+    // from — publishing inserts one row per post in array order. That pairing lets us
+    // store the caption alongside the metrics for performance memory.
     const { data: published } = await supabase
       .from('forge_run_evidence')
-      .select('reference, payload')
+      .select('reference, payload, created_at')
       .eq('run_id', runId)
-      .eq('kind', 'published_url');
+      .eq('kind', 'published_url')
+      .order('created_at', { ascending: true });
     const rows = (published ?? []) as Array<{ reference: string | null; payload: unknown }>;
     if (rows.length === 0) {
       return { refreshed: false, code: 'no_posts', reason: 'This run has no published posts yet.' };
     }
 
     let count = 0;
-    for (const row of rows) {
+    for (const [postIndex, row] of rows.entries()) {
       const externalId = publishedExternalId(platform, row.payload);
       if (!externalId) continue;
+      const caption = parsed.posts[postIndex]?.caption ?? null;
 
       const metrics =
         platform === 'instagram'
@@ -120,6 +125,8 @@ export async function refreshRunMetrics(runId: string): Promise<RefreshMetricsRe
           client_id: run.client_id,
           platform,
           external_id: externalId,
+          post_index: postIndex,
+          caption,
           permalink,
           likes: metrics.likes,
           comments: metrics.comments,

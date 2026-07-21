@@ -29,7 +29,7 @@ const platformGuidance: Record<Input['platform'], string> = {
     'Write concise Google Business Profile copy. Hashtags should normally be an empty array unless the task explicitly requests them.',
 };
 
-export function buildSocialPostsPrompt(input: Input, client: ClientContext) {
+export function buildSocialPostsPrompt(input: Input, client: ClientContext, topPosts: string[] = []) {
   const bv = client.brandVoice;
   return [
     `Write ${input.count} ${input.platform} post(s) for ${client.name}.`,
@@ -45,6 +45,9 @@ export function buildSocialPostsPrompt(input: Input, client: ClientContext) {
     bv.dos.length ? `Always do:\n- ${bv.dos.join('\n- ')}` : '',
     bv.donts.length ? `Never do:\n- ${bv.donts.join('\n- ')}` : '',
     bv.samplePosts.length ? `On-brand examples:\n- ${bv.samplePosts.join('\n- ')}` : '',
+    topPosts.length
+      ? `This client's best-performing past posts, by real engagement (learn what resonated — themes, structure, hooks — but write fresh copy; never reuse wording, and stay within the factual ceiling):\n- ${topPosts.join('\n- ')}`
+      : '',
     bv.bannedPhrases.length ? `Banned phrases (case-insensitive): ${bv.bannedPhrases.join(', ')}.` : '',
     '',
     'Do not invent product availability, metrics, testimonials, certifications, prices, research findings, or health outcomes.',
@@ -72,7 +75,18 @@ export const createSocialPosts: ForgeTool<Input> = {
   async execute(input, ctx) {
     const { generateText } = await import('ai');
     const bv = ctx.client.brandVoice;
-    const prompt = buildSocialPostsPrompt(input, ctx.client);
+
+    // Best-effort performance memory: surface the client's best past posts so the
+    // model can learn from what actually earned engagement. Never blocks generation.
+    let topPosts: string[] = [];
+    try {
+      const { loadTopPerformingPosts } = await import('../data/performance-memory');
+      topPosts = await loadTopPerformingPosts(ctx.client.id, 3);
+    } catch (error) {
+      console.error('[create_social_posts] performance memory unavailable', error);
+    }
+
+    const prompt = buildSocialPostsPrompt(input, ctx.client, topPosts);
 
     const { text } = await generateText({ model: ctx.model, prompt, maxOutputTokens: 2048 });
     const parsed = socialPostsSchema.safeParse(parseJsonBlock<unknown>(text));
