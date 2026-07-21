@@ -136,11 +136,12 @@ to Google, which sets `status = 'posted'` and records the published reference un
 Human decision gate for generated content. Social-post runs create one pending row; the
 single-operator dashboard can approve or reject it after current brand-policy checks pass.
 The dashboard surfaces these rows as an operator queue. Approved rows expose a copyable
-publishing package on the run detail page. Approved `google_business` posts can be published
-as Google Business local posts and approved `facebook` posts to a Facebook Page feed; each
-published post is recorded as a `published_url` row in `forge_run_evidence` (with the post
-URL as its `reference`), which also makes publishing idempotent. Instagram is not yet
-supported because its feed requires a real image asset, which Forge does not yet generate.
+publishing package on the run detail page. Approved posts can be published to their
+platform: `google_business` → Google Business local posts, `facebook` → a Facebook Page
+feed, and `instagram` → the Instagram Graph API (which additionally requires a generated
+image per post; see `content_assets`). Each published post is recorded as a `published_url`
+row in `forge_run_evidence` (with the post URL as its `reference`), which also makes
+publishing idempotent.
 
 | Column | Type | Notes |
 |---|---|---|

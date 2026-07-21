@@ -43,10 +43,11 @@ const schema = z.object({
   GOOGLE_OAUTH_CLIENT_ID: optionalConfigSchema,
   GOOGLE_OAUTH_CLIENT_SECRET: optionalConfigSchema,
 
-  // Meta (Facebook Page) publishing. Server-only.
+  // Meta (Facebook Page + Instagram) publishing. Server-only.
   META_PAGE_ID: optionalConfigSchema,
   META_PAGE_ACCESS_TOKEN: optionalConfigSchema,
   META_GRAPH_VERSION: optionalConfigSchema,
+  INSTAGRAM_BUSINESS_ACCOUNT_ID: optionalConfigSchema,
 
   // Image generation (post creatives). Server-only. Reuses the matching provider key
   // (GOOGLE_GENERATIVE_AI_API_KEY for google, OPENAI_API_KEY for openai).
@@ -89,6 +90,7 @@ const runtimeEnv = {
   META_PAGE_ID: process.env.META_PAGE_ID,
   META_PAGE_ACCESS_TOKEN: process.env.META_PAGE_ACCESS_TOKEN,
   META_GRAPH_VERSION: process.env.META_GRAPH_VERSION,
+  INSTAGRAM_BUSINESS_ACCOUNT_ID: process.env.INSTAGRAM_BUSINESS_ACCOUNT_ID,
   FORGE_IMAGE_PROVIDER: process.env.FORGE_IMAGE_PROVIDER,
   FORGE_IMAGE_MODEL: process.env.FORGE_IMAGE_MODEL,
   FORGE_IMAGE_BUCKET: process.env.FORGE_IMAGE_BUCKET,

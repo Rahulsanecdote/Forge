@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { z } from 'zod';
 import { CopyButton } from '@/components/dashboard/copy-button';
-import { decideContentApproval, publishApprovedContent, runClientTask } from '../../actions';
+import { decideContentApproval, generatePostImage, publishApprovedContent, runClientTask } from '../../actions';
 import { isAdminAuthenticated } from '@/lib/admin/auth';
 import { getAdminSupabase, loadToolRunDetail } from '@/lib/admin/data';
 import {
@@ -94,15 +94,22 @@ function ApprovalStatus({ status }: { status?: string }) {
     'publish-already': 'This run was already published to Google Business.',
     'publish-blocked': 'Not published — the draft contains a banned phrase. Revise and regenerate.',
     'publish-unsupported': 'Only approved Google Business posts can be published here.',
-    'publish-unconfigured': 'Not published — configure a write-scoped Google token and account/location IDs first.',
-    'publish-error': 'Publishing to Google Business failed. Check the Google write scope and server logs.',
+    'publish-unconfigured': 'Not published — configure the channel credentials (Google token / Meta page token / Instagram account) first.',
+    'publish-missing-image': 'Not published — every Instagram post needs a generated image first.',
+    'publish-error': 'Publishing failed. Check the channel credentials and server logs.',
     'publish-invalid': 'That publish request was invalid.',
+    'image-generated': 'Image generated and attached to the post.',
+    'image-unconfigured': 'Image not generated — set FORGE_IMAGE_PROVIDER and its API key first.',
+    'image-error': 'Image generation failed. Check the image provider key and server logs.',
+    'image-invalid': 'That image request was invalid.',
   };
   const isError =
     status === 'approval-blocked' ||
     status === 'publish-blocked' ||
     status === 'publish-unsupported' ||
     status === 'publish-unconfigured' ||
+    status === 'publish-missing-image' ||
+    status === 'image-unconfigured' ||
     status.endsWith('error') ||
     status.endsWith('invalid');
 
@@ -161,7 +168,23 @@ export default async function ToolRunDetailPage({
       ? 'Google Business'
       : socialPosts?.platform === 'facebook'
         ? 'Facebook'
-        : null;
+        : socialPosts?.platform === 'instagram'
+          ? 'Instagram'
+          : null;
+
+  const postImages = new Map<number, string>(
+    socialPosts
+      ? (
+          (
+            await getAdminSupabase()
+              .from('content_assets')
+              .select('post_index, public_url')
+              .eq('run_id', run.id)
+              .eq('kind', 'image')
+          ).data ?? []
+        ).map((row: { post_index: number; public_url: string }) => [row.post_index, row.public_url])
+      : [],
+  );
 
   return (
     <main className="min-h-screen bg-bg text-ink">
@@ -525,6 +548,21 @@ export default async function ToolRunDetailPage({
                       <p className="mt-4 font-sans text-sm leading-6 text-muted">
                         {post.imageDirection ?? 'No image direction generated.'}
                       </p>
+                      {postImages.get(index) && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={postImages.get(index)}
+                          alt={`Generated image for draft ${index + 1}`}
+                          className="mt-4 w-full max-w-xs border border-gold-border"
+                        />
+                      )}
+                      <form action={generatePostImage} className="mt-4">
+                        <input type="hidden" name="run_id" value={run.id} />
+                        <input type="hidden" name="post_index" value={index} />
+                        <button className="border border-gold-border px-3 py-2 font-mono text-[11px] uppercase tracking-wide text-gold transition hover:bg-gold-dim">
+                          {postImages.get(index) ? 'Regenerate Image' : 'Generate Image'}
+                        </button>
+                      </form>
                     </div>
                   </div>
                 </article>

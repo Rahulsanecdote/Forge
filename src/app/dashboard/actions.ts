@@ -614,6 +614,52 @@ export async function publishReviewReply(formData: FormData) {
   redirectClient(slug, status);
 }
 
+// Generate + store an image for one post of a social-post run. The generation path is
+// fail-closed (returns unconfigured when no image provider key is set); this action maps
+// the outcome to an operator status banner.
+export async function generatePostImage(formData: FormData) {
+  await requireAdmin();
+  const runId = z.string().uuid().safeParse(stringValue(formData, 'run_id'));
+  const postIndex = Number.parseInt(stringValue(formData, 'post_index'), 10);
+  if (!runId.success || !Number.isInteger(postIndex) || postIndex < 0) {
+    redirectRun(runId.success ? runId.data : 'invalid', 'image-invalid');
+  }
+
+  const detail = await loadToolRunDetail(runId.data);
+  if (!detail || !detail.client || detail.run.tool !== 'create_social_posts') {
+    redirectRun(runId.data, 'image-error');
+  }
+
+  const parsed = parseSocialPostOutput(detail.run.output);
+  const post = parsed?.posts[postIndex];
+  if (!post) redirectRun(runId.data, 'image-error');
+
+  const clientDetail = await loadClientDetail(detail.client.slug);
+  if (!clientDetail) redirectRun(runId.data, 'image-error');
+
+  let status = 'image-error';
+  try {
+    const { generateAndStorePostImage } = await import('@/forge/data/images');
+    const result = await generateAndStorePostImage({
+      runId: runId.data,
+      clientId: detail.client.id,
+      postIndex,
+      imageDirection: post.imageDirection || post.caption,
+      businessName: clientDetail.client.name,
+      industry: clientDetail.client.industry,
+      tone: clientDetail.brandVoice?.tone ?? [],
+    });
+    status = result.generated ? 'image-generated' : 'image-unconfigured';
+  } catch (error) {
+    console.error('[dashboard/generatePostImage]', error);
+    status = 'image-error';
+  }
+
+  revalidatePath(`/dashboard/clients/${detail.client.slug}`);
+  revalidatePath(`/dashboard/runs/${runId.data}`);
+  redirectRun(runId.data, status);
+}
+
 // Publish an approved Google Business social-post run as Google local posts. Requires an
 // approved content_approvals record and google_business platform; re-checks banned-phrase
 // compliance, is idempotent against prior published_url evidence, and records each
@@ -635,7 +681,12 @@ export async function publishApprovedContent(formData: FormData) {
   }
 
   const parsed = parseSocialPostOutput(detail.run.output);
-  if (!parsed || (parsed.platform !== 'google_business' && parsed.platform !== 'facebook')) {
+  if (
+    !parsed ||
+    (parsed.platform !== 'google_business' &&
+      parsed.platform !== 'facebook' &&
+      parsed.platform !== 'instagram')
+  ) {
     redirectRun(runId.data, 'publish-unsupported');
   }
 
@@ -664,7 +715,7 @@ export async function publishApprovedContent(formData: FormData) {
   try {
     // One published_url evidence row per live post, whichever channel published it.
     let evidence: Array<{ reference: string; description: string; payload: Record<string, unknown> }> = [];
-    let unconfigured = false;
+    let failureStatus: string | null = null;
 
     if (parsed.platform === 'google_business') {
       const { publishApprovedSocialPostsToGoogle } = await import('@/forge/data/google-business-profile');
@@ -676,9 +727,9 @@ export async function publishApprovedContent(formData: FormData) {
           payload: { name: post.name, searchUrl: post.searchUrl },
         }));
       } else {
-        unconfigured = result.code === 'unconfigured';
+        failureStatus = result.code === 'unconfigured' ? 'publish-unconfigured' : 'publish-error';
       }
-    } else {
+    } else if (parsed.platform === 'facebook') {
       const { publishApprovedFacebookPosts } = await import('@/forge/data/meta');
       const result = await publishApprovedFacebookPosts({ messages, link: client.website });
       if (result.published) {
@@ -688,7 +739,42 @@ export async function publishApprovedContent(formData: FormData) {
           payload: { id: post.id, url: post.url },
         }));
       } else {
-        unconfigured = result.code === 'unconfigured';
+        failureStatus = result.code === 'unconfigured' ? 'publish-unconfigured' : 'publish-error';
+      }
+    } else {
+      // instagram — each post must have a generated image (a public URL).
+      const { data: assets } = await supabase
+        .from('content_assets')
+        .select('post_index, public_url')
+        .eq('run_id', runId.data)
+        .eq('kind', 'image');
+      const imageByIndex = new Map<number, string>(
+        ((assets ?? []) as Array<{ post_index: number; public_url: string }>).map((row) => [
+          row.post_index,
+          row.public_url,
+        ]),
+      );
+      const { publishApprovedInstagramPosts } = await import('@/forge/data/instagram');
+      const result = await publishApprovedInstagramPosts({
+        posts: parsed.posts.map((post, index) => ({
+          caption: post.caption,
+          hashtags: post.hashtags,
+          imageUrl: imageByIndex.get(index) ?? null,
+        })),
+      });
+      if (result.published) {
+        evidence = result.posts.map((post) => ({
+          reference: post.url,
+          description: 'Instagram post published from the operator dashboard.',
+          payload: { mediaId: post.mediaId, url: post.url },
+        }));
+      } else {
+        failureStatus =
+          result.code === 'unconfigured'
+            ? 'publish-unconfigured'
+            : result.code === 'missing_image'
+              ? 'publish-missing-image'
+              : 'publish-error';
       }
     }
 
@@ -704,7 +790,7 @@ export async function publishApprovedContent(formData: FormData) {
       }
       status = 'publish-complete';
     } else {
-      status = unconfigured ? 'publish-unconfigured' : 'publish-error';
+      status = failureStatus ?? 'publish-error';
     }
   } catch (error) {
     console.error('[dashboard/publishApprovedContent]', error);
