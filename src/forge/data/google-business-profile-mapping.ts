@@ -1,3 +1,5 @@
+import { findBannedPhraseViolations } from '../compliance';
+
 export interface GoogleBusinessProfileReview {
   name?: string;
   reviewId?: string;
@@ -50,6 +52,75 @@ export function normalizeGoogleBusinessResourceId(value: string | null | undefin
   const trimmed = value?.trim();
   if (!trimmed) return null;
   return trimmed.startsWith(`${prefix}/`) ? trimmed.slice(prefix.length + 1) : trimmed;
+}
+
+// --- Publishing drafted replies back to Google Business Profile -------------
+
+export interface GoogleReviewReply {
+  comment: string;
+  updateTime: string | null;
+}
+
+export type ReplyPublishableResult =
+  | { ok: true }
+  | {
+      ok: false;
+      code: 'not_google' | 'not_drafted' | 'empty_reply' | 'compliance';
+      reason: string;
+      violations?: string[];
+    };
+
+// Pure gate that decides whether a drafted reply may be published. Kept side-effect
+// free so the publish path's guardrails are unit-testable without DB or network.
+export function evaluateReplyPublishable(input: {
+  platform: string;
+  status: string;
+  draftReply: string | null | undefined;
+  bannedPhrases: string[];
+}): ReplyPublishableResult {
+  if (input.platform !== 'google') {
+    return { ok: false, code: 'not_google', reason: `Only Google reviews can be published; got platform "${input.platform}".` };
+  }
+  if (input.status !== 'drafted') {
+    return { ok: false, code: 'not_drafted', reason: `Review status is "${input.status}", expected "drafted".` };
+  }
+  const reply = (input.draftReply ?? '').trim();
+  if (!reply) {
+    return { ok: false, code: 'empty_reply', reason: 'Review has no drafted reply to publish.' };
+  }
+  const violations = findBannedPhraseViolations(reply, input.bannedPhrases);
+  if (violations.length > 0) {
+    return { ok: false, code: 'compliance', reason: `Reply contains banned phrases: ${violations.join(', ')}.`, violations };
+  }
+  return { ok: true };
+}
+
+// Resolve the review's full resource name (accounts/*/locations/*/reviews/*) for the
+// reply endpoint. Prefer the stored source name; otherwise reconstruct from config + id.
+export function buildReviewReplyResourceName(input: {
+  externalReviewName?: string | null;
+  accountId?: string | null;
+  locationId?: string | null;
+  externalReviewId?: string | null;
+}): string | null {
+  const name = input.externalReviewName?.trim();
+  if (name && /^accounts\/[^/]+\/locations\/[^/]+\/reviews\/[^/]+$/.test(name)) {
+    return name;
+  }
+  const account = normalizeGoogleBusinessResourceId(input.accountId, 'accounts');
+  const location = normalizeGoogleBusinessResourceId(input.locationId, 'locations');
+  const reviewId = input.externalReviewId?.trim();
+  if (account && location && reviewId) {
+    return `accounts/${account}/locations/${location}/reviews/${reviewId}`;
+  }
+  return null;
+}
+
+export function parseReviewReplyResponse(payload: unknown): GoogleReviewReply | null {
+  if (!payload || typeof payload !== 'object') return null;
+  const record = payload as { comment?: unknown; updateTime?: unknown };
+  if (typeof record.comment !== 'string') return null;
+  return { comment: record.comment, updateTime: typeof record.updateTime === 'string' ? record.updateTime : null };
 }
 
 export function googleReviewToInsertRow(

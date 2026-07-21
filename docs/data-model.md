@@ -126,7 +126,10 @@ dedupe.
 
 The review sweep selects `status = 'new'` rows, drafts replies, and sets
 `status = 'drafted'` **only when a usable reply was generated** (otherwise the row
-stays `new` for a later retry). See [Scheduled jobs](./scheduled-jobs.md).
+stays `new` for a later retry). An operator can then publish a drafted reply back
+to Google, which sets `status = 'posted'` and records the published reference under
+`metadata.published_reply` (`{ reference, comment, published_at }`). See
+[Scheduled jobs](./scheduled-jobs.md).
 
 ### `content_approvals`
 

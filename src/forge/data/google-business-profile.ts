@@ -1,10 +1,15 @@
 import { env } from '../../env';
 import { supabase } from '../../supabase';
+import { loadClient } from '../clients';
 import type { ClientContext } from '../types';
 import {
+  buildReviewReplyResourceName,
+  evaluateReplyPublishable,
   googleReviewToInsertRow,
   normalizeGoogleBusinessResourceId,
+  parseReviewReplyResponse,
   type GoogleBusinessProfileReview,
+  type GoogleReviewReply,
   type ReviewInsertRow,
 } from './google-business-profile-mapping';
 
@@ -196,4 +201,126 @@ export async function importGoogleBusinessProfileReviewsForClient(client: Client
     skippedExisting: rows.length - toInsert.length,
     skippedInvalid: fetched.length - rows.length,
   };
+}
+
+// --- Publishing drafted replies back to Google Business Profile -------------
+
+export interface DraftedGoogleReply {
+  id: string;
+  author: string;
+  rating: number;
+  draft_reply: string | null;
+}
+
+export type PublishReviewReplyResult =
+  | { published: true; reviewId: string; status: 'posted'; reference: string; comment: string }
+  | { published: false; reviewId: string; code: string; reason: string };
+
+export async function listDraftedGoogleReplies(clientId: string): Promise<DraftedGoogleReply[]> {
+  const { data, error } = await supabase
+    .from('reviews')
+    .select('id, author, rating, draft_reply')
+    .eq('client_id', clientId)
+    .eq('platform', 'google')
+    .eq('status', 'drafted')
+    .order('reviewed_at', { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as DraftedGoogleReply[];
+}
+
+// PUT the operator-approved reply onto the Google review. Reuses the same v4 API base
+// and access-token resolution as review import; requires a write-scoped token.
+export async function putGoogleBusinessProfileReviewReply(input: {
+  reviewResourceName: string;
+  comment: string;
+  accessToken: string;
+}): Promise<GoogleReviewReply> {
+  const response = await fetch(`https://mybusiness.googleapis.com/v4/${input.reviewResourceName}/reply`, {
+    method: 'PUT',
+    headers: { authorization: `Bearer ${input.accessToken}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ comment: input.comment }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Google Business Profile reply failed (${response.status}): ${await readErrorBody(response)}`);
+  }
+
+  const reply = parseReviewReplyResponse(await response.json().catch(() => null));
+  if (!reply) {
+    throw new Error('Google Business Profile reply succeeded without returning a comment.');
+  }
+  return reply;
+}
+
+// Publish a single drafted reply. Fails closed on every gap — missing review/client,
+// wrong status, empty reply, banned-phrase compliance, or missing Google credentials —
+// and only marks the review `posted` after Google accepts the reply.
+export async function publishDraftedReviewReply(reviewId: string): Promise<PublishReviewReplyResult> {
+  const { data: review, error } = await supabase
+    .from('reviews')
+    .select('id, client_id, platform, status, draft_reply, external_review_id, external_review_name, metadata')
+    .eq('id', reviewId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!review) return { published: false, reviewId, code: 'not_found', reason: `Review ${reviewId} not found.` };
+
+  const { data: clientRow, error: clientErr } = await supabase
+    .from('clients')
+    .select('slug')
+    .eq('id', review.client_id)
+    .maybeSingle();
+  if (clientErr) throw clientErr;
+  if (!clientRow) return { published: false, reviewId, code: 'not_found', reason: `Client for review ${reviewId} not found.` };
+
+  const client = await loadClient(clientRow.slug);
+
+  const gate = evaluateReplyPublishable({
+    platform: review.platform,
+    status: review.status,
+    draftReply: review.draft_reply,
+    bannedPhrases: client.brandVoice.bannedPhrases,
+  });
+  if (!gate.ok) return { published: false, reviewId, code: gate.code, reason: gate.reason };
+
+  const config = resolveGoogleBusinessProfileConfig(client);
+  const resourceName = buildReviewReplyResourceName({
+    externalReviewName: review.external_review_name,
+    accountId: config?.accountId ?? null,
+    locationId: config?.locationId ?? null,
+    externalReviewId: review.external_review_id,
+  });
+  if (!resourceName) {
+    return {
+      published: false,
+      reviewId,
+      code: 'unconfigured',
+      reason: 'Missing review resource name and Google Business Profile account/location IDs.',
+    };
+  }
+
+  const access = await resolveGoogleAccessToken();
+  if ('reason' in access) return { published: false, reviewId, code: 'unconfigured', reason: access.reason };
+
+  const comment = (review.draft_reply ?? '').trim();
+  const reply = await putGoogleBusinessProfileReviewReply({
+    reviewResourceName: resourceName,
+    comment,
+    accessToken: access.token,
+  });
+
+  const existingMetadata =
+    review.metadata && typeof review.metadata === 'object' ? (review.metadata as Record<string, unknown>) : {};
+  const { error: updateErr } = await supabase
+    .from('reviews')
+    .update({
+      status: 'posted',
+      metadata: {
+        ...existingMetadata,
+        published_reply: { reference: resourceName, comment: reply.comment, published_at: reply.updateTime },
+      },
+    })
+    .eq('id', reviewId);
+  if (updateErr) throw updateErr;
+
+  return { published: true, reviewId, status: 'posted', reference: resourceName, comment: reply.comment };
 }
