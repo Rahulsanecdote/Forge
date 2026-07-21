@@ -27,3 +27,21 @@ export function buildInstagramCaption(caption: string, hashtags: string[]): stri
     .slice(0, 30);
   return [caption.trim(), tags.join(' ')].filter(Boolean).join('\n\n').slice(0, 2200);
 }
+
+// An Instagram carousel holds 2–10 media items.
+export const INSTAGRAM_CAROUSEL_MAX = 10;
+
+// Decide how a post's images should be published: a single image, a carousel, or
+// nothing (no usable image). More than the carousel maximum is capped to the first
+// INSTAGRAM_CAROUSEL_MAX images.
+export type InstagramMediaPlan =
+  | { kind: 'none' }
+  | { kind: 'single'; imageUrl: string }
+  | { kind: 'carousel'; imageUrls: string[] };
+
+export function planInstagramMedia(imageUrls: Array<string | null | undefined>): InstagramMediaPlan {
+  const urls = imageUrls.filter((url): url is string => typeof url === 'string' && url.trim().length > 0);
+  if (urls.length === 0) return { kind: 'none' };
+  if (urls.length === 1) return { kind: 'single', imageUrl: urls[0] };
+  return { kind: 'carousel', imageUrls: urls.slice(0, INSTAGRAM_CAROUSEL_MAX) };
+}

@@ -4,6 +4,7 @@ import {
   buildInstagramCaption,
   parseInstagramId,
   parseInstagramPermalink,
+  planInstagramMedia,
 } from './data/instagram-mapping';
 
 test('parseInstagramId requires a non-empty id', () => {
@@ -32,4 +33,28 @@ test('buildInstagramCaption caps hashtags at 30 and length at 2200', () => {
 
   const long = buildInstagramCaption('x'.repeat(3000), []);
   assert.equal(long.length, 2200);
+});
+
+test('planInstagramMedia routes by usable image count', () => {
+  assert.deepEqual(planInstagramMedia([]), { kind: 'none' });
+  assert.deepEqual(planInstagramMedia([null, '', '  ']), { kind: 'none' });
+  assert.deepEqual(planInstagramMedia(['https://img/1.png']), {
+    kind: 'single',
+    imageUrl: 'https://img/1.png',
+  });
+  assert.deepEqual(planInstagramMedia(['https://img/1.png', 'https://img/2.png']), {
+    kind: 'carousel',
+    imageUrls: ['https://img/1.png', 'https://img/2.png'],
+  });
+});
+
+test('planInstagramMedia drops blanks and caps a carousel at 10', () => {
+  const mixed = planInstagramMedia(['https://img/1.png', null, 'https://img/2.png']);
+  assert.deepEqual(mixed, { kind: 'carousel', imageUrls: ['https://img/1.png', 'https://img/2.png'] });
+
+  const many = Array.from({ length: 14 }, (_, i) => `https://img/${i}.png`);
+  const plan = planInstagramMedia(many);
+  assert.equal(plan.kind, 'carousel');
+  assert.equal(plan.kind === 'carousel' && plan.imageUrls.length, 10);
+  assert.equal(plan.kind === 'carousel' && plan.imageUrls[9], 'https://img/9.png');
 });

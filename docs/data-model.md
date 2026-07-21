@@ -15,6 +15,7 @@ required**. The optional pgvector table is in `supabase/optional/`.
 | `supabase/migrations/20260717233127_client_onboarding_invitations.sql` | Review-only client fields, hashed onboarding invitations, pending submissions, and token RPCs |
 | `supabase/migrations/20260721140000_content_assets.sql` | `content_assets` (+ index, RLS, public `content-images` bucket) |
 | `supabase/migrations/20260721160000_content_schedules.sql` | `content_schedules` (+ due index, RLS, service-role grants) |
+| `supabase/migrations/20260721180000_content_assets_carousel.sql` | `content_assets.asset_index` slot + widened uniqueness (multi-image carousels) |
 | `supabase/optional/client_memory.sql` | `client_memory` + pgvector (reserved for a later increment; apply by hand) |
 
 Apply locally with `supabase db reset`; in a hosted project, run the SQL files in
@@ -140,8 +141,9 @@ single-operator dashboard can approve or reject it after current brand-policy ch
 The dashboard surfaces these rows as an operator queue. Approved rows expose a copyable
 publishing package on the run detail page. Approved posts can be published to their
 platform: `google_business` → Google Business local posts, `facebook` → a Facebook Page
-feed, and `instagram` → the Instagram Graph API (which additionally requires a generated
-image per post; see `content_assets`). Each published post is recorded as a `published_url`
+feed, and `instagram` → the Instagram Graph API (which additionally requires at least one
+generated image per post — a post with 2+ images publishes as a carousel; see
+`content_assets`). Each published post is recorded as a `published_url`
 row in `forge_run_evidence` (with the post URL as its `reference`), which also makes
 publishing idempotent.
 
@@ -160,11 +162,13 @@ there are no browser-facing policies.
 
 ### `content_assets`
 
-Generated post creatives (images). One row per `(run_id, post_index, kind)`. Images are
-produced from a post's `image_direction` via the configured image provider
-(`FORGE_IMAGE_PROVIDER`, default Google Imagen 4), uploaded to a **public** Supabase
-Storage bucket (`content-images`), and referenced by `public_url` — which is what
-external channels (e.g. Instagram, which requires a fetchable `image_url`) consume.
+Generated post creatives (images). One row per `(run_id, post_index, asset_index, kind)`,
+so a post can carry an **ordered set** of images — a single photo, or 2–10 for an
+Instagram carousel. Images are produced from a post's `image_direction` via the
+configured image provider (`FORGE_IMAGE_PROVIDER`, default Google Imagen 4), uploaded
+to a **public** Supabase Storage bucket (`content-images`), and referenced by
+`public_url` — which is what external channels (e.g. Instagram, which requires a
+fetchable `image_url`) consume.
 
 | Column | Type | Notes |
 |---|---|---|
@@ -172,6 +176,7 @@ external channels (e.g. Instagram, which requires a fetchable `image_url`) consu
 | `run_id` | uuid | FK → `tool_runs(id)`, `on delete cascade` |
 | `client_id` | uuid | FK → `clients(id)`, `on delete set null` |
 | `post_index` | int | which post in the run |
+| `asset_index` | int | image slot within the post (0-based; ordered for carousels) |
 | `kind` | text | `image` |
 | `provider` | text | `google` \| `openai` |
 | `prompt` | text | the image prompt used |

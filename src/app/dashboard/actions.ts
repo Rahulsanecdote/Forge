@@ -614,15 +614,23 @@ export async function publishReviewReply(formData: FormData) {
   redirectClient(slug, status);
 }
 
-// Generate + store an image for one post of a social-post run. The generation path is
-// fail-closed (returns unconfigured when no image provider key is set); this action maps
-// the outcome to an operator status banner.
+// Generate + store an image slot for one post of a social-post run. With an
+// `asset_index` it regenerates that slot; without one it adds the next slot (up to
+// the Instagram carousel maximum), enabling multi-image / carousel posts. The
+// generation path is fail-closed (unconfigured when no image provider key is set);
+// this action maps the outcome to an operator status banner.
 export async function generatePostImage(formData: FormData) {
   await requireAdmin();
   const runId = z.string().uuid().safeParse(stringValue(formData, 'run_id'));
   const postIndex = Number.parseInt(stringValue(formData, 'post_index'), 10);
   if (!runId.success || !Number.isInteger(postIndex) || postIndex < 0) {
     redirectRun(runId.success ? runId.data : 'invalid', 'image-invalid');
+  }
+
+  const rawAssetIndex = stringValue(formData, 'asset_index');
+  const parsedAssetIndex = rawAssetIndex ? Number.parseInt(rawAssetIndex, 10) : null;
+  if (rawAssetIndex && (!Number.isInteger(parsedAssetIndex) || (parsedAssetIndex ?? -1) < 0)) {
+    redirectRun(runId.data, 'image-invalid');
   }
 
   const detail = await loadToolRunDetail(runId.data);
@@ -634,6 +642,21 @@ export async function generatePostImage(formData: FormData) {
   const post = parsed?.posts[postIndex];
   if (!post) redirectRun(runId.data, 'image-error');
 
+  // Regenerate the given slot, or add the next one (capped at the carousel maximum).
+  let assetIndex = parsedAssetIndex ?? 0;
+  if (parsedAssetIndex === null) {
+    const { INSTAGRAM_CAROUSEL_MAX } = await import('@/forge/data/instagram-mapping');
+    const { data: existing } = await getAdminSupabase()
+      .from('content_assets')
+      .select('asset_index')
+      .eq('run_id', runId.data)
+      .eq('post_index', postIndex)
+      .eq('kind', 'image');
+    const slots = (existing ?? []).map((row: { asset_index: number }) => row.asset_index);
+    if (slots.length >= INSTAGRAM_CAROUSEL_MAX) redirectRun(runId.data, 'image-limit');
+    assetIndex = slots.length === 0 ? 0 : Math.max(...slots) + 1;
+  }
+
   const clientDetail = await loadClientDetail(detail.client.slug);
   if (!clientDetail) redirectRun(runId.data, 'image-error');
 
@@ -644,6 +667,7 @@ export async function generatePostImage(formData: FormData) {
       runId: runId.data,
       clientId: detail.client.id,
       postIndex,
+      assetIndex,
       imageDirection: post.imageDirection || post.caption,
       businessName: clientDetail.client.name,
       industry: clientDetail.client.industry,
@@ -652,6 +676,41 @@ export async function generatePostImage(formData: FormData) {
     status = result.generated ? 'image-generated' : 'image-unconfigured';
   } catch (error) {
     console.error('[dashboard/generatePostImage]', error);
+    status = 'image-error';
+  }
+
+  revalidatePath(`/dashboard/clients/${detail.client.slug}`);
+  revalidatePath(`/dashboard/runs/${runId.data}`);
+  redirectRun(runId.data, status);
+}
+
+// Remove one image slot from a post (for trimming a carousel or dropping a bad
+// generation). Deletes the stored object and its content_assets row.
+export async function deletePostImage(formData: FormData) {
+  await requireAdmin();
+  const runId = z.string().uuid().safeParse(stringValue(formData, 'run_id'));
+  const postIndex = Number.parseInt(stringValue(formData, 'post_index'), 10);
+  const assetIndex = Number.parseInt(stringValue(formData, 'asset_index'), 10);
+  if (
+    !runId.success ||
+    !Number.isInteger(postIndex) ||
+    postIndex < 0 ||
+    !Number.isInteger(assetIndex) ||
+    assetIndex < 0
+  ) {
+    redirectRun(runId.success ? runId.data : 'invalid', 'image-invalid');
+  }
+
+  const detail = await loadToolRunDetail(runId.data);
+  if (!detail || !detail.client) redirectRun(runId.data, 'image-error');
+
+  let status = 'image-error';
+  try {
+    const { deleteStoredPostImage } = await import('@/forge/data/images');
+    const result = await deleteStoredPostImage({ runId: runId.data, postIndex, assetIndex });
+    status = result.deleted ? 'image-removed' : 'image-error';
+  } catch (error) {
+    console.error('[dashboard/deletePostImage]', error);
     status = 'image-error';
   }
 
