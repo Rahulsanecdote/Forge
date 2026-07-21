@@ -10,6 +10,7 @@
     "forge:client:add": "tsx scripts/add-client.ts",
     "forge:reviews:import": "tsx scripts/import-google-reviews.ts",
     "forge:reviews:publish": "tsx scripts/publish-review-reply.ts",
+    "forge:image:generate": "tsx scripts/generate-post-image.ts",
     "forge:seed": "tsx scripts/add-client.ts examples/acme-coffee.json",
     "forge:run": "tsx scripts/run.ts",
     "forge:serve": "tsx src/inngest/server.ts",

@@ -155,6 +155,31 @@ supported because its feed requires a real image asset, which Forge does not yet
 RLS is enabled. Only `service_role` receives table privileges during the single-operator alpha;
 there are no browser-facing policies.
 
+### `content_assets`
+
+Generated post creatives (images). One row per `(run_id, post_index, kind)`. Images are
+produced from a post's `image_direction` via the configured image provider
+(`FORGE_IMAGE_PROVIDER`, default Google Imagen 4), uploaded to a **public** Supabase
+Storage bucket (`content-images`), and referenced by `public_url` — which is what
+external channels (e.g. Instagram, which requires a fetchable `image_url`) consume.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid | PK |
+| `run_id` | uuid | FK → `tool_runs(id)`, `on delete cascade` |
+| `client_id` | uuid | FK → `clients(id)`, `on delete set null` |
+| `post_index` | int | which post in the run |
+| `kind` | text | `image` |
+| `provider` | text | `google` \| `openai` |
+| `prompt` | text | the image prompt used |
+| `storage_path` | text | path inside the bucket |
+| `public_url` | text | fetchable image URL |
+| `media_type` | text | e.g. `image/png` |
+| `status` | text | `ready` \| `failed` |
+
+RLS is enabled; only `service_role` has table privileges. The `content-images` Storage
+bucket is public-read (objects fetchable by URL); writes go through the service role.
+
 ### Client onboarding invitations
 
 `onboarding_invitations` stores only a SHA-256 token hash, invitation metadata, expiry,
