@@ -4,11 +4,13 @@ import { runForge } from '../forge/runtime';
 import { resolveModel } from '../forge/model';
 import { draftReviewResponses } from '../forge/tools/draft-review-responses';
 import { importGoogleBusinessProfileReviewsForClient } from '../forge/data/google-business-profile';
+import { loadDueSchedules, runDueSchedule } from '../forge/data/schedules';
 import { supabase } from '../supabase';
 import { env } from '../env';
 
 const CONTENT_CRON = env.FORGE_CONTENT_CRON ?? '0 9 * * 1'; // Mondays 09:00 UTC
 const REVIEW_CRON = env.FORGE_REVIEW_CRON ?? '0 8 * * *'; // daily 08:00 UTC
+const PUBLISH_CRON = env.FORGE_PUBLISH_CRON ?? '*/15 * * * *'; // every 15 minutes
 
 // Generate next week's social posts for every client.
 export const weeklyContent = inngest.createFunction(
@@ -106,4 +108,26 @@ export const reviewSweep = inngest.createFunction(
   },
 );
 
-export const functions = [weeklyContent, reviewSweep];
+// Publish any approved social-post runs whose scheduled time has arrived. Each due
+// schedule is claimed and published in its own durable step, so a retry memoizes
+// already-published rows instead of re-posting. Publishing itself is idempotent and
+// fail-closed (see publishApprovedRun).
+export const scheduledPublish = inngest.createFunction(
+  { id: 'scheduled-publish', triggers: [{ cron: PUBLISH_CRON }] },
+  async ({ step }) => {
+    const nowIso = new Date().toISOString();
+    const due = await step.run('load-due-schedules', () => loadDueSchedules(nowIso));
+
+    const results = [];
+    for (const schedule of due) {
+      const result = await step.run(`publish-${schedule.id}`, () => runDueSchedule(schedule));
+      results.push(result);
+    }
+
+    const published = results.filter((r) => r.status === 'published').length;
+    const failed = results.filter((r) => r.status === 'failed').length;
+    return { due: due.length, published, failed, results };
+  },
+);
+
+export const functions = [weeklyContent, reviewSweep, scheduledPublish];

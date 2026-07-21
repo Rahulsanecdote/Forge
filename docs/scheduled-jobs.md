@@ -1,10 +1,10 @@
 # Scheduled jobs (Inngest)
 
-Forge ships two cron jobs defined in `src/inngest/functions.ts` and served via
+Forge ships three cron jobs defined in `src/inngest/functions.ts` and served via
 `src/inngest/server.ts`. They use [Inngest](https://www.inngest.com/) for
 scheduling and durable, retryable steps.
 
-## The two jobs
+## The three jobs
 
 ### `weekly-content`
 
@@ -29,6 +29,33 @@ scheduling and durable, retryable steps.
   - Supabase update errors are checked and **thrown**, so Inngest retries the step
     rather than recording a false success.
 - Returns the count of reviews imported and actually drafted.
+
+### `scheduled-publish`
+
+- **Schedule:** `FORGE_PUBLISH_CRON` (default `*/15 * * * *` — every 15 minutes).
+- **What it does:** loads `content_schedules` rows that are `pending` with
+  `scheduled_for <= now()`, and publishes each one's approved run to its platform
+  (Google Business, Facebook, or Instagram).
+- **How it publishes:** through `publishApprovedRun` — the *same* fail-closed path
+  as the dashboard's immediate "Publish" button. It re-checks the approval and
+  banned-phrase compliance, is idempotent against prior `published_url` evidence,
+  and records one `published_url` evidence row per live post.
+- **Correctness guarantees:**
+  - Each due schedule is **claimed atomically** (`pending → publishing`, guarded by
+    the status). Overlapping cron runs can't publish the same run twice.
+  - Each schedule publishes in its own `step.run(\`publish-${id}\`)`, so a retry
+    memoizes already-finished rows instead of re-posting.
+  - The terminal status is `published` (including the idempotent
+    already-published case) or `failed` (with `last_error` set to the publish
+    outcome). A failed schedule can be re-armed by scheduling the run again.
+- Returns `{ due, published, failed }`.
+
+An operator sets a schedule from a run's **Publishing Package** panel: once a run
+is approved and unpublished, pick a future time (interpreted as UTC) and
+**Schedule publish**, or **Cancel schedule** to un-arm a pending one. Scheduling
+applies the same gates as immediate publishing, so it never queues something that
+can't go live (unsupported platform, banned phrase, already published, or — for
+Instagram — a post missing its generated image).
 
 ## Running them locally
 
@@ -73,6 +100,7 @@ a timezone if needed):
 ```dotenv
 FORGE_CONTENT_CRON=0 9 * * 1
 FORGE_REVIEW_CRON=0 8 * * *
+FORGE_PUBLISH_CRON=*/15 * * * *
 # e.g. with timezone:
 # FORGE_CONTENT_CRON=TZ=America/New_York 0 9 * * 1
 ```

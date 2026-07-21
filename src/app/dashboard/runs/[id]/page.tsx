@@ -2,7 +2,14 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { z } from 'zod';
 import { CopyButton } from '@/components/dashboard/copy-button';
-import { decideContentApproval, generatePostImage, publishApprovedContent, runClientTask } from '../../actions';
+import {
+  cancelScheduledContent,
+  decideContentApproval,
+  generatePostImage,
+  publishApprovedContent,
+  runClientTask,
+  scheduleApprovedContent,
+} from '../../actions';
 import { isAdminAuthenticated } from '@/lib/admin/auth';
 import { getAdminSupabase, loadToolRunDetail } from '@/lib/admin/data';
 import {
@@ -102,6 +109,15 @@ function ApprovalStatus({ status }: { status?: string }) {
     'image-unconfigured': 'Image not generated — set FORGE_IMAGE_PROVIDER and its API key first.',
     'image-error': 'Image generation failed. Check the image provider key and server logs.',
     'image-invalid': 'That image request was invalid.',
+    'schedule-set': 'Scheduled. The publish cron will post this run at the chosen time.',
+    'schedule-canceled': 'Schedule canceled. This run will not auto-publish.',
+    'schedule-past': 'Pick a time in the future to schedule publishing.',
+    'schedule-already': 'This run was already published, so it cannot be scheduled.',
+    'schedule-unsupported': 'Only Google Business, Facebook, or Instagram posts can be scheduled.',
+    'schedule-blocked': 'Not scheduled — the draft contains a banned phrase. Revise and regenerate.',
+    'schedule-missing-image': 'Not scheduled — every Instagram post needs a generated image first.',
+    'schedule-error': 'The schedule could not be saved. It may no longer be pending.',
+    'schedule-invalid': 'That schedule request was invalid.',
   };
   const isError =
     status === 'approval-blocked' ||
@@ -110,6 +126,11 @@ function ApprovalStatus({ status }: { status?: string }) {
     status === 'publish-unconfigured' ||
     status === 'publish-missing-image' ||
     status === 'image-unconfigured' ||
+    status === 'schedule-past' ||
+    status === 'schedule-already' ||
+    status === 'schedule-unsupported' ||
+    status === 'schedule-blocked' ||
+    status === 'schedule-missing-image' ||
     status.endsWith('error') ||
     status.endsWith('invalid');
 
@@ -185,6 +206,18 @@ export default async function ToolRunDetailPage({
         ).map((row: { post_index: number; public_url: string }) => [row.post_index, row.public_url])
       : [],
   );
+
+  const schedule =
+    socialPosts && approval?.status === 'approved' && !isPublished
+      ? ((
+          await getAdminSupabase()
+            .from('content_schedules')
+            .select('status, scheduled_for')
+            .eq('run_id', run.id)
+            .maybeSingle()
+        ).data as { status: string; scheduled_for: string } | null)
+      : null;
+  const pendingSchedule = schedule?.status === 'pending' ? schedule : null;
 
   return (
     <main className="min-h-screen bg-bg text-ink">
@@ -352,6 +385,42 @@ export default async function ToolRunDetailPage({
                   <CopyButton value={socialPublishingPackage(socialPosts.posts)} label="Copy package" />
                 </div>
               </div>
+              {!isPublished && publishTarget && (
+                <div className="mt-5 border-t border-emerald-300/30 pt-5">
+                  {pendingSchedule ? (
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <p className="font-mono text-xs text-emerald-100">
+                        Scheduled to publish to {publishTarget} on{' '}
+                        <span className="text-emerald-200">{formatDate(pendingSchedule.scheduled_for)}</span>.
+                      </p>
+                      <form action={cancelScheduledContent}>
+                        <input type="hidden" name="run_id" value={run.id} />
+                        <button className="border border-red-400/40 px-4 py-2 font-mono text-[11px] uppercase tracking-wide text-red-100 transition hover:bg-red-500/10">
+                          Cancel schedule
+                        </button>
+                      </form>
+                    </div>
+                  ) : (
+                    <form action={scheduleApprovedContent} className="flex flex-wrap items-end gap-3">
+                      <input type="hidden" name="run_id" value={run.id} />
+                      <label className="block">
+                        <span className="font-mono text-[11px] uppercase tracking-wide text-muted-dark">
+                          Schedule for later (UTC)
+                        </span>
+                        <input
+                          type="datetime-local"
+                          name="scheduled_for"
+                          required
+                          className="mt-2 block border border-gold-border bg-bg px-3 py-2 font-mono text-xs text-ink outline-none focus:border-gold/60"
+                        />
+                      </label>
+                      <button className="border border-emerald-300/50 px-4 py-2 font-mono text-[11px] uppercase tracking-wide text-emerald-100 transition hover:bg-emerald-500/10">
+                        Schedule publish
+                      </button>
+                    </form>
+                  )}
+                </div>
+              )}
               {isPublished && (
                 <ul className="mt-4 space-y-1 font-mono text-[11px] text-emerald-100">
                   {publishedReferences.map((reference) => (
