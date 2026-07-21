@@ -5,12 +5,15 @@ import { resolveModel } from '../forge/model';
 import { draftReviewResponses } from '../forge/tools/draft-review-responses';
 import { importGoogleBusinessProfileReviewsForClient } from '../forge/data/google-business-profile';
 import { loadDueSchedules, runDueSchedule } from '../forge/data/schedules';
+import { loadRecentlyPublishedRunIds, refreshRunMetrics } from '../forge/data/analytics';
 import { supabase } from '../supabase';
 import { env } from '../env';
 
 const CONTENT_CRON = env.FORGE_CONTENT_CRON ?? '0 9 * * 1'; // Mondays 09:00 UTC
 const REVIEW_CRON = env.FORGE_REVIEW_CRON ?? '0 8 * * *'; // daily 08:00 UTC
 const PUBLISH_CRON = env.FORGE_PUBLISH_CRON ?? '*/15 * * * *'; // every 15 minutes
+const METRICS_CRON = env.FORGE_METRICS_CRON ?? '0 */6 * * *'; // every 6 hours
+const METRICS_WINDOW_DAYS = 30;
 
 // Generate next week's social posts for every client.
 export const weeklyContent = inngest.createFunction(
@@ -130,4 +133,25 @@ export const scheduledPublish = inngest.createFunction(
   },
 );
 
-export const functions = [weeklyContent, reviewSweep, scheduledPublish];
+// Refresh reach/engagement for recently published posts so the dashboard reflects
+// how content is performing over time. Reach and engagement keep growing after a
+// post goes live, so a periodic pull keeps the stored snapshot current. Meta
+// channels only (Instagram, Facebook); each run refreshes in its own durable step.
+export const refreshMetrics = inngest.createFunction(
+  { id: 'refresh-metrics', triggers: [{ cron: METRICS_CRON }] },
+  async ({ step }) => {
+    const since = new Date(Date.now() - METRICS_WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString();
+    const runIds = await step.run('load-recent-runs', () => loadRecentlyPublishedRunIds(since));
+
+    const results = [];
+    for (const runId of runIds) {
+      const result = await step.run(`metrics-${runId}`, () => refreshRunMetrics(runId));
+      results.push({ runId, ...result });
+    }
+
+    const refreshed = results.filter((r) => r.refreshed).length;
+    return { runs: runIds.length, refreshed, results };
+  },
+);
+
+export const functions = [weeklyContent, reviewSweep, scheduledPublish, refreshMetrics];

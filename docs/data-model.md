@@ -16,6 +16,7 @@ required**. The optional pgvector table is in `supabase/optional/`.
 | `supabase/migrations/20260721140000_content_assets.sql` | `content_assets` (+ index, RLS, public `content-images` bucket) |
 | `supabase/migrations/20260721160000_content_schedules.sql` | `content_schedules` (+ due index, RLS, service-role grants) |
 | `supabase/migrations/20260721180000_content_assets_carousel.sql` | `content_assets.asset_index` slot + widened uniqueness (multi-image carousels) |
+| `supabase/migrations/20260721200000_content_metrics.sql` | `content_metrics` (post-publish reach/engagement; RLS, service-role grants) |
 | `supabase/optional/client_memory.sql` | `client_memory` + pgvector (reserved for a later increment; apply by hand) |
 
 Apply locally with `supabase db reset`; in a hosted project, run the SQL files in
@@ -214,6 +215,32 @@ The cron claims each row atomically (`pending → publishing`, guarded by status
 overlapping runs never publish the same run twice. RLS is enabled; only `service_role`
 has table privileges.
 
+### `content_metrics`
+
+Post-publish analytics: the latest reach/engagement snapshot for each published post,
+so the run detail page can show performance without scanning evidence history. One row
+per `(run_id, platform, external_id)`, upserted on each refresh. Metrics are pulled from
+the Meta Graph API for `instagram` and `facebook` posts (Google Business has no per-post
+metrics API). Each refresh also appends a durable `metric` row to `forge_run_evidence`.
+Refreshed on demand from the dashboard and periodically by the `refresh-metrics` cron;
+see [Scheduled jobs](./scheduled-jobs.md).
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid | PK |
+| `run_id` | uuid | FK → `tool_runs(id)`, `on delete cascade` |
+| `client_id` | uuid | FK → `clients(id)`, `on delete set null` |
+| `platform` | text | `instagram` \| `facebook` |
+| `external_id` | text | platform post/media id |
+| `permalink` | text | link to the live post, when known |
+| `likes` / `comments` / `shares` / `saved` | int | engagement counts (null when unavailable) |
+| `reach` / `impressions` / `video_views` / `interactions` | int | delivery + interaction totals (null when unavailable) |
+| `raw` | jsonb | full provider payload for auditing |
+| `fetched_at` | timestamptz | when this snapshot was pulled |
+| `created_at` | timestamptz | default `now()` |
+
+RLS is enabled; only `service_role` has table privileges.
+
 ### Client onboarding invitations
 
 `onboarding_invitations` stores only a SHA-256 token hash, invitation metadata, expiry,
@@ -255,6 +282,7 @@ clients (1) ──< (N) reviews              # review queue
 clients (1) ──< (N) content_approvals    # generated-content decision gate
 tool_runs (1) ──< (N) content_assets     # generated post creatives (images)
 tool_runs (1) ──< (1) content_schedules  # deferred publish schedule (one per run)
+tool_runs (1) ──< (N) content_metrics    # post-publish reach/engagement snapshots
 onboarding_invitations (1) ──< (1) onboarding_submissions
 onboarding_submissions (0..1) ──> (1) clients  # after operator approval
 forge_agents (1) ──< (N) forge_agent_tool_permissions >── (1) forge_tools

@@ -8,6 +8,7 @@ import {
   deletePostImage,
   generatePostImage,
   publishApprovedContent,
+  refreshPublishedMetrics,
   runClientTask,
   scheduleApprovedContent,
 } from '../../actions';
@@ -123,6 +124,12 @@ function ApprovalStatus({ status }: { status?: string }) {
     'schedule-missing-image': 'Not scheduled — every Instagram post needs a generated image first.',
     'schedule-error': 'The schedule could not be saved. It may no longer be pending.',
     'schedule-invalid': 'That schedule request was invalid.',
+    'metrics-refreshed': 'Engagement metrics refreshed from the platform.',
+    'metrics-none': 'No published posts to pull metrics for yet.',
+    'metrics-unsupported': 'Per-post metrics are only available for Instagram and Facebook.',
+    'metrics-unconfigured': 'Set META_PAGE_ACCESS_TOKEN to pull post metrics.',
+    'metrics-error': 'Could not refresh metrics. Check the Meta token and server logs.',
+    'metrics-invalid': 'That metrics request was invalid.',
   };
   const isError =
     status === 'approval-blocked' ||
@@ -132,6 +139,8 @@ function ApprovalStatus({ status }: { status?: string }) {
     status === 'publish-missing-image' ||
     status === 'image-unconfigured' ||
     status === 'image-limit' ||
+    status === 'metrics-unsupported' ||
+    status === 'metrics-unconfigured' ||
     status === 'schedule-past' ||
     status === 'schedule-already' ||
     status === 'schedule-unsupported' ||
@@ -238,6 +247,33 @@ export default async function ToolRunDetailPage({
   // (falling back to UTC when none is set or it isn't a valid IANA zone).
   const scheduleZone = resolveScheduleTimeZone(client?.timezone);
   const scheduleZoneLabel = scheduleZone ?? 'UTC';
+
+  // Per-post engagement is available for Meta channels only.
+  const metricsSupported = socialPosts?.platform === 'instagram' || socialPosts?.platform === 'facebook';
+  const metricsRows =
+    isPublished && metricsSupported
+      ? (((
+          await getAdminSupabase()
+            .from('content_metrics')
+            .select(
+              'external_id, permalink, likes, comments, shares, saved, reach, impressions, video_views, interactions, fetched_at',
+            )
+            .eq('run_id', run.id)
+            .order('fetched_at', { ascending: false })
+        ).data ?? []) as Array<{
+          external_id: string;
+          permalink: string | null;
+          likes: number | null;
+          comments: number | null;
+          shares: number | null;
+          saved: number | null;
+          reach: number | null;
+          impressions: number | null;
+          video_views: number | null;
+          interactions: number | null;
+          fetched_at: string | null;
+        }>)
+      : [];
 
   return (
     <main className="min-h-screen bg-bg text-ink">
@@ -461,6 +497,79 @@ export default async function ToolRunDetailPage({
               )}
             </section>
           )}
+
+        {isPublished && metricsSupported && (
+          <section className="mt-6 border border-gold-border bg-surface/50 p-5" aria-label="Post performance">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div className="font-mono text-xs uppercase tracking-wide text-muted">Post Performance</div>
+                <p className="mt-2 max-w-3xl font-sans text-sm leading-6 text-muted">
+                  Reach and engagement pulled from {publishTarget}. Numbers keep growing after a post goes
+                  live — refresh to pull the latest, or let the metrics cron keep them current.
+                </p>
+              </div>
+              <form action={refreshPublishedMetrics}>
+                <input type="hidden" name="run_id" value={run.id} />
+                <button className="border border-gold-border px-4 py-2 font-mono text-[11px] uppercase tracking-wide text-gold transition hover:bg-gold-dim">
+                  Refresh metrics
+                </button>
+              </form>
+            </div>
+
+            {metricsRows.length > 0 ? (
+              <div className="mt-5 overflow-x-auto">
+                <table className="min-w-full border-collapse font-mono text-xs">
+                  <thead className="border-b border-gold-border text-muted-dark">
+                    <tr>
+                      <th className="py-3 pr-4 text-left uppercase tracking-wide">Post</th>
+                      <th className="px-4 py-3 text-right uppercase tracking-wide">Reach</th>
+                      <th className="px-4 py-3 text-right uppercase tracking-wide">Impressions</th>
+                      <th className="px-4 py-3 text-right uppercase tracking-wide">Likes</th>
+                      <th className="px-4 py-3 text-right uppercase tracking-wide">Comments</th>
+                      <th className="px-4 py-3 text-right uppercase tracking-wide">Shares</th>
+                      <th className="px-4 py-3 text-right uppercase tracking-wide">Saved</th>
+                      <th className="px-4 py-3 text-right uppercase tracking-wide">Interactions</th>
+                      <th className="py-3 pl-4 text-left uppercase tracking-wide">Updated</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gold-border/70">
+                    {metricsRows.map((metric) => (
+                      <tr key={metric.external_id}>
+                        <td className="py-3 pr-4 text-ink">
+                          {metric.permalink ? (
+                            <a
+                              href={metric.permalink}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-gold underline hover:text-gold-soft"
+                            >
+                              {metric.external_id.slice(0, 12)}…
+                            </a>
+                          ) : (
+                            `${metric.external_id.slice(0, 12)}…`
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-right text-muted">{metricText(metric.reach)}</td>
+                        <td className="px-4 py-3 text-right text-muted">{metricText(metric.impressions)}</td>
+                        <td className="px-4 py-3 text-right text-muted">{metricText(metric.likes)}</td>
+                        <td className="px-4 py-3 text-right text-muted">{metricText(metric.comments)}</td>
+                        <td className="px-4 py-3 text-right text-muted">{metricText(metric.shares)}</td>
+                        <td className="px-4 py-3 text-right text-muted">{metricText(metric.saved)}</td>
+                        <td className="px-4 py-3 text-right text-muted">{metricText(metric.interactions)}</td>
+                        <td className="py-3 pl-4 text-muted-dark">{formatDate(metric.fetched_at)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="mt-5 font-sans text-sm leading-6 text-muted">
+                No metrics pulled yet. Click <span className="text-gold">Refresh metrics</span> to fetch reach
+                and engagement for this run&apos;s posts.
+              </p>
+            )}
+          </section>
+        )}
 
         {keywordResearch ? (
           <section className="mt-8 space-y-6" aria-label="Keyword research output">

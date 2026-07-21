@@ -1,10 +1,10 @@
 # Scheduled jobs (Inngest)
 
-Forge ships three cron jobs defined in `src/inngest/functions.ts` and served via
+Forge ships four cron jobs defined in `src/inngest/functions.ts` and served via
 `src/inngest/server.ts`. They use [Inngest](https://www.inngest.com/) for
 scheduling and durable, retryable steps.
 
-## The three jobs
+## The four jobs
 
 ### `weekly-content`
 
@@ -61,6 +61,22 @@ gates as immediate publishing, so it never queues something that can't go live
 (unsupported platform, banned phrase, already published, or — for Instagram — a
 post missing its generated image).
 
+### `refresh-metrics`
+
+- **Schedule:** `FORGE_METRICS_CRON` (default `0 */6 * * *` — every 6 hours).
+- **What it does:** finds runs with `published_url` evidence recorded in the last 30
+  days and, for each, pulls the latest reach/engagement for its posts from the Meta
+  Graph API — upserting the snapshot into `content_metrics` and appending a durable
+  `metric` row to `forge_run_evidence`.
+- **Scope:** Instagram and Facebook only (Google Business exposes no per-post metrics
+  API). Reach and engagement keep growing after publish, so the periodic pull keeps
+  the stored snapshot current; the run detail page also has a **Refresh metrics**
+  button for an on-demand pull.
+- **Durability:** each run refreshes in its own `step.run(\`metrics-${runId}\`)`, and
+  the fetch is best-effort per metric — insights a media type or API version doesn't
+  support are left null rather than failing the whole refresh.
+- Returns `{ runs, refreshed }`.
+
 ## Running them locally
 
 You need the `reviews` table applied (it's in the core migrations) and two
@@ -105,6 +121,7 @@ a timezone if needed):
 FORGE_CONTENT_CRON=0 9 * * 1
 FORGE_REVIEW_CRON=0 8 * * *
 FORGE_PUBLISH_CRON=*/15 * * * *
+FORGE_METRICS_CRON=0 */6 * * *
 # e.g. with timezone:
 # FORGE_CONTENT_CRON=TZ=America/New_York 0 9 * * 1
 ```
