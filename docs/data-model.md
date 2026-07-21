@@ -225,7 +225,9 @@ metrics API). Each refresh also appends a durable `metric` row to `forge_run_evi
 Refreshed on demand from the dashboard and periodically by the `refresh-metrics` cron;
 see [Scheduled jobs](./scheduled-jobs.md). The run detail page shows per-post numbers,
 and the client page rolls these rows up into a client-level performance view (totals,
-per-platform breakdown, and top posts by engagement).
+per-platform breakdown, and top posts by engagement). The scheduler also uses
+`published_at` + engagement to suggest the client's best weekday/hour slots to post,
+computed in the client's timezone.
 
 | Column | Type | Notes |
 |---|---|---|
@@ -236,6 +238,7 @@ per-platform breakdown, and top posts by engagement).
 | `external_id` | text | platform post/media id |
 | `post_index` | int | which post in the run this metric belongs to |
 | `caption` | text | the generated caption, captured for performance memory |
+| `published_at` | timestamptz | when the post went live (for best-time-to-post insights) |
 | `permalink` | text | link to the live post, when known |
 | `likes` / `comments` / `shares` / `saved` | int | engagement counts (null when unavailable) |
 | `reach` / `impressions` / `video_views` / `interactions` | int | delivery + interaction totals (null when unavailable) |

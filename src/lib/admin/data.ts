@@ -5,8 +5,14 @@ import {
   type ClientPerformanceSummary,
   type MetricRowInput,
 } from '@/forge/data/performance-summary-mapping';
+import {
+  recommendPostTimes,
+  type PostingSlot,
+  type PublishedMetric,
+} from '@/forge/data/posting-insights-mapping';
 
 export type { ClientPerformanceSummary } from '@/forge/data/performance-summary-mapping';
+export type { PostingSlot } from '@/forge/data/posting-insights-mapping';
 
 export interface DashboardClient {
   id: string;
@@ -363,6 +369,21 @@ export async function loadClientPerformance(clientId: string): Promise<ClientPer
     .eq('client_id', clientId);
   if (error || !data) return null;
   return summarizeClientPerformance(data as MetricRowInput[]);
+}
+
+// Best weekday/hour slots to publish for a client, ranked by average engagement of
+// past posts (computed in `timeZone`). Best-effort: [] when there's no dated history.
+export async function loadClientPostingInsights(
+  clientId: string,
+  timeZone: string,
+): Promise<PostingSlot[]> {
+  const { data, error } = await getAdminSupabase()
+    .from('content_metrics')
+    .select('published_at, likes, comments, shares, saved, interactions')
+    .eq('client_id', clientId)
+    .not('published_at', 'is', null);
+  if (error || !data) return [];
+  return recommendPostTimes(data as PublishedMetric[], timeZone);
 }
 
 export async function loadToolRunDetail(id: string): Promise<DashboardToolRunDetail | null> {

@@ -102,7 +102,11 @@ export async function refreshRunMetrics(runId: string): Promise<RefreshMetricsRe
       .eq('run_id', runId)
       .eq('kind', 'published_url')
       .order('created_at', { ascending: true });
-    const rows = (published ?? []) as Array<{ reference: string | null; payload: unknown }>;
+    const rows = (published ?? []) as Array<{
+      reference: string | null;
+      payload: unknown;
+      created_at: string | null;
+    }>;
     if (rows.length === 0) {
       return { refreshed: false, code: 'no_posts', reason: 'This run has no published posts yet.' };
     }
@@ -128,6 +132,7 @@ export async function refreshRunMetrics(runId: string): Promise<RefreshMetricsRe
           post_index: postIndex,
           caption,
           permalink,
+          published_at: row.created_at,
           likes: metrics.likes,
           comments: metrics.comments,
           shares: metrics.shares,
