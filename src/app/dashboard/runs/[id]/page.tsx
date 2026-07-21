@@ -21,19 +21,11 @@ import {
   parseSocialPostOutput,
 } from '@/lib/admin/run-output';
 import { resolveScheduleTimeZone } from '@/forge/data/schedule-mapping';
+import { formatDateTime as formatDate } from '@/lib/admin/format';
 
 export const dynamic = 'force-dynamic';
 
 const runIdSchema = z.string().uuid();
-
-function formatDate(value: string | null, timeZone?: string) {
-  if (!value) return 'n/a';
-  return new Intl.DateTimeFormat('en-US', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-    ...(timeZone ? { timeZone, timeZoneName: 'short' } : {}),
-  }).format(new Date(value));
-}
 
 function platformName(value: string | null) {
   if (!value) return 'Social';
@@ -456,8 +448,8 @@ export default async function ToolRunDetailPage({
                         Scheduled to publish to {publishTarget} on{' '}
                         <span className="text-emerald-200">
                           {formatDate(pendingSchedule.scheduled_for, scheduleZoneLabel)}
-                        </span>
-                        .
+                        </span>{' '}
+                        ({scheduleZoneLabel}).
                       </p>
                       <form action={cancelScheduledContent}>
                         <input type="hidden" name="run_id" value={run.id} />
