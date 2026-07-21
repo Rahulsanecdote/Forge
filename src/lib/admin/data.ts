@@ -1,5 +1,18 @@
 import 'server-only';
 import { createClient } from '@supabase/supabase-js';
+import {
+  summarizeClientPerformance,
+  type ClientPerformanceSummary,
+  type MetricRowInput,
+} from '@/forge/data/performance-summary-mapping';
+import {
+  recommendPostTimes,
+  type PostingSlot,
+  type PublishedMetric,
+} from '@/forge/data/posting-insights-mapping';
+
+export type { ClientPerformanceSummary } from '@/forge/data/performance-summary-mapping';
+export type { PostingSlot } from '@/forge/data/posting-insights-mapping';
 
 export interface DashboardClient {
   id: string;
@@ -342,6 +355,35 @@ export async function loadClientDetail(slug: string): Promise<DashboardClientDet
     contentApprovals,
     errors,
   };
+}
+
+// Roll a client's post-publish metrics up for the client dashboard. Best-effort:
+// returns null when there's no metrics data yet (or the table isn't migrated), so the
+// page can simply omit the performance section.
+export async function loadClientPerformance(clientId: string): Promise<ClientPerformanceSummary | null> {
+  const { data, error } = await getAdminSupabase()
+    .from('content_metrics')
+    .select(
+      'platform, caption, permalink, likes, comments, shares, saved, reach, impressions, interactions, fetched_at',
+    )
+    .eq('client_id', clientId);
+  if (error || !data) return null;
+  return summarizeClientPerformance(data as MetricRowInput[]);
+}
+
+// Best weekday/hour slots to publish for a client, ranked by average engagement of
+// past posts (computed in `timeZone`). Best-effort: [] when there's no dated history.
+export async function loadClientPostingInsights(
+  clientId: string,
+  timeZone: string,
+): Promise<PostingSlot[]> {
+  const { data, error } = await getAdminSupabase()
+    .from('content_metrics')
+    .select('published_at, likes, comments, shares, saved, interactions')
+    .eq('client_id', clientId)
+    .not('published_at', 'is', null);
+  if (error || !data) return [];
+  return recommendPostTimes(data as PublishedMetric[], timeZone);
 }
 
 export async function loadToolRunDetail(id: string): Promise<DashboardToolRunDetail | null> {

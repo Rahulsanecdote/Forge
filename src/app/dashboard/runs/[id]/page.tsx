@@ -13,7 +13,7 @@ import {
   scheduleApprovedContent,
 } from '../../actions';
 import { isAdminAuthenticated } from '@/lib/admin/auth';
-import { getAdminSupabase, loadToolRunDetail } from '@/lib/admin/data';
+import { getAdminSupabase, loadClientPostingInsights, loadToolRunDetail } from '@/lib/admin/data';
 import {
   findBannedPhraseViolations,
   formatRunPayload,
@@ -248,6 +248,13 @@ export default async function ToolRunDetailPage({
   const scheduleZone = resolveScheduleTimeZone(client?.timezone);
   const scheduleZoneLabel = scheduleZone ?? 'UTC';
 
+  // Best-time-to-post suggestions from the client's own engagement history, shown
+  // beside the scheduler. Empty until there's dated performance data.
+  const postingSlots =
+    socialPosts && approval?.status === 'approved' && !isPublished && client
+      ? await loadClientPostingInsights(client.id, scheduleZone ?? 'UTC')
+      : [];
+
   // Per-post engagement is available for Meta channels only.
   const metricsSupported = socialPosts?.platform === 'instagram' || socialPosts?.platform === 'facebook';
   const metricsRows =
@@ -476,6 +483,14 @@ export default async function ToolRunDetailPage({
                       <button className="border border-emerald-300/50 px-4 py-2 font-mono text-[11px] uppercase tracking-wide text-emerald-100 transition hover:bg-emerald-500/10">
                         Schedule publish
                       </button>
+                      {postingSlots.length > 0 && (
+                        <div className="w-full font-mono text-[11px] text-muted">
+                          <span className="uppercase tracking-wide text-muted-dark">
+                            Best times ({scheduleZoneLabel}, from past engagement):
+                          </span>{' '}
+                          {postingSlots.map((slot) => `${slot.label}`).join(' · ')}
+                        </div>
+                      )}
                     </form>
                   )}
                 </div>
