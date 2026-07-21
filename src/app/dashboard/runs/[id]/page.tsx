@@ -156,6 +156,12 @@ export default async function ToolRunDetailPage({
           .filter((reference): reference is string => Boolean(reference))
       : [];
   const isPublished = publishedReferences.length > 0;
+  const publishTarget =
+    socialPosts?.platform === 'google_business'
+      ? 'Google Business'
+      : socialPosts?.platform === 'facebook'
+        ? 'Facebook'
+        : null;
 
   return (
     <main className="min-h-screen bg-bg text-ink">
@@ -305,18 +311,18 @@ export default async function ToolRunDetailPage({
                   </div>
                   <p className="mt-3 max-w-3xl font-sans text-sm leading-6 text-muted">
                     {isPublished
-                      ? `Published ${publishedReferences.length} post${publishedReferences.length === 1 ? '' : 's'} to Google Business.`
-                      : socialPosts.platform === 'google_business'
-                        ? 'Approved. Publish directly to Google Business, or copy the package to post elsewhere.'
+                      ? `Published ${publishedReferences.length} post${publishedReferences.length === 1 ? '' : 's'}${publishTarget ? ` to ${publishTarget}` : ''}.`
+                      : publishTarget
+                        ? `Approved. Publish directly to ${publishTarget}, or copy the package to post elsewhere.`
                         : 'This draft passed the current brand-policy check and has an approval record. External publishing for this platform is still manual.'}
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
-                  {!isPublished && socialPosts.platform === 'google_business' && (
+                  {!isPublished && publishTarget && (
                     <form action={publishApprovedContent}>
                       <input type="hidden" name="run_id" value={run.id} />
                       <button className="bg-emerald-400/90 px-5 py-3 font-mono text-xs uppercase tracking-wide text-bg transition hover:bg-emerald-300">
-                        Publish to Google Business
+                        Publish to {publishTarget}
                       </button>
                     </form>
                   )}

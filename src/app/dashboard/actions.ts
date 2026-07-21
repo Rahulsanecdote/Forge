@@ -635,7 +635,9 @@ export async function publishApprovedContent(formData: FormData) {
   }
 
   const parsed = parseSocialPostOutput(detail.run.output);
-  if (!parsed || parsed.platform !== 'google_business') redirectRun(runId.data, 'publish-unsupported');
+  if (!parsed || (parsed.platform !== 'google_business' && parsed.platform !== 'facebook')) {
+    redirectRun(runId.data, 'publish-unsupported');
+  }
 
   if (findBannedPhraseViolations(detail.run.output, detail.currentBannedPhrases).length > 0) {
     redirectRun(runId.data, 'publish-blocked');
@@ -653,30 +655,56 @@ export async function publishApprovedContent(formData: FormData) {
   const clientDetail = await loadClientDetail(detail.client.slug);
   if (!clientDetail) redirectRun(runId.data, 'publish-error');
 
+  const client = clientContextFromDetail(clientDetail);
+  const messages = parsed.posts.map((post) =>
+    [post.caption, post.hashtags.join(' ')].filter(Boolean).join('\n\n'),
+  );
+
   let status = 'publish-error';
   try {
-    const { publishApprovedSocialPostsToGoogle } = await import('@/forge/data/google-business-profile');
-    const summaries = parsed.posts.map((post) =>
-      [post.caption, post.hashtags.join(' ')].filter(Boolean).join('\n\n'),
-    );
-    const result = await publishApprovedSocialPostsToGoogle({
-      client: clientContextFromDetail(clientDetail),
-      summaries,
-    });
+    // One published_url evidence row per live post, whichever channel published it.
+    let evidence: Array<{ reference: string; description: string; payload: Record<string, unknown> }> = [];
+    let unconfigured = false;
 
-    if (result.published) {
-      for (const post of result.posts) {
+    if (parsed.platform === 'google_business') {
+      const { publishApprovedSocialPostsToGoogle } = await import('@/forge/data/google-business-profile');
+      const result = await publishApprovedSocialPostsToGoogle({ client, summaries: messages });
+      if (result.published) {
+        evidence = result.posts.map((post) => ({
+          reference: post.searchUrl ?? post.name,
+          description: 'Google Business local post published from the operator dashboard.',
+          payload: { name: post.name, searchUrl: post.searchUrl },
+        }));
+      } else {
+        unconfigured = result.code === 'unconfigured';
+      }
+    } else {
+      const { publishApprovedFacebookPosts } = await import('@/forge/data/meta');
+      const result = await publishApprovedFacebookPosts({ messages, link: client.website });
+      if (result.published) {
+        evidence = result.posts.map((post) => ({
+          reference: post.url,
+          description: 'Facebook page post published from the operator dashboard.',
+          payload: { id: post.id, url: post.url },
+        }));
+      } else {
+        unconfigured = result.code === 'unconfigured';
+      }
+    }
+
+    if (evidence.length > 0) {
+      for (const row of evidence) {
         await supabase.from('forge_run_evidence').insert({
           run_id: runId.data,
           kind: 'published_url',
-          description: 'Google Business local post published from the operator dashboard.',
-          reference: post.searchUrl ?? post.name,
-          payload: { name: post.name, searchUrl: post.searchUrl },
+          description: row.description,
+          reference: row.reference,
+          payload: row.payload,
         });
       }
       status = 'publish-complete';
     } else {
-      status = result.code === 'unconfigured' ? 'publish-unconfigured' : 'publish-error';
+      status = unconfigured ? 'publish-unconfigured' : 'publish-error';
     }
   } catch (error) {
     console.error('[dashboard/publishApprovedContent]', error);
