@@ -614,6 +614,52 @@ export async function publishReviewReply(formData: FormData) {
   redirectClient(slug, status);
 }
 
+// Generate + store an image for one post of a social-post run. The generation path is
+// fail-closed (returns unconfigured when no image provider key is set); this action maps
+// the outcome to an operator status banner.
+export async function generatePostImage(formData: FormData) {
+  await requireAdmin();
+  const runId = z.string().uuid().safeParse(stringValue(formData, 'run_id'));
+  const postIndex = Number.parseInt(stringValue(formData, 'post_index'), 10);
+  if (!runId.success || !Number.isInteger(postIndex) || postIndex < 0) {
+    redirectRun(runId.success ? runId.data : 'invalid', 'image-invalid');
+  }
+
+  const detail = await loadToolRunDetail(runId.data);
+  if (!detail || !detail.client || detail.run.tool !== 'create_social_posts') {
+    redirectRun(runId.data, 'image-error');
+  }
+
+  const parsed = parseSocialPostOutput(detail.run.output);
+  const post = parsed?.posts[postIndex];
+  if (!post) redirectRun(runId.data, 'image-error');
+
+  const clientDetail = await loadClientDetail(detail.client.slug);
+  if (!clientDetail) redirectRun(runId.data, 'image-error');
+
+  let status = 'image-error';
+  try {
+    const { generateAndStorePostImage } = await import('@/forge/data/images');
+    const result = await generateAndStorePostImage({
+      runId: runId.data,
+      clientId: detail.client.id,
+      postIndex,
+      imageDirection: post.imageDirection || post.caption,
+      businessName: clientDetail.client.name,
+      industry: clientDetail.client.industry,
+      tone: clientDetail.brandVoice?.tone ?? [],
+    });
+    status = result.generated ? 'image-generated' : 'image-unconfigured';
+  } catch (error) {
+    console.error('[dashboard/generatePostImage]', error);
+    status = 'image-error';
+  }
+
+  revalidatePath(`/dashboard/clients/${detail.client.slug}`);
+  revalidatePath(`/dashboard/runs/${runId.data}`);
+  redirectRun(runId.data, status);
+}
+
 // Publish an approved Google Business social-post run as Google local posts. Requires an
 // approved content_approvals record and google_business platform; re-checks banned-phrase
 // compliance, is idempotent against prior published_url evidence, and records each
