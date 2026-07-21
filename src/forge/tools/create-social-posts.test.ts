@@ -40,3 +40,16 @@ test('real-run prompt includes the client factual ceiling and writing constraint
   assert.match(prompt, /Hashtags should normally be an empty array/);
   assert.match(prompt, /exactly 3 item/);
 });
+
+test('performance memory examples are injected when provided', () => {
+  const withMemory = buildSocialPostsPrompt(
+    { platform: 'instagram', count: 2, topic: 'launch' },
+    onion,
+    ['instagram · 320 likes, 45 comments — "Cold brew season is here"'],
+  );
+  assert.match(withMemory, /best-performing past posts/);
+  assert.match(withMemory, /Cold brew season is here/);
+
+  const withoutMemory = buildSocialPostsPrompt({ platform: 'instagram', count: 2, topic: 'launch' }, onion);
+  assert.doesNotMatch(withoutMemory, /best-performing past posts/);
+});
