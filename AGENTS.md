@@ -1,6 +1,6 @@
 # Forge — Build Context for Codex (`AGENTS.md`)
 
-> **Version:** v1.18 · **Updated:** 2026-07-20 · **Repo:** `forge-agent`
+> **Version:** v1.19 · **Updated:** 2026-07-20 · **Repo:** `forge-agent`
 > **How to use:** Codex reads this automatically as `AGENTS.md`. (Also works pasted into a
 > Claude Code / Codex session at start, or renamed `CLAUDE.md`.) Read it fully before
 > changing code. Obey the Non-Negotiables. Append to the Decision Log on any structural
@@ -146,6 +146,7 @@ npm run typecheck               # must pass
 | 2026-07-20 | `research_keywords` now keeps LLM clustering separate from metrics enrichment: DataForSEO Keyword Overview supplies real volume, CPC, paid competition, search intent, and keyword difficulty when server-only credentials exist; otherwise the tool returns explicit ideation-only metadata rather than fabricated numbers. |
 | 2026-07-20 | DataForSEO is exposed as a first-class operator workflow in the portal: client detail pages can run `research_keywords` directly without relying on model tool selection, and run detail pages render keyword clusters plus provider metrics instead of raw JSON. |
 | 2026-07-20 | Keyword research now treats the topic as a customer-demand seed, carries optional client market/goal/CTA context into tools, rejects B2B marketing drift unless explicitly requested, and sorts real DataForSEO metrics by a transparent opportunity score instead of unsorted provider rows. |
+| 2026-07-20 | Keyword run detail pages can now promote an SEO cluster directly into a brand-governed Google Business Profile draft task; the handoff reuses the existing Forge run and approval queue instead of creating a separate publishing path. |
 
 ## 9. Conventions
 - Conventional Commits (`feat:`, `fix:`, `docs:`…). One focused change per PR.

@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { z } from 'zod';
 import { CopyButton } from '@/components/dashboard/copy-button';
-import { decideContentApproval } from '../../actions';
+import { decideContentApproval, runClientTask } from '../../actions';
 import { isAdminAuthenticated } from '@/lib/admin/auth';
 import { loadToolRunDetail } from '@/lib/admin/data';
 import {
@@ -42,6 +42,23 @@ function opportunityClass(label: string) {
   if (label === 'medium') return 'text-gold';
   if (label === 'low') return 'text-muted';
   return 'text-muted-dark';
+}
+
+function keywordClusterTask(cluster: {
+  theme: string;
+  intent: string;
+  keywords: string[];
+  contentAngle: string;
+}) {
+  const keywords = cluster.keywords.slice(0, 5).join(', ');
+  return [
+    'Write 3 Google Business Profile posts for this week and keep them on brand.',
+    `Use this SEO cluster as the content brief: ${cluster.theme}.`,
+    `Search intent: ${cluster.intent}.`,
+    `Target keywords: ${keywords}.`,
+    `Content angle: ${cluster.contentAngle}.`,
+    'Do not stuff keywords; use them only where natural.',
+  ].join(' ');
 }
 
 function ApprovalStatus({ status }: { status?: string }) {
@@ -343,6 +360,15 @@ export default async function ToolRunDetailPage({
                       </span>
                     ))}
                   </div>
+                  {client && (
+                    <form action={runClientTask} className="mt-5">
+                      <input type="hidden" name="slug" value={client.slug} />
+                      <input type="hidden" name="task" value={keywordClusterTask(cluster)} />
+                      <button className="border border-gold-border px-4 py-2 font-mono text-[11px] uppercase tracking-wide text-gold transition hover:bg-gold-dim">
+                        Generate posts from cluster
+                      </button>
+                    </form>
+                  )}
                 </article>
               ))}
             </div>
