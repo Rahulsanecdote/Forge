@@ -43,6 +43,11 @@ const schema = z.object({
   GOOGLE_OAUTH_CLIENT_ID: optionalConfigSchema,
   GOOGLE_OAUTH_CLIENT_SECRET: optionalConfigSchema,
 
+  // Meta (Facebook Page) publishing. Server-only.
+  META_PAGE_ID: optionalConfigSchema,
+  META_PAGE_ACCESS_TOKEN: optionalConfigSchema,
+  META_GRAPH_VERSION: optionalConfigSchema,
+
   // DataForSEO keyword metrics. Server-only.
   DATAFORSEO_LOGIN: optionalConfigSchema,
   DATAFORSEO_PASSWORD: optionalConfigSchema,
@@ -75,6 +80,9 @@ const runtimeEnv = {
   GOOGLE_BUSINESS_PROFILE_LOCATION_ID: process.env.GOOGLE_BUSINESS_PROFILE_LOCATION_ID,
   GOOGLE_OAUTH_CLIENT_ID: process.env.GOOGLE_OAUTH_CLIENT_ID,
   GOOGLE_OAUTH_CLIENT_SECRET: process.env.GOOGLE_OAUTH_CLIENT_SECRET,
+  META_PAGE_ID: process.env.META_PAGE_ID,
+  META_PAGE_ACCESS_TOKEN: process.env.META_PAGE_ACCESS_TOKEN,
+  META_GRAPH_VERSION: process.env.META_GRAPH_VERSION,
   DATAFORSEO_LOGIN: process.env.DATAFORSEO_LOGIN,
   DATAFORSEO_PASSWORD: process.env.DATAFORSEO_PASSWORD,
   DATAFORSEO_LOCATION_CODE: process.env.DATAFORSEO_LOCATION_CODE,
