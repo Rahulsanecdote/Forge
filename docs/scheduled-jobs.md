@@ -51,11 +51,15 @@ scheduling and durable, retryable steps.
 - Returns `{ due, published, failed }`.
 
 An operator sets a schedule from a run's **Publishing Package** panel: once a run
-is approved and unpublished, pick a future time (interpreted as UTC) and
-**Schedule publish**, or **Cancel schedule** to un-arm a pending one. Scheduling
-applies the same gates as immediate publishing, so it never queues something that
-can't go live (unsupported platform, banned phrase, already published, or — for
-Instagram — a post missing its generated image).
+is approved and unpublished, pick a future time and **Schedule publish**, or
+**Cancel schedule** to un-arm a pending one. The wall-clock time is interpreted in
+the **client's configured timezone** (`clients.timezone`) when it's a valid IANA
+zone such as `America/New_York`, and falls back to UTC otherwise; the picker and
+the scheduled-time readout are both labeled with the zone in effect. Internally
+`scheduled_for` is always stored as a UTC instant. Scheduling applies the same
+gates as immediate publishing, so it never queues something that can't go live
+(unsupported platform, banned phrase, already published, or — for Instagram — a
+post missing its generated image).
 
 ## Running them locally
 

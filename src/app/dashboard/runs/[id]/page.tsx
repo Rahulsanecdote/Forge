@@ -18,16 +18,18 @@ import {
   parseKeywordResearchOutput,
   parseSocialPostOutput,
 } from '@/lib/admin/run-output';
+import { resolveScheduleTimeZone } from '@/forge/data/schedule-mapping';
 
 export const dynamic = 'force-dynamic';
 
 const runIdSchema = z.string().uuid();
 
-function formatDate(value: string | null) {
+function formatDate(value: string | null, timeZone?: string) {
   if (!value) return 'n/a';
   return new Intl.DateTimeFormat('en-US', {
     dateStyle: 'medium',
     timeStyle: 'short',
+    ...(timeZone ? { timeZone, timeZoneName: 'short' } : {}),
   }).format(new Date(value));
 }
 
@@ -218,6 +220,10 @@ export default async function ToolRunDetailPage({
         ).data as { status: string; scheduled_for: string } | null)
       : null;
   const pendingSchedule = schedule?.status === 'pending' ? schedule : null;
+  // The wall-clock time the operator enters is interpreted in the client's timezone
+  // (falling back to UTC when none is set or it isn't a valid IANA zone).
+  const scheduleZone = resolveScheduleTimeZone(client?.timezone);
+  const scheduleZoneLabel = scheduleZone ?? 'UTC';
 
   return (
     <main className="min-h-screen bg-bg text-ink">
@@ -391,7 +397,10 @@ export default async function ToolRunDetailPage({
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <p className="font-mono text-xs text-emerald-100">
                         Scheduled to publish to {publishTarget} on{' '}
-                        <span className="text-emerald-200">{formatDate(pendingSchedule.scheduled_for)}</span>.
+                        <span className="text-emerald-200">
+                          {formatDate(pendingSchedule.scheduled_for, scheduleZoneLabel)}
+                        </span>
+                        .
                       </p>
                       <form action={cancelScheduledContent}>
                         <input type="hidden" name="run_id" value={run.id} />
@@ -405,7 +414,7 @@ export default async function ToolRunDetailPage({
                       <input type="hidden" name="run_id" value={run.id} />
                       <label className="block">
                         <span className="font-mono text-[11px] uppercase tracking-wide text-muted-dark">
-                          Schedule for later (UTC)
+                          Schedule for later ({scheduleZoneLabel})
                         </span>
                         <input
                           type="datetime-local"
