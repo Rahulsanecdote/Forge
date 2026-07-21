@@ -586,3 +586,30 @@ export async function decideContentApproval(formData: FormData) {
   revalidatePath(`/dashboard/runs/${runId.data}`);
   redirectRun(runId.data, `approval-${decision.data}`);
 }
+
+// Publish an operator-drafted review reply back to Google Business Profile. The
+// publish path itself re-checks banned-phrase compliance and Google credentials and
+// fails closed; this action only maps the outcome to an operator status banner.
+export async function publishReviewReply(formData: FormData) {
+  await requireAdmin();
+  const slug = stringValue(formData, 'slug');
+  const reviewId = z.string().uuid().safeParse(stringValue(formData, 'review_id'));
+  if (!slug || !reviewId.success) redirectClient(slug || 'unknown', 'reply-invalid');
+
+  let status = 'reply-error';
+  try {
+    const { publishDraftedReviewReply } = await import('@/forge/data/google-business-profile');
+    const result = await publishDraftedReviewReply(reviewId.data);
+    if (result.published) status = 'reply-published';
+    else if (result.code === 'unconfigured') status = 'reply-unconfigured';
+    else if (result.code === 'compliance') status = 'reply-blocked';
+    else status = 'reply-error';
+  } catch (error) {
+    console.error('[dashboard/publishReviewReply]', error);
+    status = 'reply-error';
+  }
+
+  revalidatePath('/dashboard');
+  revalidatePath(`/dashboard/clients/${slug}`);
+  redirectClient(slug, status);
+}
