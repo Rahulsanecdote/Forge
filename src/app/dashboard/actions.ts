@@ -12,6 +12,7 @@ import {
 import { getAdminSupabase, loadClientDetail, loadToolRunDetail } from '@/lib/admin/data';
 import { findBannedPhraseViolations, parseSocialPostOutput } from '@/lib/admin/run-output';
 import { submissionFromFormData } from '@/lib/onboarding/invitations';
+import { brandVoiceFromOnboarding } from '@/lib/onboarding/brand-voice';
 import type { ClientContext } from '@/forge/types';
 
 export async function login(formData: FormData) {
@@ -45,57 +46,8 @@ function listValue(formData: FormData, key: string) {
     .filter(Boolean);
 }
 
-function uniqueList(values: string[]) {
-  const seen = new Set<string>();
-  return values.filter((value) => {
-    const key = value.toLowerCase();
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-}
-
 function isMissingGoogleBusinessColumns(error: { message?: string } | null) {
   return Boolean(error?.message && /google_business_/i.test(error.message));
-}
-
-function sentenceFragment(value: string) {
-  return value.trim().replace(/[\s.。!?]+$/g, '');
-}
-
-function directive(label: string, value: string) {
-  const cleaned = sentenceFragment(value);
-  return cleaned ? `${label}: ${cleaned}.` : null;
-}
-
-function brandVoiceFromOnboarding(input: {
-  name: string;
-  industry: string;
-  services: string[];
-  geographicMarket: string;
-  primaryGoal: string;
-  primaryCta: string;
-}) {
-  const services = uniqueList(input.services).slice(0, 6);
-  const cta = sentenceFragment(input.primaryCta);
-  const goal = sentenceFragment(input.primaryGoal);
-  const market = sentenceFragment(input.geographicMarket);
-  const category = sentenceFragment(input.industry);
-  const firstService = services[0] ?? category.toLowerCase();
-
-  return {
-    dos: [
-      ...services.map((service) => `Only reference ${service} when supported by the source material.`),
-      directive('Focus on this geographic market', market),
-      directive('Optimize toward', goal),
-      directive('Use this primary call to action', cta),
-    ].filter((value): value is string => Boolean(value)),
-    donts: ['Do not invent services, offers, locations, or performance claims.'],
-    samplePosts: [
-      `${input.name} helps ${market || 'local customers'} with ${firstService}. ${cta || 'Reach out to learn more'}.`,
-      `Looking for ${category || 'trusted service'} support? Keep ${input.name} in mind when ${goal || 'you are ready for the next step'}.`,
-    ],
-  };
 }
 
 function redirectClient(slug: string, status: string): never {
