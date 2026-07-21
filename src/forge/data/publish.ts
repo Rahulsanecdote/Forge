@@ -122,24 +122,27 @@ export async function publishApprovedRun(runId: string): Promise<PublishRunOutco
         failureStatus = result.code === 'unconfigured' ? 'publish-unconfigured' : 'publish-error';
       }
     } else {
-      // instagram — every post needs a generated image (a public URL).
+      // instagram — every post needs at least one generated image (a public URL).
+      // Multiple images per post (ordered by asset_index) publish as a carousel.
       const { data: assets } = await supabase
         .from('content_assets')
-        .select('post_index, public_url')
+        .select('post_index, asset_index, public_url')
         .eq('run_id', runId)
-        .eq('kind', 'image');
-      const imageByIndex = new Map<number, string>(
-        ((assets ?? []) as Array<{ post_index: number; public_url: string }>).map((row) => [
-          row.post_index,
-          row.public_url,
-        ]),
-      );
+        .eq('kind', 'image')
+        .order('post_index', { ascending: true })
+        .order('asset_index', { ascending: true });
+      const imagesByIndex = new Map<number, string[]>();
+      for (const row of (assets ?? []) as Array<{ post_index: number; public_url: string }>) {
+        const urls = imagesByIndex.get(row.post_index) ?? [];
+        urls.push(row.public_url);
+        imagesByIndex.set(row.post_index, urls);
+      }
       const { publishApprovedInstagramPosts } = await import('./instagram');
       const result = await publishApprovedInstagramPosts({
         posts: parsed.posts.map((post, index) => ({
           caption: post.caption,
           hashtags: post.hashtags,
-          imageUrl: imageByIndex.get(index) ?? null,
+          imageUrls: imagesByIndex.get(index) ?? [],
         })),
       });
       if (result.published) {

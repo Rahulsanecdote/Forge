@@ -5,6 +5,7 @@ import { CopyButton } from '@/components/dashboard/copy-button';
 import {
   cancelScheduledContent,
   decideContentApproval,
+  deletePostImage,
   generatePostImage,
   publishApprovedContent,
   runClientTask,
@@ -108,6 +109,8 @@ function ApprovalStatus({ status }: { status?: string }) {
     'publish-error': 'Publishing failed. Check the channel credentials and server logs.',
     'publish-invalid': 'That publish request was invalid.',
     'image-generated': 'Image generated and attached to the post.',
+    'image-removed': 'Image removed from the post.',
+    'image-limit': 'This post already has the maximum of 10 images (Instagram carousel limit).',
     'image-unconfigured': 'Image not generated — set FORGE_IMAGE_PROVIDER and its API key first.',
     'image-error': 'Image generation failed. Check the image provider key and server logs.',
     'image-invalid': 'That image request was invalid.',
@@ -128,6 +131,7 @@ function ApprovalStatus({ status }: { status?: string }) {
     status === 'publish-unconfigured' ||
     status === 'publish-missing-image' ||
     status === 'image-unconfigured' ||
+    status === 'image-limit' ||
     status === 'schedule-past' ||
     status === 'schedule-already' ||
     status === 'schedule-unsupported' ||
@@ -195,19 +199,29 @@ export default async function ToolRunDetailPage({
           ? 'Instagram'
           : null;
 
-  const postImages = new Map<number, string>(
-    socialPosts
-      ? (
-          (
-            await getAdminSupabase()
-              .from('content_assets')
-              .select('post_index, public_url')
-              .eq('run_id', run.id)
-              .eq('kind', 'image')
-          ).data ?? []
-        ).map((row: { post_index: number; public_url: string }) => [row.post_index, row.public_url])
-      : [],
-  );
+  const postImages = new Map<number, Array<{ assetIndex: number; url: string }>>();
+  if (socialPosts) {
+    const imageRows =
+      (
+        await getAdminSupabase()
+          .from('content_assets')
+          .select('post_index, asset_index, public_url')
+          .eq('run_id', run.id)
+          .eq('kind', 'image')
+          .order('post_index', { ascending: true })
+          .order('asset_index', { ascending: true })
+      ).data ?? [];
+    for (const row of imageRows as Array<{
+      post_index: number;
+      asset_index: number;
+      public_url: string;
+    }>) {
+      const list = postImages.get(row.post_index) ?? [];
+      list.push({ assetIndex: row.asset_index, url: row.public_url });
+      postImages.set(row.post_index, list);
+    }
+  }
+  const isInstagram = socialPosts?.platform === 'instagram';
 
   const schedule =
     socialPosts && approval?.status === 'approved' && !isPublished
@@ -626,21 +640,60 @@ export default async function ToolRunDetailPage({
                       <p className="mt-4 font-sans text-sm leading-6 text-muted">
                         {post.imageDirection ?? 'No image direction generated.'}
                       </p>
-                      {postImages.get(index) && (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={postImages.get(index)}
-                          alt={`Generated image for draft ${index + 1}`}
-                          className="mt-4 w-full max-w-xs border border-gold-border"
-                        />
-                      )}
-                      <form action={generatePostImage} className="mt-4">
-                        <input type="hidden" name="run_id" value={run.id} />
-                        <input type="hidden" name="post_index" value={index} />
-                        <button className="border border-gold-border px-3 py-2 font-mono text-[11px] uppercase tracking-wide text-gold transition hover:bg-gold-dim">
-                          {postImages.get(index) ? 'Regenerate Image' : 'Generate Image'}
-                        </button>
-                      </form>
+                      {(() => {
+                        const images = postImages.get(index) ?? [];
+                        const canAdd = images.length < 10;
+                        return (
+                          <>
+                            {isInstagram && images.length > 1 && (
+                              <div className="mt-4 font-mono text-[11px] uppercase tracking-wide text-gold-soft">
+                                Publishes as a {images.length}-image carousel
+                              </div>
+                            )}
+                            {images.length > 0 && (
+                              <div className="mt-4 space-y-4">
+                                {images.map((image) => (
+                                  <div key={image.assetIndex}>
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img
+                                      src={image.url}
+                                      alt={`Generated image ${image.assetIndex + 1} for draft ${index + 1}`}
+                                      className="w-full max-w-xs border border-gold-border"
+                                    />
+                                    <div className="mt-2 flex flex-wrap gap-2">
+                                      <form action={generatePostImage}>
+                                        <input type="hidden" name="run_id" value={run.id} />
+                                        <input type="hidden" name="post_index" value={index} />
+                                        <input type="hidden" name="asset_index" value={image.assetIndex} />
+                                        <button className="border border-gold-border px-3 py-1.5 font-mono text-[11px] uppercase tracking-wide text-gold transition hover:bg-gold-dim">
+                                          Regenerate
+                                        </button>
+                                      </form>
+                                      <form action={deletePostImage}>
+                                        <input type="hidden" name="run_id" value={run.id} />
+                                        <input type="hidden" name="post_index" value={index} />
+                                        <input type="hidden" name="asset_index" value={image.assetIndex} />
+                                        <button className="border border-red-400/40 px-3 py-1.5 font-mono text-[11px] uppercase tracking-wide text-red-100 transition hover:bg-red-500/10">
+                                          Remove
+                                        </button>
+                                      </form>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            {canAdd && (
+                              <form action={generatePostImage} className="mt-4">
+                                <input type="hidden" name="run_id" value={run.id} />
+                                <input type="hidden" name="post_index" value={index} />
+                                <button className="border border-gold-border px-3 py-2 font-mono text-[11px] uppercase tracking-wide text-gold transition hover:bg-gold-dim">
+                                  {images.length === 0 ? 'Generate Image' : 'Add Image'}
+                                </button>
+                              </form>
+                            )}
+                          </>
+                        );
+                      })()}
                     </div>
                   </div>
                 </article>

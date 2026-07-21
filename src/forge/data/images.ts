@@ -18,11 +18,13 @@ export async function generateAndStorePostImage(input: {
   runId: string;
   clientId: string | null;
   postIndex: number;
+  assetIndex?: number;
   imageDirection: string;
   businessName: string;
   industry?: string | null;
   tone?: string[];
 }): Promise<GeneratePostImageResult> {
+  const assetIndex = input.assetIndex ?? 0;
   if (!isImageGenerationConfigured()) {
     return {
       generated: false,
@@ -41,7 +43,7 @@ export async function generateAndStorePostImage(input: {
   const { image } = await generateImage({ model: resolveImageModel(), prompt, aspectRatio: '1:1' });
 
   const mediaType = image.mediaType ?? 'image/png';
-  const storagePath = `${input.runId}/${input.postIndex}-${randomUUID()}.${imageExtensionForMediaType(mediaType)}`;
+  const storagePath = `${input.runId}/${input.postIndex}-${assetIndex}-${randomUUID()}.${imageExtensionForMediaType(mediaType)}`;
 
   const { error: uploadError } = await supabase.storage
     .from(BUCKET)
@@ -57,6 +59,7 @@ export async function generateAndStorePostImage(input: {
         run_id: input.runId,
         client_id: input.clientId,
         post_index: input.postIndex,
+        asset_index: assetIndex,
         kind: 'image',
         provider: resolveImageProvider(),
         prompt,
@@ -65,11 +68,37 @@ export async function generateAndStorePostImage(input: {
         media_type: mediaType,
         status: 'ready',
       },
-      { onConflict: 'run_id,post_index,kind' },
+      { onConflict: 'run_id,post_index,asset_index,kind' },
     )
     .select('id')
     .single();
   if (insertError || !asset) throw insertError ?? new Error('Failed to record content asset.');
 
   return { generated: true, assetId: asset.id, publicUrl, storagePath, mediaType };
+}
+
+// Remove one image slot: delete the stored object (best-effort) and its content_assets
+// row. Returns whether a row was deleted so the caller can report a no-op distinctly.
+export async function deleteStoredPostImage(input: {
+  runId: string;
+  postIndex: number;
+  assetIndex: number;
+}): Promise<{ deleted: boolean }> {
+  const { data: asset } = await supabase
+    .from('content_assets')
+    .select('id, storage_path')
+    .eq('run_id', input.runId)
+    .eq('post_index', input.postIndex)
+    .eq('asset_index', input.assetIndex)
+    .eq('kind', 'image')
+    .maybeSingle();
+  if (!asset) return { deleted: false };
+
+  if (asset.storage_path) {
+    await supabase.storage.from(BUCKET).remove([asset.storage_path]);
+  }
+
+  const { error } = await supabase.from('content_assets').delete().eq('id', asset.id);
+  if (error) throw error;
+  return { deleted: true };
 }
