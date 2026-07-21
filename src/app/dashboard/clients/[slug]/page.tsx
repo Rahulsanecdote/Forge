@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import {
   logout,
+  publishReviewReply,
   runClientTask,
   runKeywordResearch,
   updateBrandVoice,
@@ -61,9 +62,18 @@ function StatusBanner({ status }: { status?: string }) {
     'run-invalid': 'Enter a task before running Forge.',
     'keyword-error': 'Keyword research could not complete. Check provider keys and server logs.',
     'keyword-invalid': 'Enter a keyword topic before running research.',
+    'reply-published': 'Reply published to Google. The review is now marked posted.',
+    'reply-blocked': 'Reply not published — the draft contains a banned phrase. Edit the brand voice or draft and retry.',
+    'reply-unconfigured': 'Reply not published — configure a write-scoped Google token and the account/location IDs first.',
+    'reply-error': 'Reply could not be published. Check the Google write scope and server logs.',
+    'reply-invalid': 'Select a drafted Google reply to publish.',
   };
 
-  const isError = status.endsWith('error') || status.endsWith('invalid');
+  const isError =
+    status.endsWith('error') ||
+    status.endsWith('invalid') ||
+    status.endsWith('blocked') ||
+    status.endsWith('unconfigured');
 
   return (
     <div
@@ -421,6 +431,20 @@ export default async function ClientDetailPage({
                     <p className="mt-3 border-l border-gold-border pl-3 font-sans text-sm leading-6 text-ink">
                       {review.draft_reply}
                     </p>
+                  )}
+                  {review.status === 'drafted' && review.draft_reply && (
+                    <form action={publishReviewReply} className="mt-3">
+                      <input type="hidden" name="slug" value={client.slug} />
+                      <input type="hidden" name="review_id" value={review.id} />
+                      <button className="border border-gold-border px-3 py-2 font-mono text-[11px] uppercase tracking-wide text-gold transition hover:border-gold/60 hover:bg-gold-dim">
+                        Publish Reply to Google
+                      </button>
+                    </form>
+                  )}
+                  {review.status === 'posted' && (
+                    <div className="mt-3 font-mono text-[11px] uppercase tracking-wide text-gold">
+                      ✓ Reply published to Google
+                    </div>
                   )}
                 </div>
               ))}

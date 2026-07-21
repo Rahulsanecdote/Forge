@@ -99,3 +99,22 @@ npm run forge:reviews:import -- acme-coffee
 
 If credentials or location IDs are missing, the importer returns a configured
 `false` result and the review sweep continues with any existing manual rows.
+
+## Publishing drafted replies to Google
+
+Once the sweep has drafted a reply (`status = 'drafted'`), an operator can publish
+it back to the customer's Google review. Publishing re-checks banned-phrase
+compliance against the current brand voice, PUTs the reply through the same
+Google Business Profile v4 API used for import, and — only after Google accepts —
+flips the review to `status = 'posted'` and records the published reference under
+`reviews.metadata.published_reply`. It fails closed on every gap (wrong status,
+empty reply, banned-phrase violation, or missing Google credentials) and requires
+a **write-scoped** Google token.
+
+```bash
+# List a client's drafted Google replies
+npm run forge:reviews:publish -- acme-coffee
+
+# Publish one by id
+npm run forge:reviews:publish -- acme-coffee --publish <reviewId>
+```
