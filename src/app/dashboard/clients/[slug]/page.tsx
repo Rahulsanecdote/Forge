@@ -9,9 +9,18 @@ import {
   updateClientProfile,
 } from '../../actions';
 import { isAdminAuthenticated } from '@/lib/admin/auth';
-import { loadClientDetail } from '@/lib/admin/data';
+import { loadClientDetail, loadClientPerformance } from '@/lib/admin/data';
 
 export const dynamic = 'force-dynamic';
+
+const compactNumber = new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 });
+
+function platformLabel(value: string) {
+  return value
+    .split('_')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
 
 function formatDate(value: string | null) {
   if (!value) return 'n/a';
@@ -151,6 +160,7 @@ export default async function ClientDetailPage({
   if (!detail) notFound();
 
   const { client, brandVoice, toolRuns, reviews, contentApprovals, errors } = detail;
+  const performance = await loadClientPerformance(client.id);
 
   return (
     <main className="min-h-screen bg-bg text-ink">
@@ -334,6 +344,74 @@ export default async function ClientDetailPage({
             Save Brand Voice
           </button>
         </form>
+
+        {performance && (
+          <section className="mt-6 border border-gold-border bg-surface/50 p-5" aria-label="Client performance">
+            <div className="flex flex-wrap items-baseline justify-between gap-3">
+              <div className="font-mono text-xs uppercase tracking-wide text-muted">Performance</div>
+              <div className="font-mono text-[11px] uppercase tracking-wide text-muted-dark">
+                {performance.measuredPosts} measured post{performance.measuredPosts === 1 ? '' : 's'}
+                {performance.lastFetchedAt ? ` · updated ${formatDate(performance.lastFetchedAt)}` : ''}
+              </div>
+            </div>
+
+            <dl className="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+              {[
+                { label: 'Reach', value: performance.totals.reach },
+                { label: 'Impressions', value: performance.totals.impressions },
+                { label: 'Likes', value: performance.totals.likes },
+                { label: 'Comments', value: performance.totals.comments },
+                { label: 'Shares', value: performance.totals.shares },
+              ].map((stat) => (
+                <div key={stat.label} className="border border-gold-border bg-bg/40 p-4">
+                  <dt className="font-mono text-[11px] uppercase tracking-wide text-muted-dark">{stat.label}</dt>
+                  <dd className="mt-2 font-serif text-3xl text-ink">{compactNumber.format(stat.value)}</dd>
+                </div>
+              ))}
+            </dl>
+
+            {performance.byPlatform.length > 1 && (
+              <div className="mt-4 flex flex-wrap gap-2 font-mono text-[11px] text-muted">
+                {performance.byPlatform.map((p) => (
+                  <span key={p.platform} className="border border-gold-border px-2 py-1">
+                    {platformLabel(p.platform)}: {p.posts} post{p.posts === 1 ? '' : 's'} ·{' '}
+                    {compactNumber.format(p.likes + p.comments + p.shares)} eng.
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {performance.topPosts.length > 0 && (
+              <div className="mt-6">
+                <div className="font-mono text-[11px] uppercase tracking-wide text-muted-dark">
+                  Top posts by engagement
+                </div>
+                <ul className="mt-3 space-y-2">
+                  {performance.topPosts.map((post, index) => (
+                    <li
+                      key={`${post.permalink ?? post.caption}-${index}`}
+                      className="flex flex-wrap items-baseline justify-between gap-3 border-b border-gold-border/60 pb-2 font-mono text-xs"
+                    >
+                      <span className="min-w-0 flex-1 truncate text-ink">
+                        {post.permalink ? (
+                          <a href={post.permalink} target="_blank" rel="noreferrer" className="text-gold hover:text-gold-soft">
+                            {post.caption}
+                          </a>
+                        ) : (
+                          post.caption
+                        )}
+                      </span>
+                      <span className="text-muted-dark">
+                        {platformLabel(post.platform)} · {compactNumber.format(post.likes ?? 0)} likes ·{' '}
+                        {compactNumber.format(post.comments ?? 0)} comments
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </section>
+        )}
 
         <section className="mt-6 grid gap-6 xl:grid-cols-3">
           <div className="border border-gold-border bg-surface/50">

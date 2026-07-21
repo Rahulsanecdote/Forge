@@ -223,7 +223,9 @@ per `(run_id, platform, external_id)`, upserted on each refresh. Metrics are pul
 the Meta Graph API for `instagram` and `facebook` posts (Google Business has no per-post
 metrics API). Each refresh also appends a durable `metric` row to `forge_run_evidence`.
 Refreshed on demand from the dashboard and periodically by the `refresh-metrics` cron;
-see [Scheduled jobs](./scheduled-jobs.md).
+see [Scheduled jobs](./scheduled-jobs.md). The run detail page shows per-post numbers,
+and the client page rolls these rows up into a client-level performance view (totals,
+per-platform breakdown, and top posts by engagement).
 
 | Column | Type | Notes |
 |---|---|---|

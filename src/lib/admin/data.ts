@@ -1,5 +1,12 @@
 import 'server-only';
 import { createClient } from '@supabase/supabase-js';
+import {
+  summarizeClientPerformance,
+  type ClientPerformanceSummary,
+  type MetricRowInput,
+} from '@/forge/data/performance-summary-mapping';
+
+export type { ClientPerformanceSummary } from '@/forge/data/performance-summary-mapping';
 
 export interface DashboardClient {
   id: string;
@@ -342,6 +349,20 @@ export async function loadClientDetail(slug: string): Promise<DashboardClientDet
     contentApprovals,
     errors,
   };
+}
+
+// Roll a client's post-publish metrics up for the client dashboard. Best-effort:
+// returns null when there's no metrics data yet (or the table isn't migrated), so the
+// page can simply omit the performance section.
+export async function loadClientPerformance(clientId: string): Promise<ClientPerformanceSummary | null> {
+  const { data, error } = await getAdminSupabase()
+    .from('content_metrics')
+    .select(
+      'platform, caption, permalink, likes, comments, shares, saved, reach, impressions, interactions, fetched_at',
+    )
+    .eq('client_id', clientId);
+  if (error || !data) return null;
+  return summarizeClientPerformance(data as MetricRowInput[]);
 }
 
 export async function loadToolRunDetail(id: string): Promise<DashboardToolRunDetail | null> {
