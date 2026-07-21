@@ -100,7 +100,7 @@ export interface DashboardClientDetail {
 
 export interface DashboardToolRunDetail {
   run: DashboardToolRun;
-  client: Pick<DashboardClient, 'id' | 'slug' | 'name'> | null;
+  client: Pick<DashboardClient, 'id' | 'slug' | 'name' | 'timezone'> | null;
   approval: DashboardContentApproval | null;
   currentBannedPhrases: string[];
   errors: string[];
@@ -362,7 +362,7 @@ export async function loadToolRunDetail(id: string): Promise<DashboardToolRunDet
   if (run.client_id) {
     const { data: clientData, error: clientError } = await supabase
       .from('clients')
-      .select('id, slug, name')
+      .select('id, slug, name, timezone')
       .eq('id', run.client_id)
       .single();
 

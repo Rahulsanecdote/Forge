@@ -692,10 +692,6 @@ export async function scheduleApprovedContent(formData: FormData) {
   const runId = z.string().uuid().safeParse(stringValue(formData, 'run_id'));
   if (!runId.success) redirectRun('invalid', 'schedule-invalid');
 
-  const { parseScheduledFor } = await import('@/forge/data/schedule-mapping');
-  const when = parseScheduledFor(stringValue(formData, 'scheduled_for'), new Date());
-  if (!when.ok) redirectRun(runId.data, when.reason === 'past' ? 'schedule-past' : 'schedule-invalid');
-
   const detail = await loadToolRunDetail(runId.data);
   if (
     !detail ||
@@ -705,6 +701,15 @@ export async function scheduleApprovedContent(formData: FormData) {
   ) {
     redirectRun(runId.data, 'schedule-error');
   }
+
+  // Interpret the operator's wall-clock time in the client's configured timezone.
+  const { parseScheduledFor } = await import('@/forge/data/schedule-mapping');
+  const when = parseScheduledFor(
+    stringValue(formData, 'scheduled_for'),
+    new Date(),
+    detail.client.timezone,
+  );
+  if (!when.ok) redirectRun(runId.data, when.reason === 'past' ? 'schedule-past' : 'schedule-invalid');
 
   const parsed = parseSocialPostOutput(detail.run.output);
   if (

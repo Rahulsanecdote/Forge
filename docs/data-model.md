@@ -196,7 +196,7 @@ fail-closed `publishApprovedRun` path as the immediate "Publish" button. See
 | `id` | uuid | PK |
 | `run_id` | uuid | **unique** FK → `tool_runs(id)`, `on delete cascade` |
 | `client_id` | uuid | FK → `clients(id)`, `on delete set null` |
-| `scheduled_for` | timestamptz | not null — when to publish (UTC) |
+| `scheduled_for` | timestamptz | not null — when to publish (stored UTC; entered in the client's timezone) |
 | `status` | text | `pending` \| `publishing` \| `published` \| `failed` \| `canceled` |
 | `attempts` | int | default 0 — incremented when the cron claims the row |
 | `last_error` | text | publish outcome status when `failed` |
