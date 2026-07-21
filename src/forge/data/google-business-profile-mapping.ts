@@ -61,6 +61,35 @@ export interface GoogleReviewReply {
   updateTime: string | null;
 }
 
+export interface GoogleLocalPostResult {
+  name: string;
+  searchUrl: string | null;
+}
+
+// Build a STANDARD local-post body. `summary` is the post text (Google caps it at
+// 1500 chars); an optional call-to-action URL adds a LEARN_MORE button.
+export function buildLocalPostBody(input: {
+  summary: string;
+  callToActionUrl?: string | null;
+  languageCode?: string;
+}): Record<string, unknown> {
+  const body: Record<string, unknown> = {
+    languageCode: input.languageCode ?? 'en-US',
+    summary: input.summary.slice(0, 1500),
+    topicType: 'STANDARD',
+  };
+  const url = input.callToActionUrl?.trim();
+  if (url) body.callToAction = { actionType: 'LEARN_MORE', url };
+  return body;
+}
+
+export function parseLocalPostResponse(payload: unknown): GoogleLocalPostResult | null {
+  if (!payload || typeof payload !== 'object') return null;
+  const record = payload as { name?: unknown; searchUrl?: unknown };
+  if (typeof record.name !== 'string' || !record.name.trim()) return null;
+  return { name: record.name, searchUrl: typeof record.searchUrl === 'string' ? record.searchUrl : null };
+}
+
 export type ReplyPublishableResult =
   | { ok: true }
   | {

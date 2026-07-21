@@ -2,9 +2,9 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { z } from 'zod';
 import { CopyButton } from '@/components/dashboard/copy-button';
-import { decideContentApproval, runClientTask } from '../../actions';
+import { decideContentApproval, publishApprovedContent, runClientTask } from '../../actions';
 import { isAdminAuthenticated } from '@/lib/admin/auth';
-import { loadToolRunDetail } from '@/lib/admin/data';
+import { getAdminSupabase, loadToolRunDetail } from '@/lib/admin/data';
 import {
   findBannedPhraseViolations,
   formatRunPayload,
@@ -90,8 +90,21 @@ function ApprovalStatus({ status }: { status?: string }) {
     'approval-blocked': 'Approval blocked by the current brand policy.',
     'approval-error': 'The approval decision could not be saved.',
     'approval-invalid': 'The approval decision was invalid.',
+    'publish-complete': 'Published to Google Business. The approved posts are now live.',
+    'publish-already': 'This run was already published to Google Business.',
+    'publish-blocked': 'Not published — the draft contains a banned phrase. Revise and regenerate.',
+    'publish-unsupported': 'Only approved Google Business posts can be published here.',
+    'publish-unconfigured': 'Not published — configure a write-scoped Google token and account/location IDs first.',
+    'publish-error': 'Publishing to Google Business failed. Check the Google write scope and server logs.',
+    'publish-invalid': 'That publish request was invalid.',
   };
-  const isError = status === 'approval-blocked' || status.endsWith('error') || status.endsWith('invalid');
+  const isError =
+    status === 'approval-blocked' ||
+    status === 'publish-blocked' ||
+    status === 'publish-unsupported' ||
+    status === 'publish-unconfigured' ||
+    status.endsWith('error') ||
+    status.endsWith('invalid');
 
   return (
     <div
@@ -127,6 +140,22 @@ export default async function ToolRunDetailPage({
   const socialPosts = run.tool === 'create_social_posts' ? parseSocialPostOutput(run.output) : null;
   const keywordResearch = run.tool === 'research_keywords' ? parseKeywordResearchOutput(run.output) : null;
   const bannedPhraseViolations = findBannedPhraseViolations(run.output, currentBannedPhrases);
+
+  const publishedReferences =
+    socialPosts && approval?.status === 'approved'
+      ? (
+          (
+            await getAdminSupabase()
+              .from('forge_run_evidence')
+              .select('reference')
+              .eq('run_id', run.id)
+              .eq('kind', 'published_url')
+          ).data ?? []
+        )
+          .map((row: { reference: string | null }) => row.reference)
+          .filter((reference): reference is string => Boolean(reference))
+      : [];
+  const isPublished = publishedReferences.length > 0;
 
   return (
     <main className="min-h-screen bg-bg text-ink">
@@ -275,12 +304,40 @@ export default async function ToolRunDetailPage({
                     Publishing Package
                   </div>
                   <p className="mt-3 max-w-3xl font-sans text-sm leading-6 text-muted">
-                    This draft passed the current brand-policy check and has an approval record.
-                    External publishing is still manual in this phase.
+                    {isPublished
+                      ? `Published ${publishedReferences.length} post${publishedReferences.length === 1 ? '' : 's'} to Google Business.`
+                      : socialPosts.platform === 'google_business'
+                        ? 'Approved. Publish directly to Google Business, or copy the package to post elsewhere.'
+                        : 'This draft passed the current brand-policy check and has an approval record. External publishing for this platform is still manual.'}
                   </p>
                 </div>
-                <CopyButton value={socialPublishingPackage(socialPosts.posts)} label="Copy package" />
+                <div className="flex flex-wrap items-center gap-3">
+                  {!isPublished && socialPosts.platform === 'google_business' && (
+                    <form action={publishApprovedContent}>
+                      <input type="hidden" name="run_id" value={run.id} />
+                      <button className="bg-emerald-400/90 px-5 py-3 font-mono text-xs uppercase tracking-wide text-bg transition hover:bg-emerald-300">
+                        Publish to Google Business
+                      </button>
+                    </form>
+                  )}
+                  <CopyButton value={socialPublishingPackage(socialPosts.posts)} label="Copy package" />
+                </div>
               </div>
+              {isPublished && (
+                <ul className="mt-4 space-y-1 font-mono text-[11px] text-emerald-100">
+                  {publishedReferences.map((reference) => (
+                    <li key={reference} className="break-all">
+                      {reference.startsWith('http') ? (
+                        <a href={reference} target="_blank" rel="noreferrer" className="underline hover:text-emerald-200">
+                          {reference}
+                        </a>
+                      ) : (
+                        reference
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </section>
           )}
 

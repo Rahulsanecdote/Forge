@@ -3,12 +3,15 @@ import { supabase } from '../../supabase';
 import { loadClient } from '../clients';
 import type { ClientContext } from '../types';
 import {
+  buildLocalPostBody,
   buildReviewReplyResourceName,
   evaluateReplyPublishable,
   googleReviewToInsertRow,
   normalizeGoogleBusinessResourceId,
+  parseLocalPostResponse,
   parseReviewReplyResponse,
   type GoogleBusinessProfileReview,
+  type GoogleLocalPostResult,
   type GoogleReviewReply,
   type ReviewInsertRow,
 } from './google-business-profile-mapping';
@@ -323,4 +326,72 @@ export async function publishDraftedReviewReply(reviewId: string): Promise<Publi
   if (updateErr) throw updateErr;
 
   return { published: true, reviewId, status: 'posted', reference: resourceName, comment: reply.comment };
+}
+
+// --- Publishing approved social posts as Google Business local posts ---------
+
+export type PublishLocalPostsResult =
+  | { published: true; posts: GoogleLocalPostResult[] }
+  | { published: false; code: 'unconfigured' | 'no_posts'; reason: string };
+
+export async function createGoogleBusinessLocalPost(input: {
+  accountId: string;
+  locationId: string;
+  accessToken: string;
+  summary: string;
+  callToActionUrl?: string | null;
+}): Promise<GoogleLocalPostResult> {
+  const response = await fetch(
+    `https://mybusiness.googleapis.com/v4/accounts/${encodeURIComponent(input.accountId)}/locations/${encodeURIComponent(input.locationId)}/localPosts`,
+    {
+      method: 'POST',
+      headers: { authorization: `Bearer ${input.accessToken}`, 'content-type': 'application/json' },
+      body: JSON.stringify(buildLocalPostBody({ summary: input.summary, callToActionUrl: input.callToActionUrl })),
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(`Google Business Profile local post failed (${response.status}): ${await readErrorBody(response)}`);
+  }
+
+  const post = parseLocalPostResponse(await response.json().catch(() => null));
+  if (!post) {
+    throw new Error('Google Business Profile local post succeeded without returning a resource name.');
+  }
+  return post;
+}
+
+// Publish each approved post summary as a Google Business local post. Fails closed on
+// missing config/credentials; throws if Google rejects a post so the caller records no
+// false success. Posts already created before a mid-batch failure remain on Google.
+export async function publishApprovedSocialPostsToGoogle(input: {
+  client: ClientContext;
+  summaries: string[];
+}): Promise<PublishLocalPostsResult> {
+  const summaries = input.summaries.map((summary) => summary.trim()).filter(Boolean);
+  if (summaries.length === 0) {
+    return { published: false, code: 'no_posts', reason: 'No approved post content to publish.' };
+  }
+
+  const config = resolveGoogleBusinessProfileConfig(input.client);
+  if (!config) {
+    return { published: false, code: 'unconfigured', reason: 'Missing Google Business Profile account/location IDs.' };
+  }
+
+  const access = await resolveGoogleAccessToken();
+  if ('reason' in access) return { published: false, code: 'unconfigured', reason: access.reason };
+
+  const posts: GoogleLocalPostResult[] = [];
+  for (const summary of summaries) {
+    posts.push(
+      await createGoogleBusinessLocalPost({
+        accountId: config.accountId,
+        locationId: config.locationId,
+        accessToken: access.token,
+        summary,
+        callToActionUrl: input.client.website,
+      }),
+    );
+  }
+  return { published: true, posts };
 }

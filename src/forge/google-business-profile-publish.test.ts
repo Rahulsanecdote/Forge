@@ -1,8 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  buildLocalPostBody,
   buildReviewReplyResourceName,
   evaluateReplyPublishable,
+  parseLocalPostResponse,
   parseReviewReplyResponse,
 } from './data/google-business-profile-mapping';
 
@@ -72,4 +74,31 @@ test('evaluateReplyPublishable accepts a clean drafted Google reply', () => {
     }),
     { ok: true },
   );
+});
+
+test('buildLocalPostBody sets STANDARD defaults, truncates, and adds a CTA only when given', () => {
+  const withoutCta = buildLocalPostBody({ summary: 'Fresh cold brew this week.' });
+  assert.equal(withoutCta.languageCode, 'en-US');
+  assert.equal(withoutCta.topicType, 'STANDARD');
+  assert.equal(withoutCta.summary, 'Fresh cold brew this week.');
+  assert.equal('callToAction' in withoutCta, false);
+
+  const withCta = buildLocalPostBody({ summary: 'x'.repeat(2000), callToActionUrl: 'https://example.com' });
+  assert.equal((withCta.summary as string).length, 1500);
+  assert.deepEqual(withCta.callToAction, { actionType: 'LEARN_MORE', url: 'https://example.com' });
+
+  assert.equal('callToAction' in buildLocalPostBody({ summary: 'hi', callToActionUrl: '   ' }), false);
+});
+
+test('parseLocalPostResponse requires a name and tolerates a missing searchUrl', () => {
+  assert.deepEqual(parseLocalPostResponse({ name: 'accounts/1/locations/2/localPosts/3', searchUrl: 'https://posts.google.com/x' }), {
+    name: 'accounts/1/locations/2/localPosts/3',
+    searchUrl: 'https://posts.google.com/x',
+  });
+  assert.deepEqual(parseLocalPostResponse({ name: 'accounts/1/locations/2/localPosts/3' }), {
+    name: 'accounts/1/locations/2/localPosts/3',
+    searchUrl: null,
+  });
+  assert.equal(parseLocalPostResponse({ searchUrl: 'https://x' }), null);
+  assert.equal(parseLocalPostResponse(null), null);
 });

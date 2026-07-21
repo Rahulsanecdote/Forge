@@ -10,7 +10,7 @@ import {
   verifyAdminPassword,
 } from '@/lib/admin/auth';
 import { getAdminSupabase, loadClientDetail, loadToolRunDetail } from '@/lib/admin/data';
-import { findBannedPhraseViolations } from '@/lib/admin/run-output';
+import { findBannedPhraseViolations, parseSocialPostOutput } from '@/lib/admin/run-output';
 import { submissionFromFormData } from '@/lib/onboarding/invitations';
 import type { ClientContext } from '@/forge/types';
 
@@ -612,4 +612,79 @@ export async function publishReviewReply(formData: FormData) {
   revalidatePath('/dashboard');
   revalidatePath(`/dashboard/clients/${slug}`);
   redirectClient(slug, status);
+}
+
+// Publish an approved Google Business social-post run as Google local posts. Requires an
+// approved content_approvals record and google_business platform; re-checks banned-phrase
+// compliance, is idempotent against prior published_url evidence, and records each
+// published post as durable evidence. Fails closed on every gap.
+export async function publishApprovedContent(formData: FormData) {
+  await requireAdmin();
+  const runId = z.string().uuid().safeParse(stringValue(formData, 'run_id'));
+  if (!runId.success) redirectRun('invalid', 'publish-invalid');
+
+  const detail = await loadToolRunDetail(runId.data);
+  if (
+    !detail ||
+    !detail.client ||
+    detail.run.tool !== 'create_social_posts' ||
+    !detail.approval ||
+    detail.approval.status !== 'approved'
+  ) {
+    redirectRun(runId.data, 'publish-error');
+  }
+
+  const parsed = parseSocialPostOutput(detail.run.output);
+  if (!parsed || parsed.platform !== 'google_business') redirectRun(runId.data, 'publish-unsupported');
+
+  if (findBannedPhraseViolations(detail.run.output, detail.currentBannedPhrases).length > 0) {
+    redirectRun(runId.data, 'publish-blocked');
+  }
+
+  const supabase = getAdminSupabase();
+  const { data: alreadyPublished } = await supabase
+    .from('forge_run_evidence')
+    .select('id')
+    .eq('run_id', runId.data)
+    .eq('kind', 'published_url')
+    .limit(1);
+  if (alreadyPublished && alreadyPublished.length > 0) redirectRun(runId.data, 'publish-already');
+
+  const clientDetail = await loadClientDetail(detail.client.slug);
+  if (!clientDetail) redirectRun(runId.data, 'publish-error');
+
+  let status = 'publish-error';
+  try {
+    const { publishApprovedSocialPostsToGoogle } = await import('@/forge/data/google-business-profile');
+    const summaries = parsed.posts.map((post) =>
+      [post.caption, post.hashtags.join(' ')].filter(Boolean).join('\n\n'),
+    );
+    const result = await publishApprovedSocialPostsToGoogle({
+      client: clientContextFromDetail(clientDetail),
+      summaries,
+    });
+
+    if (result.published) {
+      for (const post of result.posts) {
+        await supabase.from('forge_run_evidence').insert({
+          run_id: runId.data,
+          kind: 'published_url',
+          description: 'Google Business local post published from the operator dashboard.',
+          reference: post.searchUrl ?? post.name,
+          payload: { name: post.name, searchUrl: post.searchUrl },
+        });
+      }
+      status = 'publish-complete';
+    } else {
+      status = result.code === 'unconfigured' ? 'publish-unconfigured' : 'publish-error';
+    }
+  } catch (error) {
+    console.error('[dashboard/publishApprovedContent]', error);
+    status = 'publish-error';
+  }
+
+  revalidatePath('/dashboard');
+  revalidatePath(`/dashboard/clients/${detail.client.slug}`);
+  revalidatePath(`/dashboard/runs/${runId.data}`);
+  redirectRun(runId.data, status);
 }
