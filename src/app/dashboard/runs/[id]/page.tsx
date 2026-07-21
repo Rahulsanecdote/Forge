@@ -61,6 +61,25 @@ function keywordClusterTask(cluster: {
   ].join(' ');
 }
 
+function socialPublishingPackage(posts: Array<{
+  caption: string;
+  hashtags: string[];
+  imageDirection: string | null;
+}>) {
+  return posts
+    .map((post, index) => {
+      const blocks = [
+        `Draft ${index + 1}`,
+        '',
+        post.caption,
+        post.hashtags.length > 0 ? post.hashtags.join(' ') : '',
+        post.imageDirection ? `Image direction: ${post.imageDirection}` : '',
+      ];
+      return blocks.filter(Boolean).join('\n');
+    })
+    .join('\n\n---\n\n');
+}
+
 function ApprovalStatus({ status }: { status?: string }) {
   if (!status) return null;
 
@@ -245,6 +264,25 @@ export default async function ToolRunDetailPage({
             {approval.notes ? ` — ${approval.notes}` : ''}
           </div>
         )}
+
+        {socialPosts &&
+          approval?.status === 'approved' &&
+          bannedPhraseViolations.length === 0 && (
+            <section className="mt-6 border border-emerald-300/40 bg-emerald-500/10 p-5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <div className="font-mono text-xs uppercase tracking-wide text-emerald-200">
+                    Publishing Package
+                  </div>
+                  <p className="mt-3 max-w-3xl font-sans text-sm leading-6 text-muted">
+                    This draft passed the current brand-policy check and has an approval record.
+                    External publishing is still manual in this phase.
+                  </p>
+                </div>
+                <CopyButton value={socialPublishingPackage(socialPosts.posts)} label="Copy package" />
+              </div>
+            </section>
+          )}
 
         {keywordResearch ? (
           <section className="mt-8 space-y-6" aria-label="Keyword research output">

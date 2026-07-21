@@ -132,6 +132,9 @@ stays `new` for a later retry). See [Scheduled jobs](./scheduled-jobs.md).
 
 Human decision gate for generated content. Social-post runs create one pending row; the
 single-operator dashboard can approve or reject it after current brand-policy checks pass.
+The dashboard surfaces these rows as an operator queue. Approved rows expose a copyable
+publishing package on the run detail page, but this phase does not perform external
+publishing or claim a published URL.
 
 | Column | Type | Notes |
 |---|---|---|

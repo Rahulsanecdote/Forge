@@ -40,6 +40,7 @@ export interface DashboardData {
   clients: DashboardClient[];
   leads: DashboardLead[];
   toolRuns: DashboardToolRun[];
+  contentApprovals: DashboardApprovalQueueItem[];
   errors: string[];
 }
 
@@ -78,6 +79,14 @@ export interface DashboardContentApproval {
   notes: string | null;
   requested_at: string | null;
   decided_at: string | null;
+}
+
+export interface DashboardApprovalQueueItem extends DashboardContentApproval {
+  client_name: string | null;
+  client_slug: string | null;
+  run_tool: string | null;
+  run_task: string | null;
+  run_created_at: string | null;
 }
 
 export interface DashboardClientDetail {
@@ -138,6 +147,41 @@ function normalizeReview(review: Partial<DashboardReview>): DashboardReview {
   };
 }
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
+}
+
+function asString(value: unknown): string | null {
+  return typeof value === 'string' && value.trim() ? value : null;
+}
+
+function relationRecord(value: unknown): Record<string, unknown> | null {
+  if (Array.isArray(value)) return asRecord(value[0]);
+  return asRecord(value);
+}
+
+function normalizeApprovalQueueItem(
+  row: DashboardContentApproval & Record<string, unknown>,
+): DashboardApprovalQueueItem {
+  const client = relationRecord(row.clients);
+  const run = relationRecord(row.tool_runs);
+
+  return {
+    id: row.id,
+    run_id: row.run_id,
+    client_id: row.client_id,
+    status: row.status,
+    notes: row.notes,
+    requested_at: row.requested_at,
+    decided_at: row.decided_at,
+    client_name: asString(client?.name),
+    client_slug: asString(client?.slug),
+    run_tool: asString(run?.tool),
+    run_task: asString(run?.task),
+    run_created_at: asString(run?.created_at),
+  };
+}
+
 async function safeQuery<T>(query: PromiseLike<{ data: unknown; error: { message: string } | null }>) {
   const { data, error } = await query;
   if (error) throw new Error(error.message);
@@ -192,7 +236,22 @@ export async function loadDashboardData(): Promise<DashboardData> {
     return [];
   });
 
-  return { clients, leads, toolRuns, errors };
+  const contentApprovals = await safeQuery<DashboardContentApproval & Record<string, unknown>>(
+    supabase
+      .from('content_approvals')
+      .select(
+        'id, run_id, client_id, status, notes, requested_at, decided_at, clients(name, slug), tool_runs(task, tool, created_at)',
+      )
+      .order('requested_at', { ascending: false })
+      .limit(12),
+  )
+    .then((rows) => rows.map(normalizeApprovalQueueItem))
+    .catch((approvalError: Error) => {
+      errors.push(`content_approvals: ${approvalError.message}`);
+      return [];
+    });
+
+  return { clients, leads, toolRuns, contentApprovals, errors };
 }
 
 export async function loadClientDetail(slug: string): Promise<DashboardClientDetail | null> {

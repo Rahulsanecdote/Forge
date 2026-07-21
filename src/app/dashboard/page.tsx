@@ -26,10 +26,18 @@ function EmptyRow({ label, colSpan }: { label: string; colSpan: number }) {
   );
 }
 
+function statusClass(status: string) {
+  if (status === 'pending') return 'text-gold';
+  if (status === 'approved') return 'text-emerald-300';
+  if (status === 'rejected') return 'text-red-200';
+  return 'text-muted';
+}
+
 export default async function DashboardPage() {
   if (!(await isAdminAuthenticated())) redirect('/dashboard/login');
 
   const data = await loadDashboardData();
+  const pendingApprovals = data.contentApprovals.filter((approval) => approval.status === 'pending').length;
 
   return (
     <main className="min-h-screen bg-bg text-ink">
@@ -84,7 +92,7 @@ export default async function DashboardPage() {
           </div>
         )}
 
-        <section className="mt-8 grid gap-4 md:grid-cols-3">
+        <section className="mt-8 grid gap-4 md:grid-cols-4">
           <div className="border border-gold-border bg-surface/60 p-5">
             <div className="font-mono text-xs uppercase tracking-wide text-muted">Clients</div>
             <div className="mt-3 font-bebas text-5xl text-gold">{data.clients.length}</div>
@@ -96,6 +104,10 @@ export default async function DashboardPage() {
           <div className="border border-gold-border bg-surface/60 p-5">
             <div className="font-mono text-xs uppercase tracking-wide text-muted">Tool Runs</div>
             <div className="mt-3 font-bebas text-5xl text-gold">{data.toolRuns.length}</div>
+          </div>
+          <div className="border border-gold-border bg-surface/60 p-5">
+            <div className="font-mono text-xs uppercase tracking-wide text-muted">Pending Approvals</div>
+            <div className="mt-3 font-bebas text-5xl text-gold">{pendingApprovals}</div>
           </div>
         </section>
 
@@ -163,6 +175,56 @@ export default async function DashboardPage() {
                 </tbody>
               </table>
             </div>
+          </div>
+        </section>
+
+        <section className="mt-6 border border-gold-border bg-surface/50">
+          <div className="border-b border-gold-border px-4 py-3 font-mono text-xs uppercase tracking-wide text-muted">
+            Content Approval Queue
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[820px] text-left">
+              <thead className="font-mono text-[11px] uppercase tracking-wide text-muted-dark">
+                <tr>
+                  <th className="px-4 py-3 font-normal">Status</th>
+                  <th className="px-4 py-3 font-normal">Client</th>
+                  <th className="px-4 py-3 font-normal">Tool</th>
+                  <th className="px-4 py-3 font-normal">Task</th>
+                  <th className="px-4 py-3 font-normal">Requested</th>
+                  <th className="px-4 py-3 font-normal">Open</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gold-border/70 font-mono text-xs text-muted">
+                {data.contentApprovals.length === 0 && <EmptyRow label="No content decisions queued." colSpan={6} />}
+                {data.contentApprovals.map((approval) => (
+                  <tr key={approval.id}>
+                    <td className={`px-4 py-3 uppercase ${statusClass(approval.status)}`}>
+                      {approval.status}
+                    </td>
+                    <td className="px-4 py-3">
+                      {approval.client_slug ? (
+                        <Link
+                          href={`/dashboard/clients/${approval.client_slug}`}
+                          className="text-ink transition hover:text-gold"
+                        >
+                          {approval.client_name ?? approval.client_slug}
+                        </Link>
+                      ) : (
+                        approval.client_name ?? approval.client_id
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-ink">{approval.run_tool ?? 'n/a'}</td>
+                    <td className="max-w-xl px-4 py-3">{approval.run_task ?? 'n/a'}</td>
+                    <td className="px-4 py-3">{formatDate(approval.requested_at)}</td>
+                    <td className="px-4 py-3">
+                      <Link href={`/dashboard/runs/${approval.run_id}`} className="text-gold transition hover:text-gold-soft">
+                        {approval.status === 'pending' ? 'Review' : 'Open'}
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </section>
 
