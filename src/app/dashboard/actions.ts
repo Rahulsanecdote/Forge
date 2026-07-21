@@ -741,6 +741,34 @@ export async function publishApprovedContent(formData: FormData) {
   redirectRun(runId.data, outcome.status);
 }
 
+// Refresh reach/engagement for a published run's posts from the Meta Graph API and
+// store the latest snapshot (content_metrics + durable metric evidence). Fails closed;
+// maps the outcome to an operator status banner.
+export async function refreshPublishedMetrics(formData: FormData) {
+  await requireAdmin();
+  const runId = z.string().uuid().safeParse(stringValue(formData, 'run_id'));
+  if (!runId.success) redirectRun('invalid', 'metrics-invalid');
+
+  const detail = await loadToolRunDetail(runId.data);
+  if (!detail || !detail.client) redirectRun(runId.data, 'metrics-error');
+
+  const { refreshRunMetrics } = await import('@/forge/data/analytics');
+  const result = await refreshRunMetrics(runId.data);
+  const status = result.refreshed
+    ? 'metrics-refreshed'
+    : result.code === 'unconfigured'
+      ? 'metrics-unconfigured'
+      : result.code === 'unsupported'
+        ? 'metrics-unsupported'
+        : result.code === 'no_posts'
+          ? 'metrics-none'
+          : 'metrics-error';
+
+  revalidatePath(`/dashboard/clients/${detail.client.slug}`);
+  revalidatePath(`/dashboard/runs/${runId.data}`);
+  redirectRun(runId.data, status);
+}
+
 // Schedule an approved social-post run to publish at a future time. Applies the same
 // pre-publish gates as immediate publishing (approved, supported platform, no banned
 // phrases, not already published, and — for Instagram — an image per post) so we never
