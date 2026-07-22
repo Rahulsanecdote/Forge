@@ -1,6 +1,6 @@
 # Forge — Build Context for Codex (`AGENTS.md`)
 
-> **Version:** v1.21 · **Updated:** 2026-07-22 · **Repo:** `forge-agent`
+> **Version:** v1.22 · **Updated:** 2026-07-22 · **Repo:** `forge-agent`
 > **How to use:** Codex reads this automatically as `AGENTS.md`. (Also works pasted into a
 > Claude Code / Codex session at start, or renamed `CLAUDE.md`.) Read it fully before
 > changing code. Obey the Non-Negotiables. Append to the Decision Log on any structural
@@ -150,6 +150,7 @@ npm run typecheck               # must pass
 | 2026-07-20 | Content approvals now surface as a top-level operator queue and approved social runs expose a copyable publishing package; external publishing remains manual and explicitly labeled rather than implied as automated. |
 | 2026-07-22 | Review generation added: operators mint click-tracked `/r/<token>` links per customer that redirect to the client's `google_review_url` (snapshotted at creation) and record a single click. Tokens are opaque tracking ids stored plaintext (destination is public); the table is RLS/service-role-only. |
 | 2026-07-22 | Review-request delivery automates sending via provider REST (Resend email, Twilio SMS), read lazily from `process.env` so build-time page collection never evaluates `env.ts`. Delivery is fail-closed and best-effort: unconfigured/contactless → `skipped`, provider errors → `failed` with a bounded reason (never throws, so one bad address can't sink a batch), and a non-absolute `NEXT_PUBLIC_APP_URL` forces manual rather than sending an unresolvable relative link. |
+| 2026-07-22 | Operator content calendar (`/dashboard/calendar`): a cross-client month grid of scheduled/published posts plus a dateless "needs approval" rail. Reads existing `content_schedules` + `content_approvals` (no schema change); grid math is a pure, unit-tested module that buckets each post onto its own client-timezone day and anchors placement on `scheduled_for`. Degrades to empty with a recorded error when the schedules table is absent. |
 
 ## 9. Conventions
 - Conventional Commits (`feat:`, `fix:`, `docs:`…). One focused change per PR.

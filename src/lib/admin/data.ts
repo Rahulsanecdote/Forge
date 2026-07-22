@@ -10,9 +10,11 @@ import {
   type PostingSlot,
   type PublishedMetric,
 } from '@/forge/data/posting-insights-mapping';
+import type { CalendarEntry, CalendarStatus } from '@/lib/admin/calendar-grid';
 
 export type { ClientPerformanceSummary } from '@/forge/data/performance-summary-mapping';
 export type { PostingSlot } from '@/forge/data/posting-insights-mapping';
+export type { CalendarEntry } from '@/lib/admin/calendar-grid';
 
 export interface DashboardClient {
   id: string;
@@ -267,6 +269,76 @@ export async function loadDashboardData(): Promise<DashboardData> {
     });
 
   return { clients, leads, toolRuns, contentApprovals, errors };
+}
+
+export interface ContentCalendarData {
+  entries: CalendarEntry[];
+  pendingApprovals: DashboardApprovalQueueItem[];
+  errors: string[];
+}
+
+const SCHEDULE_STATUS_TO_CALENDAR: Record<string, CalendarStatus> = {
+  pending: 'scheduled',
+  publishing: 'publishing',
+  published: 'published',
+  failed: 'failed',
+  canceled: 'canceled',
+};
+
+function normalizeCalendarEntry(row: Record<string, unknown>): CalendarEntry {
+  const client = relationRecord(row.clients);
+  const run = relationRecord(row.tool_runs);
+  const status = SCHEDULE_STATUS_TO_CALENDAR[String(row.status ?? '')] ?? 'scheduled';
+  return {
+    id: String(row.id),
+    runId: String(row.run_id),
+    clientName: asString(client?.name),
+    clientSlug: asString(client?.slug),
+    title: asString(run?.task) ?? asString(run?.tool),
+    status,
+    at: String(row.scheduled_for),
+    timezone: asString(client?.timezone),
+  };
+}
+
+// Scheduled/published posts across all clients within [startIso, endIso), plus the pending
+// approval queue (dateless, "needs a decision"). Anchored on `scheduled_for` so every post
+// lands on the day it was meant to go out. Degrades to empty with a recorded error when the
+// content_schedules table is absent, so the cockpit renders before that migration is applied.
+export async function loadContentCalendar(startIso: string, endIso: string): Promise<ContentCalendarData> {
+  const supabase = getAdminSupabase();
+  const errors: string[] = [];
+
+  const entries = await safeQuery<Record<string, unknown>>(
+    supabase
+      .from('content_schedules')
+      .select('id, run_id, status, scheduled_for, published_at, clients(name, slug, timezone), tool_runs(task, tool)')
+      .gte('scheduled_for', startIso)
+      .lt('scheduled_for', endIso)
+      .order('scheduled_for', { ascending: true })
+      .limit(500),
+  )
+    .then((rows) => rows.map(normalizeCalendarEntry))
+    .catch((error: Error) => {
+      errors.push(`content_schedules: ${error.message}`);
+      return [];
+    });
+
+  const pendingApprovals = await safeQuery<DashboardContentApproval & Record<string, unknown>>(
+    supabase
+      .from('content_approvals')
+      .select('id, run_id, client_id, status, notes, requested_at, decided_at, clients(name, slug), tool_runs(task, tool, created_at)')
+      .eq('status', 'pending')
+      .order('requested_at', { ascending: true })
+      .limit(50),
+  )
+    .then((rows) => rows.map(normalizeApprovalQueueItem))
+    .catch((error: Error) => {
+      errors.push(`content_approvals: ${error.message}`);
+      return [];
+    });
+
+  return { entries, pendingApprovals, errors };
 }
 
 export async function loadClientDetail(slug: string): Promise<DashboardClientDetail | null> {
