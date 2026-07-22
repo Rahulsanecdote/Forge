@@ -13,3 +13,9 @@ alter table public.review_requests
     check (send_status in ('pending', 'sent', 'failed', 'skipped')),
   add column if not exists sent_at timestamptz,
   add column if not exists delivery_error text;
+
+-- Rows created before this migration are manual copy-links with no delivery worker, so a
+-- 'pending' backfill would render as "Sending…" forever. Mark them 'skipped'. New rows are
+-- inserted 'pending' and resolved synchronously by createReviewRequests, so nothing that is
+-- actually mid-flight is affected.
+update public.review_requests set send_status = 'skipped' where send_status = 'pending';

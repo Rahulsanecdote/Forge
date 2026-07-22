@@ -44,6 +44,13 @@ function appBaseUrl(): string {
   return (process.env.NEXT_PUBLIC_APP_URL ?? '').replace(/\/$/, '');
 }
 
+// Automated delivery is only safe when the review link is a fully-qualified public URL —
+// otherwise recipients receive an unresolvable `/r/<token>` and the row would be marked
+// sent. When the base URL isn't absolute, we fall back to manual so the operator notices.
+function hasAbsoluteAppUrl(): boolean {
+  return /^https?:\/\//i.test(appBaseUrl());
+}
+
 function reviewLink(token: string): string {
   return `${appBaseUrl()}/r/${token}`;
 }
@@ -103,15 +110,22 @@ export async function createReviewRequests(
   const { error } = await getAdminSupabase().from('review_requests').insert(inserted);
   if (error) return { ok: false, code: 'error' };
 
+  const canDeliver = hasAbsoluteAppUrl();
   let sent = 0;
   let failed = 0;
   let manual = 0;
   for (const row of rows) {
-    if (row.channel === 'manual' || !row.contact) {
+    if (row.channel === 'manual' || !row.contact || !canDeliver) {
       manual += 1;
+      // Explain why an otherwise-deliverable request stayed manual, so the operator knows
+      // to copy the link rather than assume it was sent.
+      const skipReason =
+        !canDeliver && row.channel !== 'manual' && row.contact
+          ? 'App URL not configured (NEXT_PUBLIC_APP_URL) — copy the link and send manually.'
+          : null;
       await getAdminSupabase()
         .from('review_requests')
-        .update({ send_status: 'skipped' })
+        .update({ send_status: 'skipped', delivery_error: skipReason })
         .eq('token', row.token);
       continue;
     }
