@@ -49,6 +49,8 @@ function toContext(client: any, bv: any): ClientContext {
     locations: client.locations ?? 1,
     googleBusinessAccountId: client.google_business_account_id ?? null,
     googleBusinessLocationId: client.google_business_location_id ?? null,
+    subscriptionStatus: client.subscription_status ?? null,
+    billingOverride: client.billing_override ?? null,
     brandVoice: {
       tone: bv?.tone ?? [],
       about: bv?.about ?? '',

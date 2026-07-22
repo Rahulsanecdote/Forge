@@ -19,6 +19,7 @@ required**. The optional pgvector table is in `supabase/optional/`.
 | `supabase/migrations/20260721200000_content_metrics.sql` | `content_metrics` (post-publish reach/engagement; RLS, service-role grants) |
 | `supabase/migrations/20260722010000_review_requests.sql` | `clients.google_review_url` + `review_requests` (click-tracked review asks; RLS, service-role grants) |
 | `supabase/migrations/20260722020000_review_request_delivery.sql` | `review_requests` delivery columns (`channel`, `contact`, `send_status`, `sent_at`, `delivery_error`) for automated email/SMS sending |
+| `supabase/migrations/20260722030000_client_billing.sql` | `clients` billing columns (`plan`, `subscription_status`, `billing_override`, `stripe_customer_id`, `stripe_subscription_id`, `current_period_end`) + Stripe id indexes |
 | `supabase/optional/client_memory.sql` | `client_memory` + pgvector (reserved for a later increment; apply by hand) |
 
 Apply locally with `supabase db reset`; in a hosted project, run the SQL files in
@@ -47,7 +48,24 @@ A business Forge runs marketing for.
 | `google_business_account_id` | text | optional per-client GBP account override |
 | `google_business_location_id` | text | optional per-client GBP location override |
 | `google_review_url` | text | public "leave a review" link (destination for review requests) |
+| `plan` | text | plan key (`starter` \| `growth`), nullable |
+| `subscription_status` | text | not null, default `'inactive'` — `inactive` \| `trialing` \| `active` \| `past_due` \| `canceled` \| `incomplete` |
+| `billing_override` | boolean | not null, default `false` — operator comp: treat as active regardless of Stripe |
+| `stripe_customer_id` | text | Stripe customer, set on checkout/webhook |
+| `stripe_subscription_id` | text | Stripe subscription, set on webhook |
+| `current_period_end` | timestamptz | current billing period end (from Stripe) |
 | `created_at` | timestamptz | default `now()` |
+
+**Billing enforcement.** `isDeliveryActive` (pure, in `src/lib/billing/entitlements.ts`)
+returns true when `billing_override` is set or `subscription_status` is `active`/`trialing`.
+It hard-gates automated work: the `weekly-content`, `review-sweep`, and `scheduled-publish`
+crons skip non-active clients, and `publishApprovedRun` (the shared publish path for the
+manual button and the cron) returns `publish-blocked-billing`. A billing-blocked scheduled
+post returns to `pending` rather than failing, so it publishes once the client is active.
+Manual dashboard generation is deliberately *not* gated, so an operator can prepare drafts.
+Stripe is the source of truth when configured (synced by `POST /api/stripe/webhook`, which
+verifies the signature); otherwise the operator sets `subscription_status`/`billing_override`
+by hand on the client page.
 
 ### `brand_voices`
 

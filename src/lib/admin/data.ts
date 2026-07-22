@@ -32,6 +32,12 @@ export interface DashboardClient {
   google_business_account_id: string | null;
   google_business_location_id: string | null;
   google_review_url: string | null;
+  plan: string | null;
+  subscription_status: string;
+  billing_override: boolean;
+  stripe_customer_id: string | null;
+  stripe_subscription_id: string | null;
+  current_period_end: string | null;
   created_at: string | null;
 }
 
@@ -136,7 +142,7 @@ export function getAdminSupabase() {
 }
 
 const clientColumns =
-  'id, slug, name, industry, website, locations, geographic_market, primary_goal, primary_cta, timezone, posting_frequency, approval_mode, google_business_account_id, google_business_location_id, google_review_url, created_at';
+  'id, slug, name, industry, website, locations, geographic_market, primary_goal, primary_cta, timezone, posting_frequency, approval_mode, google_business_account_id, google_business_location_id, google_review_url, plan, subscription_status, billing_override, stripe_customer_id, stripe_subscription_id, current_period_end, created_at';
 const baseClientColumns =
   'id, slug, name, industry, website, locations, geographic_market, primary_goal, primary_cta, timezone, posting_frequency, approval_mode, created_at';
 const reviewColumns =
@@ -144,7 +150,9 @@ const reviewColumns =
 const baseReviewColumns = 'id, author, rating, text, platform, status, draft_reply, needs_manager, created_at';
 
 function isMissingGoogleBusinessColumns(error: Error) {
-  return /google_business_|google_review_url|external_review_id|reviewed_at/i.test(error.message);
+  return /google_business_|google_review_url|external_review_id|reviewed_at|subscription_status|billing_override|stripe_|current_period_end|\bplan\b/i.test(
+    error.message,
+  );
 }
 
 function normalizeClient(client: Partial<DashboardClient>): DashboardClient {
@@ -153,6 +161,12 @@ function normalizeClient(client: Partial<DashboardClient>): DashboardClient {
     google_business_account_id: client.google_business_account_id ?? null,
     google_business_location_id: client.google_business_location_id ?? null,
     google_review_url: client.google_review_url ?? null,
+    plan: client.plan ?? null,
+    subscription_status: client.subscription_status ?? 'inactive',
+    billing_override: client.billing_override ?? false,
+    stripe_customer_id: client.stripe_customer_id ?? null,
+    stripe_subscription_id: client.stripe_subscription_id ?? null,
+    current_period_end: client.current_period_end ?? null,
   };
 }
 

@@ -1,6 +1,6 @@
 # Forge — Build Context for Codex (`AGENTS.md`)
 
-> **Version:** v1.22 · **Updated:** 2026-07-22 · **Repo:** `forge-agent`
+> **Version:** v1.23 · **Updated:** 2026-07-22 · **Repo:** `forge-agent`
 > **How to use:** Codex reads this automatically as `AGENTS.md`. (Also works pasted into a
 > Claude Code / Codex session at start, or renamed `CLAUDE.md`.) Read it fully before
 > changing code. Obey the Non-Negotiables. Append to the Decision Log on any structural
@@ -151,6 +151,7 @@ npm run typecheck               # must pass
 | 2026-07-22 | Review generation added: operators mint click-tracked `/r/<token>` links per customer that redirect to the client's `google_review_url` (snapshotted at creation) and record a single click. Tokens are opaque tracking ids stored plaintext (destination is public); the table is RLS/service-role-only. |
 | 2026-07-22 | Review-request delivery automates sending via provider REST (Resend email, Twilio SMS), read lazily from `process.env` so build-time page collection never evaluates `env.ts`. Delivery is fail-closed and best-effort: unconfigured/contactless → `skipped`, provider errors → `failed` with a bounded reason (never throws, so one bad address can't sink a batch), and a non-absolute `NEXT_PUBLIC_APP_URL` forces manual rather than sending an unresolvable relative link. |
 | 2026-07-22 | Operator content calendar (`/dashboard/calendar`): a cross-client month grid of scheduled/published posts plus a dateless "needs approval" rail. Reads existing `content_schedules` + `content_approvals` (no schema change); grid math is a pure, unit-tested module that buckets each post onto its own client-timezone day and anchors placement on `scheduled_for`. Degrades to empty with a recorded error when the schedules table is absent. |
+| 2026-07-22 | Billing & plan enforcement: `clients` gain Stripe subscription state (`subscription_status`, `billing_override`, stripe ids, `current_period_end`). `isDeliveryActive` (pure, tested) hard-gates automated delivery — the three delivery crons skip non-active clients and `publishApprovedRun` returns `publish-blocked-billing` (billing-blocked schedules return to `pending`, not failed); manual generation stays ungated so operators can prep drafts. Stripe via REST (no SDK dep) read lazily from `process.env`: Checkout + Billing Portal actions and a signature-verified `POST /api/stripe/webhook` sync status; unset Stripe falls back to manual operator controls + comp override. `billing_override` comps pilots regardless of Stripe. |
 
 ## 9. Conventions
 - Conventional Commits (`feat:`, `fix:`, `docs:`…). One focused change per PR.

@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { logout } from './actions';
 import { isAdminAuthenticated } from '@/lib/admin/auth';
 import { loadDashboardData } from '@/lib/admin/data';
+import { billingSummary } from '@/lib/billing/entitlements';
 
 export const dynamic = 'force-dynamic';
 
@@ -153,18 +154,28 @@ export default async function DashboardPage() {
                     <th className="px-4 py-3 font-normal">Name</th>
                     <th className="px-4 py-3 font-normal">Slug</th>
                     <th className="px-4 py-3 font-normal">Industry</th>
-                    <th className="px-4 py-3 font-normal">Locations</th>
+                    <th className="px-4 py-3 font-normal">Billing</th>
                     <th className="px-4 py-3 font-normal">Open</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gold-border/70 font-mono text-xs text-muted">
                   {data.clients.length === 0 && <EmptyRow label="No clients configured." colSpan={5} />}
-                  {data.clients.map((client) => (
+                  {data.clients.map((client) => {
+                    const billing = billingSummary({
+                      subscriptionStatus: client.subscription_status,
+                      billingOverride: client.billing_override,
+                    });
+                    return (
                     <tr key={client.id}>
                       <td className="px-4 py-3 text-ink">{client.name}</td>
                       <td className="px-4 py-3">{client.slug}</td>
                       <td className="px-4 py-3">{client.industry ?? 'n/a'}</td>
-                      <td className="px-4 py-3">{client.locations ?? 1}</td>
+                      <td className="px-4 py-3">
+                        <span className="flex items-center gap-1.5">
+                          <span className={`inline-block h-1.5 w-1.5 rounded-full ${billing.active ? 'bg-emerald-400' : 'bg-red-400'}`} />
+                          <span className={billing.active ? 'text-emerald-200' : 'text-red-200'}>{billing.label}</span>
+                        </span>
+                      </td>
                       <td className="px-4 py-3">
                         <Link
                           href={`/dashboard/clients/${client.slug}`}
@@ -174,7 +185,8 @@ export default async function DashboardPage() {
                         </Link>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

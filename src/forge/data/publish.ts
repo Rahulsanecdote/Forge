@@ -2,6 +2,7 @@ import { supabase } from '../../supabase';
 import { loadClient } from '../clients';
 import type { ClientContext } from '../types';
 import { parseSocialPostOutput, findBannedPhraseViolations } from '@/lib/admin/run-output';
+import { isDeliveryActive } from '@/lib/billing/entitlements';
 
 // Terminal status strings shared with the dashboard status banner. The immediate
 // "Publish" action and the scheduled-publish cron both funnel through
@@ -11,6 +12,7 @@ export type PublishRunStatus =
   | 'publish-already'
   | 'publish-unsupported'
   | 'publish-blocked'
+  | 'publish-blocked-billing'
   | 'publish-unconfigured'
   | 'publish-missing-image'
   | 'publish-error';
@@ -75,6 +77,12 @@ export async function publishApprovedRun(runId: string): Promise<PublishRunOutco
       client = await loadClient(clientRow.slug);
     } catch {
       return outcome('publish-error');
+    }
+
+    // Billing gate: don't publish for a client without an active subscription (or an
+    // operator comp override). Covers both the manual Publish button and the cron.
+    if (!isDeliveryActive({ subscriptionStatus: client.subscriptionStatus, billingOverride: client.billingOverride })) {
+      return outcome('publish-blocked-billing');
     }
 
     if (findBannedPhraseViolations(run.output, client.brandVoice.bannedPhrases).length > 0) {
