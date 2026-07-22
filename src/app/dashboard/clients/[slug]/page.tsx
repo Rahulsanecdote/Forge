@@ -10,6 +10,8 @@ import {
 } from '../../actions';
 import { isAdminAuthenticated } from '@/lib/admin/auth';
 import { loadClientDetail, loadClientPerformance } from '@/lib/admin/data';
+import { CopyButton } from '@/components/dashboard/copy-button';
+import { clientPortalLoginKey } from '@/lib/portal/session';
 
 export const dynamic = 'force-dynamic';
 
@@ -161,6 +163,10 @@ export default async function ClientDetailPage({
 
   const { client, brandVoice, toolRuns, reviews, contentApprovals, errors } = detail;
   const performance = await loadClientPerformance(client.id);
+  const portalKey = clientPortalLoginKey(client.id);
+  const portalLink = portalKey
+    ? `${(process.env.NEXT_PUBLIC_APP_URL ?? '').replace(/\/$/, '')}/portal/login?c=${client.id}&k=${portalKey}`
+    : null;
 
   return (
     <main className="min-h-screen bg-bg text-ink">
@@ -410,6 +416,24 @@ export default async function ClientDetailPage({
                 </ul>
               </div>
             )}
+          </section>
+        )}
+
+        {portalLink && (
+          <section className="mt-6 border border-gold-border bg-surface/50 p-5" aria-label="Client portal link">
+            <div className="font-mono text-xs uppercase tracking-wide text-muted">Client Portal</div>
+            <p className="mt-3 max-w-3xl font-sans text-sm leading-6 text-muted">
+              Share this private link with {client.name} for a read-only view of their content
+              pipeline, schedule, and performance. Anyone with the link can view (no password) —
+              rotate <span className="font-mono text-gold">FORGE_PORTAL_SECRET</span> to revoke all
+              outstanding links.
+            </p>
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <code className="max-w-full overflow-x-auto whitespace-nowrap border border-gold-border bg-bg px-3 py-2 font-mono text-[11px] text-muted">
+                {portalLink}
+              </code>
+              <CopyButton value={portalLink} label="Copy link" />
+            </div>
           </section>
         )}
 
