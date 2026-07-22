@@ -39,12 +39,14 @@ export async function decideClientApproval(
   if (!row || row.status !== 'pending') return 'not_found';
 
   // Approving must still respect the client's banned phrases (same gate as the operator).
+  // Fail closed: if the lookup errors we can't prove the draft is clean, so don't approve.
   if (decision === 'approved') {
-    const { data: voice } = await supabase
+    const { data: voice, error: voiceError } = await supabase
       .from('brand_voices')
       .select('banned_phrases')
       .eq('client_id', clientId)
       .maybeSingle();
+    if (voiceError) return 'error';
     const banned = ((voice as { banned_phrases?: string[] } | null)?.banned_phrases ?? []) as string[];
     if (findBannedPhraseViolations(runOutput(row), banned).length > 0) return 'blocked';
   }
