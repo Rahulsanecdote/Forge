@@ -24,3 +24,9 @@ export function buildReviewRequestMessage(input: ReviewRequestMessageInput): str
     `helps other locals find us: ${input.reviewUrl}`
   );
 }
+
+// Subject line for the email channel. SMS has no subject; it sends the body directly.
+export function buildReviewRequestSubject(businessName: string): string {
+  const business = businessName.trim() || 'us';
+  return `A quick favor — would you review ${business}?`;
+}

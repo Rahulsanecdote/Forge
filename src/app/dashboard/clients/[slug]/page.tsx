@@ -11,7 +11,7 @@ import {
 } from '../../actions';
 import { isAdminAuthenticated } from '@/lib/admin/auth';
 import { loadClientDetail, loadClientPerformance } from '@/lib/admin/data';
-import { loadReviewRequestSummary } from '@/lib/reviews/requests';
+import { loadReviewRequestSummary, type ReviewRequestItem } from '@/lib/reviews/requests';
 import { CopyButton } from '@/components/dashboard/copy-button';
 import { clientPortalLoginKey } from '@/lib/portal/session';
 
@@ -86,11 +86,20 @@ function StatusBanner({ status }: { status?: string }) {
     'reviews-invalid': 'Could not generate review requests — client is missing.',
   };
 
-  // `reviews-created-<n>` carries the batch size, so resolve it dynamically.
-  const createdMatch = status.match(/^reviews-created-(\d+)$/);
-  const message = createdMatch
-    ? `Generated ${createdMatch[1]} review request${createdMatch[1] === '1' ? '' : 's'}. Copy the links below and send them to your customers.`
-    : messages[status] ?? status;
+  // `reviews-created-<created>-<sent>` carries the batch + delivery counts.
+  const createdMatch = status.match(/^reviews-created-(\d+)-(\d+)$/);
+  let message = messages[status] ?? status;
+  if (createdMatch) {
+    const created = Number(createdMatch[1]);
+    const sent = Number(createdMatch[2]);
+    const remainder = created - sent;
+    const sentPart = sent > 0 ? ` Sent ${sent} automatically.` : '';
+    const manualPart =
+      remainder > 0
+        ? ` ${remainder} ${remainder === 1 ? 'link is' : 'links are'} ready to copy and send below.`
+        : '';
+    message = `Generated ${created} review request${created === 1 ? '' : 's'}.${sentPart}${manualPart}`;
+  }
 
   const isError =
     status.endsWith('error') ||
@@ -110,6 +119,21 @@ function StatusBanner({ status }: { status?: string }) {
     >
       {message}
     </div>
+  );
+}
+
+function ReviewSendBadge({ item }: { item: ReviewRequestItem }) {
+  const map: Record<ReviewRequestItem['sendStatus'], { label: string; className: string }> = {
+    sent: { label: `Sent · ${item.channel}`, className: 'border-emerald-400/40 bg-emerald-500/10 text-emerald-200' },
+    failed: { label: 'Send failed', className: 'border-red-400/40 bg-red-500/10 text-red-200' },
+    pending: { label: 'Sending…', className: 'border-gold-border bg-gold-dim text-gold' },
+    skipped: { label: 'Copy & send', className: 'border-gold-border bg-bg text-muted-dark' },
+  };
+  const badge = map[item.sendStatus];
+  return (
+    <span className={`border px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide ${badge.className}`}>
+      {badge.label}
+    </span>
   );
 }
 
@@ -463,14 +487,16 @@ export default async function ClientDetailPage({
           <div className="flex flex-wrap items-baseline justify-between gap-3">
             <div className="font-mono text-xs uppercase tracking-wide text-muted">Review Generation</div>
             <div className="font-mono text-[11px] uppercase tracking-wide text-muted-dark">
-              {reviewRequests.stats.clicked}/{reviewRequests.stats.total} clicked
+              {reviewRequests.stats.sent} sent · {reviewRequests.stats.clicked}/{reviewRequests.stats.total} clicked
             </div>
           </div>
           <p className="mt-3 max-w-3xl font-sans text-sm leading-6 text-muted">
-            Turn happy customers into Google reviews. Paste customer names (one per line), and Forge
-            mints a click-tracked link and a ready-to-send message for each. Send them by text or
-            email; clicking the link records the click and sends the customer straight to{' '}
-            {client.name}&apos;s Google review page.
+            Turn happy customers into Google reviews. Add each customer as{' '}
+            <span className="font-mono text-ink">Name, email or phone</span> (one per line). When a
+            delivery provider is configured, Forge <strong className="text-ink">sends the request
+            for you</strong> — email via Resend, text via Twilio. Anyone without a contact (or when a
+            provider isn&apos;t set up) becomes a ready-to-copy link. Clicking any link records the
+            click and sends the customer straight to {client.name}&apos;s Google review page.
           </p>
 
           {!reviewRequests.reviewUrl && (
@@ -484,11 +510,16 @@ export default async function ClientDetailPage({
             <input type="hidden" name="client_id" value={client.id} />
             <input type="hidden" name="slug" value={client.slug} />
             <TextArea
-              label="Customer Names (one per line)"
+              label="Customers — name, email or phone (one per line)"
               name="customer_names"
               rows={4}
               defaultValue=""
             />
+            <p className="mt-2 font-mono text-[11px] text-muted-dark">
+              e.g. <span className="text-muted">Sarah Whitfield, sarah@example.com</span> ·{' '}
+              <span className="text-muted">Marcus Bell, +12055551234</span> ·{' '}
+              <span className="text-muted">Priya Nair</span> (link only)
+            </p>
             <button
               disabled={!reviewRequests.reviewUrl}
               className="mt-4 bg-gold px-5 py-3 font-mono text-xs uppercase tracking-wide text-bg transition hover:bg-gold-soft disabled:cursor-not-allowed disabled:opacity-40"
@@ -502,8 +533,11 @@ export default async function ClientDetailPage({
               {reviewRequests.items.map((item) => (
                 <li key={item.id} className="py-4">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="font-mono text-xs uppercase tracking-wide text-gold">
-                      {item.customerName ?? 'Generic link'}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-mono text-xs uppercase tracking-wide text-gold">
+                        {item.customerName ?? 'Generic link'}
+                      </span>
+                      <ReviewSendBadge item={item} />
                     </div>
                     <div className="font-mono text-[11px] text-muted-dark">
                       {item.status === 'clicked'
@@ -511,6 +545,12 @@ export default async function ClientDetailPage({
                         : `created ${formatDate(item.createdAt)}`}
                     </div>
                   </div>
+                  {item.contact && (
+                    <div className="mt-2 font-mono text-[11px] text-muted-dark">
+                      {item.channel === 'email' ? '✉' : item.channel === 'sms' ? '☎' : '•'} {item.contact}
+                      {item.sendStatus === 'failed' && item.deliveryError ? ` — ${item.deliveryError}` : ''}
+                    </div>
+                  )}
                   <p className="mt-3 border-l border-gold-border pl-3 font-sans text-sm leading-6 text-ink">
                     {item.message}
                   </p>

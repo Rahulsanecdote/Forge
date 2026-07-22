@@ -57,6 +57,14 @@ const schema = z.object({
   FORGE_IMAGE_MODEL: optionalConfigSchema, // defaults per provider if unset
   FORGE_IMAGE_BUCKET: optionalConfigSchema, // Supabase Storage bucket; default content-images
 
+  // Review-request delivery. Server-only, all optional. Email via Resend, SMS via
+  // Twilio. Unset providers fall back to manual send (operator copies the link).
+  RESEND_API_KEY: optionalConfigSchema,
+  FORGE_REVIEW_FROM_EMAIL: optionalConfigSchema, // verified Resend sender, e.g. reviews@yourdomain.com
+  TWILIO_ACCOUNT_SID: optionalConfigSchema,
+  TWILIO_AUTH_TOKEN: optionalConfigSchema,
+  TWILIO_FROM_NUMBER: optionalConfigSchema, // E.164 sending number, e.g. +12055551234
+
   // DataForSEO keyword metrics. Server-only.
   DATAFORSEO_LOGIN: optionalConfigSchema,
   DATAFORSEO_PASSWORD: optionalConfigSchema,
@@ -95,6 +103,11 @@ const runtimeEnv = {
   META_PAGE_ACCESS_TOKEN: process.env.META_PAGE_ACCESS_TOKEN,
   META_GRAPH_VERSION: process.env.META_GRAPH_VERSION,
   INSTAGRAM_BUSINESS_ACCOUNT_ID: process.env.INSTAGRAM_BUSINESS_ACCOUNT_ID,
+  RESEND_API_KEY: process.env.RESEND_API_KEY,
+  FORGE_REVIEW_FROM_EMAIL: process.env.FORGE_REVIEW_FROM_EMAIL,
+  TWILIO_ACCOUNT_SID: process.env.TWILIO_ACCOUNT_SID,
+  TWILIO_AUTH_TOKEN: process.env.TWILIO_AUTH_TOKEN,
+  TWILIO_FROM_NUMBER: process.env.TWILIO_FROM_NUMBER,
   FORGE_IMAGE_PROVIDER: process.env.FORGE_IMAGE_PROVIDER,
   FORGE_IMAGE_MODEL: process.env.FORGE_IMAGE_MODEL,
   FORGE_IMAGE_BUCKET: process.env.FORGE_IMAGE_BUCKET,

@@ -83,10 +83,14 @@ draft preview at `/dashboard/runs/[id]`, including generated captions, hashtags,
 directions. Production access is protected by `FORGE_ADMIN_PASSWORD`.
 
 Each client page also includes **review generation**: set the client's Google Review URL,
-paste a list of happy customers, and Forge mints a click-tracked link (`/r/<token>`) plus a
-ready-to-send message for each one. Send them by text or email; opening a link records the
-click and forwards the customer straight to the business's Google review page, so you can
-watch the request → review funnel.
+paste a list of happy customers (each as `Name, email or phone`), and Forge mints a
+click-tracked link (`/r/<token>`) plus a ready-to-send message for each one. When a delivery
+provider is configured it **sends the request for you** — email via
+[Resend](https://resend.com) (`RESEND_API_KEY` + `FORGE_REVIEW_FROM_EMAIL`) or SMS via
+[Twilio](https://twilio.com) (`TWILIO_ACCOUNT_SID` + `TWILIO_AUTH_TOKEN` +
+`TWILIO_FROM_NUMBER`); customers with no contact (or when no provider is set up) become
+copy-and-send links. Opening a link records the click and forwards the customer straight to
+the business's Google review page, so you can watch the request → click funnel.
 
 ## Add your business
 

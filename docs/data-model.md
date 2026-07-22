@@ -18,6 +18,7 @@ required**. The optional pgvector table is in `supabase/optional/`.
 | `supabase/migrations/20260721180000_content_assets_carousel.sql` | `content_assets.asset_index` slot + widened uniqueness (multi-image carousels) |
 | `supabase/migrations/20260721200000_content_metrics.sql` | `content_metrics` (post-publish reach/engagement; RLS, service-role grants) |
 | `supabase/migrations/20260722010000_review_requests.sql` | `clients.google_review_url` + `review_requests` (click-tracked review asks; RLS, service-role grants) |
+| `supabase/migrations/20260722020000_review_request_delivery.sql` | `review_requests` delivery columns (`channel`, `contact`, `send_status`, `sent_at`, `delivery_error`) for automated email/SMS sending |
 | `supabase/optional/client_memory.sql` | `client_memory` + pgvector (reserved for a later increment; apply by hand) |
 
 Apply locally with `supabase db reset`; in a hosted project, run the SQL files in
@@ -262,12 +263,16 @@ optional `client_memory` pgvector table remains a future enhancement.)
 ### `review_requests`
 
 Review generation: proactively ask happy customers for a Google review. An operator
-pastes customer names on the client page; Forge mints one row per name with an opaque
-`token` and a ready-to-send message, and surfaces a click-tracked short link
-(`/r/<token>`). Sending is out-of-band in v1 (the operator texts/emails the link on
-their own channel). When a customer opens the link, the public `GET /r/[token]` route
-records the click **once** (`created → clicked`, guarded by status) and redirects to the
-row's `target_url` — the client's `google_review_url`, snapshotted at creation time so
+pastes customers (each as `Name, email or phone`) on the client page; Forge mints one row
+per customer with an opaque `token` and a ready-to-send message, and surfaces a
+click-tracked short link (`/r/<token>`). When a delivery provider is configured Forge
+**sends the request** on the recipient's channel — email via Resend, SMS via Twilio —
+otherwise (no contact, or provider unset) the row is `skipped` and the operator copies the
+link by hand. Delivery is best-effort and never throws: each row's `send_status` records
+the outcome (`sent` / `failed` / `skipped`) with a bounded `delivery_error`, so one bad
+address can't sink a batch. When a customer opens the link, the public `GET /r/[token]`
+route records the click **once** (`created → clicked`, guarded by status) and redirects to
+the row's `target_url` — the client's `google_review_url`, snapshotted at creation time so
 later profile edits don't rewrite outstanding links. The link is a tracking id, not a
 secret (its destination is a public review page), so the token is stored in plaintext and
 the link can be re-displayed.
@@ -280,12 +285,20 @@ the link can be re-displayed.
 | `token` | text | **unique**, not null — opaque tracking id in `/r/<token>` |
 | `target_url` | text | not null — redirect destination (client's `google_review_url` at creation) |
 | `status` | text | not null, default `'created'` — `'created'` \| `'clicked'` |
+| `channel` | text | not null, default `'manual'` — `'manual'` \| `'email'` \| `'sms'` |
+| `contact` | text | nullable — recipient email or E.164 phone, when supplied |
+| `send_status` | text | not null, default `'pending'` — `'pending'` \| `'sent'` \| `'failed'` \| `'skipped'` |
+| `sent_at` | timestamptz | set when delivery succeeds |
+| `delivery_error` | text | bounded provider error when `send_status = 'failed'` (or reason skipped) |
 | `created_at` | timestamptz | default `now()` |
 | `clicked_at` | timestamptz | set the first time the link is opened |
 
 Index: `review_requests_client_idx on (client_id, created_at desc)` for the client-page
 list. RLS is enabled; only `service_role` has table privileges. Batch creation fails
 closed when the client has no `google_review_url` configured (nowhere to send people).
+Automated sending is env-gated (`RESEND_API_KEY` + `FORGE_REVIEW_FROM_EMAIL` for email;
+`TWILIO_ACCOUNT_SID` + `TWILIO_AUTH_TOKEN` + `TWILIO_FROM_NUMBER` for SMS); with neither
+set the feature still works as manual copy-and-send links.
 
 ### Client onboarding invitations
 
