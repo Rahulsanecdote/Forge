@@ -3,7 +3,7 @@ import { loadClientPortal } from '@/lib/portal/data';
 import { formatDateTime } from '@/lib/admin/format';
 import { resolveScheduleTimeZone } from '@/forge/data/schedule-mapping';
 import type { Metadata } from 'next';
-import { portalLogout } from './actions';
+import { decidePortalContent, portalLogout } from './actions';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,6 +29,28 @@ function statusClass(status: string) {
   return 'text-gold';
 }
 
+function DecisionBanner({ status }: { status?: string }) {
+  if (!status) return null;
+  const messages: Record<string, string> = {
+    'decision-approved': 'Approved — thanks! Your operator will schedule and publish this.',
+    'decision-rejected': 'Rejected. Your operator will revise or replace this draft.',
+    'decision-blocked': 'Could not approve — this draft contains a phrase on your do-not-use list. Your operator will revise it.',
+    'decision-not_found': 'That draft is no longer awaiting a decision.',
+    'decision-error': 'Something went wrong saving your decision. Please try again.',
+    'decision-invalid': 'That request was invalid.',
+  };
+  const isError = status !== 'decision-approved' && status !== 'decision-rejected';
+  return (
+    <div
+      className={`mb-6 border p-4 font-mono text-xs ${
+        isError ? 'border-red-400/30 bg-red-500/10 text-red-100' : 'border-gold-border bg-gold-dim text-gold'
+      }`}
+    >
+      {messages[status] ?? status}
+    </div>
+  );
+}
+
 function NoAccess() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-bg px-6 text-ink">
@@ -36,24 +58,31 @@ function NoAccess() {
         <div className="section-label">Client Portal</div>
         <h1 className="mt-4 font-serif text-3xl text-ink">Access needed</h1>
         <p className="mt-3 font-sans text-sm leading-6 text-muted">
-          This portal is view-only for your business. Ask your Forge operator for your
-          personal portal link to sign in.
+          Ask your Forge operator for your personal portal link to review and approve your
+          content.
         </p>
       </div>
     </main>
   );
 }
 
-export default async function ClientPortalPage() {
+export default async function ClientPortalPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ status?: string }>;
+}) {
   const clientId = await getPortalClientId();
   if (!clientId) return <NoAccess />;
 
   const data = await loadClientPortal(clientId);
   if (!data) return <NoAccess />;
 
+  const query = await searchParams;
   const { client, queue, schedules, performance } = data;
   const zone = resolveScheduleTimeZone(client.timezone) ?? 'UTC';
-  const pendingCount = queue.filter((item) => item.status === 'pending').length;
+  const pending = queue.filter((item) => item.status === 'pending');
+  const decided = queue.filter((item) => item.status !== 'pending');
+  const pendingCount = pending.length;
 
   return (
     <main className="min-h-screen bg-bg text-ink">
@@ -72,10 +101,12 @@ export default async function ClientPortalPage() {
       </header>
 
       <div className="mx-auto max-w-5xl px-6 py-10">
+        <DecisionBanner status={query?.status} />
         <div className="section-label">Overview</div>
         <p className="mt-3 max-w-2xl font-sans text-sm leading-6 text-muted">
-          A read-only view of your content pipeline and results. Drafting, approval, and
-          publishing are handled by your Forge operator — reach out to them to make changes.
+          Review and approve your content, and track what&apos;s scheduled and how it&apos;s
+          performing. Approve a draft to greenlight it; your Forge operator schedules and
+          publishes everything you approve.
         </p>
 
         <dl className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
@@ -109,21 +140,88 @@ export default async function ClientPortalPage() {
           </section>
         )}
 
-        <section className="mt-8" aria-label="Content pipeline">
-          <div className="font-mono text-xs uppercase tracking-wide text-muted">Content pipeline</div>
-          {queue.length === 0 ? (
-            <p className="mt-3 font-sans text-sm leading-6 text-muted">No content yet.</p>
+        <section className="mt-8" aria-label="Awaiting your approval">
+          <div className="font-mono text-xs uppercase tracking-wide text-muted">Awaiting your approval</div>
+          {pending.length === 0 ? (
+            <p className="mt-3 font-sans text-sm leading-6 text-muted">
+              Nothing needs your review right now.
+            </p>
           ) : (
+            <ul className="mt-3 space-y-4">
+              {pending.map((item) => (
+                <li key={item.runId} className="border border-gold-border bg-surface/40 p-5">
+                  <div className="flex flex-wrap items-center justify-between gap-3 font-mono text-[11px] uppercase tracking-wide">
+                    <span className="text-muted-dark">
+                      {platformLabel(item.platform)} · {item.postCount} post{item.postCount === 1 ? '' : 's'}
+                    </span>
+                    <span className="text-gold">Awaiting review</span>
+                  </div>
+
+                  <ol className="mt-4 space-y-4">
+                    {item.posts.map((post, index) => (
+                      <li key={index} className="border-l border-gold-border pl-4">
+                        {item.posts.length > 1 && (
+                          <div className="font-mono text-[10px] uppercase tracking-wide text-muted-dark">
+                            Post {index + 1}
+                          </div>
+                        )}
+                        <p className="mt-1 whitespace-pre-wrap font-sans text-sm leading-6 text-ink">{post.caption}</p>
+                        {post.hashtags.length > 0 && (
+                          <p className="mt-2 font-mono text-[11px] text-gold">{post.hashtags.join(' ')}</p>
+                        )}
+                        {post.imageUrls.length > 0 && (
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {post.imageUrls.map((url) => (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                key={url}
+                                src={url}
+                                alt="Post creative"
+                                className="h-28 w-28 rounded border border-gold-border object-cover"
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </li>
+                    ))}
+                  </ol>
+
+                  <div className="mt-4 flex flex-wrap items-center gap-3">
+                    <form action={decidePortalContent}>
+                      <input type="hidden" name="run_id" value={item.runId} />
+                      <input type="hidden" name="decision" value="approved" />
+                      <button className="bg-gold px-5 py-2.5 font-mono text-xs uppercase tracking-wide text-bg transition hover:bg-gold-soft">
+                        Approve
+                      </button>
+                    </form>
+                    <form action={decidePortalContent}>
+                      <input type="hidden" name="run_id" value={item.runId} />
+                      <input type="hidden" name="decision" value="rejected" />
+                      <button className="border border-gold-border px-5 py-2.5 font-mono text-xs uppercase tracking-wide text-muted transition hover:border-red-400/50 hover:text-red-200">
+                        Reject
+                      </button>
+                    </form>
+                    <span className="font-mono text-[11px] text-muted-dark">
+                      Requested {formatDateTime(item.requestedAt)}
+                    </span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        {decided.length > 0 && (
+          <section className="mt-8" aria-label="Content history">
+            <div className="font-mono text-xs uppercase tracking-wide text-muted">History</div>
             <ul className="mt-3 space-y-3">
-              {queue.map((item) => (
+              {decided.map((item) => (
                 <li key={item.runId} className="border border-gold-border bg-surface/40 p-4">
                   <div className="flex flex-wrap items-center justify-between gap-3 font-mono text-[11px] uppercase tracking-wide">
                     <span className="text-muted-dark">
                       {platformLabel(item.platform)} · {item.postCount} post{item.postCount === 1 ? '' : 's'}
                     </span>
-                    <span className={statusClass(item.status)}>
-                      {item.status === 'pending' ? 'Awaiting review' : item.status}
-                    </span>
+                    <span className={statusClass(item.status)}>{item.status}</span>
                   </div>
                   {item.preview && (
                     <p className="mt-3 font-sans text-sm leading-6 text-ink">{item.preview}…</p>
@@ -135,8 +233,8 @@ export default async function ClientPortalPage() {
                 </li>
               ))}
             </ul>
-          )}
-        </section>
+          </section>
+        )}
 
         {performance && performance.topPosts.length > 0 && (
           <section className="mt-8" aria-label="Top posts">

@@ -1,20 +1,33 @@
-# Client portal (read-only)
+# Client portal
 
-Forge is single-operator: all drafting, approval, scheduling, and publishing happen in
-the operator dashboard. The **client portal** is a separate, **read-only** surface at
-`/portal` where a client can see their own content pipeline and results — without any
-ability to change the workflow.
+Forge is single-operator: drafting, scheduling, and publishing happen in the operator
+dashboard. The **client portal** at `/portal` is a separate surface where a client can
+**review and approve their own content** and track results. Approval is the one write
+action clients have; scheduling and publishing stay with the operator.
 
 ## What a client sees
 
 - **Overview stats** — items awaiting review, scheduled posts, measured posts, total reach.
+- **Awaiting your approval** — each pending draft in full (every post's caption, hashtags,
+  and images) with **Approve** / **Reject** buttons.
+- **History** — decided runs (approved / rejected), compact.
 - **Scheduled to publish** — upcoming scheduled posts, shown in the client's timezone.
-- **Content pipeline** — each content run with its status (awaiting review / approved /
-  rejected), platform, post count, and a caption preview.
 - **Top posts by engagement** — the client's best-performing published posts.
 
-There are no write actions: no approve/reject, no publish, no edits. Those stay with the
-operator.
+## Self-approval
+
+A client can approve or reject any of their **own pending** drafts:
+
+- The decision runs through `decideClientApproval` (`src/lib/portal/approvals.ts`), which
+  scopes every query to the verified `client_id` from the session cookie — a client can
+  only ever decide their own content.
+- Approving still enforces the client's **banned phrases** (the same gate as the operator
+  path); a violating draft is blocked, not approved.
+- The `content_approvals` update is **status-guarded** (`pending → approved/rejected`) so a
+  client and operator can't double-decide, and a durable `approval` evidence row records
+  that the client decided via the portal (rolled back if the evidence write fails).
+- Publishing is unchanged: an approved run is scheduled/published by the operator (or the
+  scheduled-publish cron), still subject to the billing gate.
 
 ## Access model
 
@@ -33,9 +46,10 @@ not Supabase Auth:
 
 **Secret & revocation.** Links/sessions are signed with `FORGE_PORTAL_SECRET`, falling
 back to `FORGE_ADMIN_PASSWORD` when unset (so it works with no extra config). The link is
-a bearer credential — anyone with it gets that client's read-only view. Revocation is
-currently coarse: **rotate `FORGE_PORTAL_SECRET`** (or the admin password) to invalidate
-every outstanding link and session. Per-client revocation is a future increment.
+a bearer credential — anyone with it can act as that client (including approving their
+drafts). Revocation is currently coarse: **rotate `FORGE_PORTAL_SECRET`** (or the admin
+password) to invalidate every outstanding link and session. Per-client revocation is a
+future increment.
 
 ## Files
 
@@ -43,14 +57,16 @@ every outstanding link and session. Per-client revocation is a future increment.
 |---|---|
 | `src/lib/portal/token.ts` | Pure HMAC helpers (login key + session token); unit-tested |
 | `src/lib/portal/session.ts` | Server-only: secret resolution + cookie read/write |
-| `src/lib/portal/data.ts` | Read-only, client-scoped data loader (service role) |
+| `src/lib/portal/data.ts` | Client-scoped data loader (service role), incl. pending drafts + images |
+| `src/lib/portal/approvals.ts` | Client-scoped approve/reject write (banned-phrase gate, evidence) |
 | `src/app/portal/login/route.ts` | Verifies the link key, sets the session cookie |
-| `src/app/portal/page.tsx` | The read-only portal view (`noindex`) |
-| `src/app/portal/actions.ts` | `portalLogout` |
+| `src/app/portal/page.tsx` | The portal view (`noindex`) with self-approval UI |
+| `src/app/portal/actions.ts` | `portalLogout`, `decidePortalContent` |
 
 ## Roadmap
 
-This is the read-only first slice. Client **write** actions (e.g. a client approving
-their own drafts) would move to real per-client authentication (Supabase Auth) with
-tenant-scoped Row-Level Security policies, replacing the service-role reads here. See
+Client self-approval is scoped by the verified session `client_id` over service-role
+reads/writes — the sole tenant boundary. A later increment would move this to real
+per-client authentication (Supabase Auth) with tenant-scoped Row-Level Security policies,
+replacing the service-role access here. See
 [Data model → Row-Level Security](./data-model.md#row-level-security).

@@ -605,9 +605,11 @@ export default async function ClientDetailPage({
           <section className="mt-6 border border-gold-border bg-surface/50 p-5" aria-label="Client portal link">
             <div className="font-mono text-xs uppercase tracking-wide text-muted">Client Portal</div>
             <p className="mt-3 max-w-3xl font-sans text-sm leading-6 text-muted">
-              Share this private link with {client.name} for a read-only view of their content
-              pipeline, schedule, and performance. Anyone with the link can view (no password) —
-              rotate <span className="font-mono text-gold">FORGE_PORTAL_SECRET</span> to revoke all
+              Share this private link with {client.name} so they can review and{' '}
+              <span className="text-ink">approve or reject their own drafts</span>, and track what&apos;s
+              scheduled and how it&apos;s performing. Anyone with the link can act (no password);
+              approvals still pass the banned-phrase check. Rotate{' '}
+              <span className="font-mono text-gold">FORGE_PORTAL_SECRET</span> to revoke all
               outstanding links.
             </p>
             <div className="mt-4 flex flex-wrap items-center gap-3">
