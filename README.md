@@ -82,6 +82,11 @@ Open `/dashboard` to manage clients and inspect recent agent runs. Selecting a r
 draft preview at `/dashboard/runs/[id]`, including generated captions, hashtags, and image
 directions. Production access is protected by `FORGE_ADMIN_PASSWORD`.
 
+The dashboard also has a **content calendar** (`/dashboard/calendar`): a cross-client month
+grid of scheduled and published posts — each placed on its own client's local day — with a
+side rail of drafts still awaiting your approval. It's a read-only cockpit over the existing
+`content_schedules` and `content_approvals` tables (no extra setup).
+
 Each client page also includes **review generation**: set the client's Google Review URL,
 paste a list of happy customers (each as `Name, email or phone`), and Forge mints a
 click-tracked link (`/r/<token>`) plus a ready-to-send message for each one. When a delivery
