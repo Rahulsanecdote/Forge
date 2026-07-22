@@ -1,7 +1,14 @@
 import 'server-only';
-import { env } from '@/env';
 import { buildReviewRequestSubject } from './request-message';
 import type { ReviewChannel } from './recipients';
+
+// Read provider config from process.env directly (lazy), matching the Supabase layer.
+// Importing the validated `@/env` object here would eagerly evaluate that module during
+// Next's build-time page-data collection, where it hard-exits without SUPABASE_* set.
+function optionalEnv(name: string): string | undefined {
+  const value = process.env[name]?.trim();
+  return value || undefined;
+}
 
 // Review-request delivery. Sends a review-request message to one customer over the
 // channel implied by their contact — email via Resend, SMS via Twilio. Both providers
@@ -35,8 +42,8 @@ async function readErrorBody(response: Response): Promise<string> {
 }
 
 async function sendEmail(to: string, businessName: string, message: string): Promise<DeliveryResult> {
-  const apiKey = env.RESEND_API_KEY?.trim();
-  const from = env.FORGE_REVIEW_FROM_EMAIL?.trim();
+  const apiKey = optionalEnv('RESEND_API_KEY');
+  const from = optionalEnv('FORGE_REVIEW_FROM_EMAIL');
   if (!apiKey || !from) {
     return { status: 'skipped', error: 'Email not configured (RESEND_API_KEY / FORGE_REVIEW_FROM_EMAIL).' };
   }
@@ -62,9 +69,9 @@ async function sendEmail(to: string, businessName: string, message: string): Pro
 }
 
 async function sendSms(to: string, message: string): Promise<DeliveryResult> {
-  const sid = env.TWILIO_ACCOUNT_SID?.trim();
-  const token = env.TWILIO_AUTH_TOKEN?.trim();
-  const from = env.TWILIO_FROM_NUMBER?.trim();
+  const sid = optionalEnv('TWILIO_ACCOUNT_SID');
+  const token = optionalEnv('TWILIO_AUTH_TOKEN');
+  const from = optionalEnv('TWILIO_FROM_NUMBER');
   if (!sid || !token || !from) {
     return { status: 'skipped', error: 'SMS not configured (TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN / TWILIO_FROM_NUMBER).' };
   }
