@@ -13,6 +13,7 @@ import { getAdminSupabase, loadClientDetail, loadToolRunDetail } from '@/lib/adm
 import { findBannedPhraseViolations, parseSocialPostOutput } from '@/lib/admin/run-output';
 import { submissionFromFormData } from '@/lib/onboarding/invitations';
 import { brandVoiceFromOnboarding } from '@/lib/onboarding/brand-voice';
+import { createReviewRequests } from '@/lib/reviews/requests';
 import type { ClientContext } from '@/forge/types';
 
 export async function login(formData: FormData) {
@@ -47,7 +48,7 @@ function listValue(formData: FormData, key: string) {
 }
 
 function isMissingGoogleBusinessColumns(error: { message?: string } | null) {
-  return Boolean(error?.message && /google_business_/i.test(error.message));
+  return Boolean(error?.message && /google_business_|google_review_url/i.test(error.message));
 }
 
 function redirectClient(slug: string, status: string): never {
@@ -307,6 +308,7 @@ export async function updateClientProfile(formData: FormData) {
     approval_mode: 'review',
     google_business_account_id: stringValue(formData, 'google_business_account_id') || null,
     google_business_location_id: stringValue(formData, 'google_business_location_id') || null,
+    google_review_url: stringValue(formData, 'google_review_url') || null,
   };
 
   const supabase = getAdminSupabase();
@@ -316,7 +318,8 @@ export async function updateClientProfile(formData: FormData) {
     .eq('id', id);
 
   if (isMissingGoogleBusinessColumns(error)) {
-    const { google_business_account_id, google_business_location_id, ...baseUpdate } = update;
+    const { google_business_account_id, google_business_location_id, google_review_url, ...baseUpdate } =
+      update;
     const { error: fallbackError } = await supabase.from('clients').update(baseUpdate).eq('id', id);
     if (fallbackError) redirectClient(currentSlug, 'profile-error');
   } else if (error) {
@@ -327,6 +330,23 @@ export async function updateClientProfile(formData: FormData) {
   revalidatePath(`/dashboard/clients/${currentSlug}`);
   revalidatePath(`/dashboard/clients/${slug.data}`);
   redirectClient(slug.data, 'profile-saved');
+}
+
+export async function generateReviewRequests(formData: FormData) {
+  await requireAdmin();
+  const clientId = stringValue(formData, 'client_id');
+  const slug = stringValue(formData, 'slug') || 'unknown';
+  if (!clientId) redirectClient(slug, 'reviews-invalid');
+
+  const names = listValue(formData, 'customer_names');
+  const result = await createReviewRequests(clientId, names);
+
+  if (!result.ok) {
+    redirectClient(slug, `reviews-${result.code.replace(/_/g, '-')}`);
+  }
+
+  revalidatePath(`/dashboard/clients/${slug}`);
+  redirectClient(slug, `reviews-created-${result.created}`);
 }
 
 export async function updateBrandVoice(formData: FormData) {

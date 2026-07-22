@@ -17,6 +17,7 @@ required**. The optional pgvector table is in `supabase/optional/`.
 | `supabase/migrations/20260721160000_content_schedules.sql` | `content_schedules` (+ due index, RLS, service-role grants) |
 | `supabase/migrations/20260721180000_content_assets_carousel.sql` | `content_assets.asset_index` slot + widened uniqueness (multi-image carousels) |
 | `supabase/migrations/20260721200000_content_metrics.sql` | `content_metrics` (post-publish reach/engagement; RLS, service-role grants) |
+| `supabase/migrations/20260722010000_review_requests.sql` | `clients.google_review_url` + `review_requests` (click-tracked review asks; RLS, service-role grants) |
 | `supabase/optional/client_memory.sql` | `client_memory` + pgvector (reserved for a later increment; apply by hand) |
 
 Apply locally with `supabase db reset`; in a hosted project, run the SQL files in
@@ -44,6 +45,7 @@ A business Forge runs marketing for.
 | `approval_mode` | text | constrained to `review` in the current phase |
 | `google_business_account_id` | text | optional per-client GBP account override |
 | `google_business_location_id` | text | optional per-client GBP location override |
+| `google_review_url` | text | public "leave a review" link (destination for review requests) |
 | `created_at` | timestamptz | default `now()` |
 
 ### `brand_voices`
@@ -257,6 +259,34 @@ copy, never reuse wording, stay within the factual ceiling. It's best-effort: wi
 metrics yet, generation is unchanged. (Semantic retrieval over post history via the
 optional `client_memory` pgvector table remains a future enhancement.)
 
+### `review_requests`
+
+Review generation: proactively ask happy customers for a Google review. An operator
+pastes customer names on the client page; Forge mints one row per name with an opaque
+`token` and a ready-to-send message, and surfaces a click-tracked short link
+(`/r/<token>`). Sending is out-of-band in v1 (the operator texts/emails the link on
+their own channel). When a customer opens the link, the public `GET /r/[token]` route
+records the click **once** (`created → clicked`, guarded by status) and redirects to the
+row's `target_url` — the client's `google_review_url`, snapshotted at creation time so
+later profile edits don't rewrite outstanding links. The link is a tracking id, not a
+secret (its destination is a public review page), so the token is stored in plaintext and
+the link can be re-displayed.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid | PK |
+| `client_id` | uuid | FK → `clients(id)`, `on delete cascade` |
+| `customer_name` | text | nullable — null for a generic (unnamed) link |
+| `token` | text | **unique**, not null — opaque tracking id in `/r/<token>` |
+| `target_url` | text | not null — redirect destination (client's `google_review_url` at creation) |
+| `status` | text | not null, default `'created'` — `'created'` \| `'clicked'` |
+| `created_at` | timestamptz | default `now()` |
+| `clicked_at` | timestamptz | set the first time the link is opened |
+
+Index: `review_requests_client_idx on (client_id, created_at desc)` for the client-page
+list. RLS is enabled; only `service_role` has table privileges. Batch creation fails
+closed when the client has no `google_review_url` configured (nowhere to send people).
+
 ### Client onboarding invitations
 
 `onboarding_invitations` stores only a SHA-256 token hash, invitation metadata, expiry,
@@ -296,6 +326,7 @@ clients (1) ──< (1) brand_voices         # one brand voice per client
 clients (1) ──< (N) tool_runs            # audit log
 clients (1) ──< (N) reviews              # review queue
 clients (1) ──< (N) content_approvals    # generated-content decision gate
+clients (1) ──< (N) review_requests      # click-tracked review asks
 tool_runs (1) ──< (N) content_assets     # generated post creatives (images)
 tool_runs (1) ──< (1) content_schedules  # deferred publish schedule (one per run)
 tool_runs (1) ──< (N) content_metrics    # post-publish reach/engagement snapshots

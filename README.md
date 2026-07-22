@@ -82,6 +82,12 @@ Open `/dashboard` to manage clients and inspect recent agent runs. Selecting a r
 draft preview at `/dashboard/runs/[id]`, including generated captions, hashtags, and image
 directions. Production access is protected by `FORGE_ADMIN_PASSWORD`.
 
+Each client page also includes **review generation**: set the client's Google Review URL,
+paste a list of happy customers, and Forge mints a click-tracked link (`/r/<token>`) plus a
+ready-to-send message for each one. Send them by text or email; opening a link records the
+click and forwards the customer straight to the business's Google review page, so you can
+watch the request → review funnel.
+
 ## Add your business
 
 **Fastest — let Forge draft the brand voice from a description:**

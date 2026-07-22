@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import {
+  generateReviewRequests,
   logout,
   publishReviewReply,
   runClientTask,
@@ -10,6 +11,7 @@ import {
 } from '../../actions';
 import { isAdminAuthenticated } from '@/lib/admin/auth';
 import { loadClientDetail, loadClientPerformance } from '@/lib/admin/data';
+import { loadReviewRequestSummary } from '@/lib/reviews/requests';
 import { CopyButton } from '@/components/dashboard/copy-button';
 import { clientPortalLoginKey } from '@/lib/portal/session';
 
@@ -78,13 +80,25 @@ function StatusBanner({ status }: { status?: string }) {
     'reply-unconfigured': 'Reply not published — configure a write-scoped Google token and the account/location IDs first.',
     'reply-error': 'Reply could not be published. Check the Google write scope and server logs.',
     'reply-invalid': 'Select a drafted Google reply to publish.',
+    'reviews-no-url': 'Add a Google review URL to this client before generating requests.',
+    'reviews-no-names': 'Enter at least one customer name, or leave the field blank for a single generic link.',
+    'reviews-error': 'Review requests could not be created. Check the server logs.',
+    'reviews-invalid': 'Could not generate review requests — client is missing.',
   };
+
+  // `reviews-created-<n>` carries the batch size, so resolve it dynamically.
+  const createdMatch = status.match(/^reviews-created-(\d+)$/);
+  const message = createdMatch
+    ? `Generated ${createdMatch[1]} review request${createdMatch[1] === '1' ? '' : 's'}. Copy the links below and send them to your customers.`
+    : messages[status] ?? status;
 
   const isError =
     status.endsWith('error') ||
     status.endsWith('invalid') ||
     status.endsWith('blocked') ||
-    status.endsWith('unconfigured');
+    status.endsWith('unconfigured') ||
+    status === 'reviews-no-url' ||
+    status === 'reviews-no-names';
 
   return (
     <div
@@ -94,7 +108,7 @@ function StatusBanner({ status }: { status?: string }) {
           : 'border-gold-border bg-gold-dim text-gold'
       }`}
     >
-      {messages[status] ?? status}
+      {message}
     </div>
   );
 }
@@ -163,6 +177,7 @@ export default async function ClientDetailPage({
 
   const { client, brandVoice, toolRuns, reviews, contentApprovals, errors } = detail;
   const performance = await loadClientPerformance(client.id);
+  const reviewRequests = await loadReviewRequestSummary(client.id);
   const portalKey = clientPortalLoginKey(client.id);
   const portalLink = portalKey
     ? `${(process.env.NEXT_PUBLIC_APP_URL ?? '').replace(/\/$/, '')}/portal/login?c=${client.id}&k=${portalKey}`
@@ -268,6 +283,13 @@ export default async function ClientDetailPage({
                 name="google_business_location_id"
                 defaultValue={client.google_business_location_id}
               />
+              <div className="md:col-span-2">
+                <Field
+                  label="Google Review URL"
+                  name="google_review_url"
+                  defaultValue={client.google_review_url}
+                />
+              </div>
             </div>
             <button className="mt-5 bg-gold px-5 py-3 font-mono text-xs uppercase tracking-wide text-bg transition hover:bg-gold-soft">
               Save Profile
@@ -436,6 +458,74 @@ export default async function ClientDetailPage({
             </div>
           </section>
         )}
+
+        <section className="mt-6 border border-gold-border bg-surface/50 p-5" aria-label="Review generation">
+          <div className="flex flex-wrap items-baseline justify-between gap-3">
+            <div className="font-mono text-xs uppercase tracking-wide text-muted">Review Generation</div>
+            <div className="font-mono text-[11px] uppercase tracking-wide text-muted-dark">
+              {reviewRequests.stats.clicked}/{reviewRequests.stats.total} clicked
+            </div>
+          </div>
+          <p className="mt-3 max-w-3xl font-sans text-sm leading-6 text-muted">
+            Turn happy customers into Google reviews. Paste customer names (one per line), and Forge
+            mints a click-tracked link and a ready-to-send message for each. Send them by text or
+            email; clicking the link records the click and sends the customer straight to{' '}
+            {client.name}&apos;s Google review page.
+          </p>
+
+          {!reviewRequests.reviewUrl && (
+            <div className="mt-4 border border-amber-400/30 bg-amber-500/10 p-3 font-mono text-[11px] text-amber-100">
+              Set a <span className="text-amber-50">Google Review URL</span> in the profile above
+              before generating requests.
+            </div>
+          )}
+
+          <form action={generateReviewRequests} className="mt-5">
+            <input type="hidden" name="client_id" value={client.id} />
+            <input type="hidden" name="slug" value={client.slug} />
+            <TextArea
+              label="Customer Names (one per line)"
+              name="customer_names"
+              rows={4}
+              defaultValue=""
+            />
+            <button
+              disabled={!reviewRequests.reviewUrl}
+              className="mt-4 bg-gold px-5 py-3 font-mono text-xs uppercase tracking-wide text-bg transition hover:bg-gold-soft disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Generate Review Requests
+            </button>
+          </form>
+
+          {reviewRequests.items.length > 0 && (
+            <ul className="mt-6 divide-y divide-gold-border/70 border-t border-gold-border/70">
+              {reviewRequests.items.map((item) => (
+                <li key={item.id} className="py-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="font-mono text-xs uppercase tracking-wide text-gold">
+                      {item.customerName ?? 'Generic link'}
+                    </div>
+                    <div className="font-mono text-[11px] text-muted-dark">
+                      {item.status === 'clicked'
+                        ? `✓ clicked ${formatDate(item.clickedAt)}`
+                        : `created ${formatDate(item.createdAt)}`}
+                    </div>
+                  </div>
+                  <p className="mt-3 border-l border-gold-border pl-3 font-sans text-sm leading-6 text-ink">
+                    {item.message}
+                  </p>
+                  <div className="mt-3 flex flex-wrap items-center gap-3">
+                    <code className="max-w-full overflow-x-auto whitespace-nowrap border border-gold-border bg-bg px-3 py-2 font-mono text-[11px] text-muted">
+                      {item.link}
+                    </code>
+                    <CopyButton value={item.message} label="Copy message" />
+                    <CopyButton value={item.link} label="Copy link" />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
 
         <section className="mt-6 grid gap-6 xl:grid-cols-3">
           <div className="border border-gold-border bg-surface/50">
