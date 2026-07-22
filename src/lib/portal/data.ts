@@ -12,12 +12,19 @@ import { parseSocialPostOutput } from '@/lib/admin/run-output';
 // client filter must never be dropped. Reads go through the service role (same
 // posture as the operator portal); nothing here writes.
 
+export interface PortalPost {
+  caption: string;
+  hashtags: string[];
+  imageUrls: string[];
+}
+
 export interface PortalQueueItem {
   runId: string;
   status: 'pending' | 'approved' | 'rejected';
   platform: string | null;
   postCount: number;
   preview: string | null;
+  posts: PortalPost[];
   requestedAt: string | null;
   decidedAt: string | null;
 }
@@ -72,14 +79,45 @@ export async function loadClientPortal(clientId: string): Promise<PortalData | n
     .order('requested_at', { ascending: false })
     .limit(30);
 
-  const queue: PortalQueueItem[] = ((approvals ?? []) as ApprovalRow[]).map((row) => {
+  const approvalRows = (approvals ?? []) as ApprovalRow[];
+
+  // Fetch images only for pending runs (what the client reviews before approving), scoped
+  // to this client. Build run_id -> post_index -> [public_url].
+  const pendingRunIds = approvalRows.filter((r) => r.status === 'pending').map((r) => r.run_id);
+  const imagesByRun = new Map<string, Map<number, string[]>>();
+  if (pendingRunIds.length > 0) {
+    const { data: assets } = await supabase
+      .from('content_assets')
+      .select('run_id, post_index, asset_index, public_url')
+      .eq('client_id', clientId)
+      .in('run_id', pendingRunIds)
+      .eq('kind', 'image')
+      .order('post_index', { ascending: true })
+      .order('asset_index', { ascending: true });
+    for (const row of (assets ?? []) as Array<{ run_id: string; post_index: number; public_url: string }>) {
+      const byPost = imagesByRun.get(row.run_id) ?? new Map<number, string[]>();
+      const urls = byPost.get(row.post_index) ?? [];
+      urls.push(row.public_url);
+      byPost.set(row.post_index, urls);
+      imagesByRun.set(row.run_id, byPost);
+    }
+  }
+
+  const queue: PortalQueueItem[] = approvalRows.map((row) => {
     const parsed = parseSocialPostOutput(runOutput(row));
+    const byPost = imagesByRun.get(row.run_id);
+    const posts: PortalPost[] = (parsed?.posts ?? []).map((post, index) => ({
+      caption: post.caption,
+      hashtags: post.hashtags,
+      imageUrls: byPost?.get(index) ?? [],
+    }));
     return {
       runId: row.run_id,
       status: row.status,
       platform: parsed?.platform ?? null,
       postCount: parsed?.posts.length ?? 0,
       preview: parsed?.posts[0]?.caption?.slice(0, 160) ?? null,
+      posts,
       requestedAt: row.requested_at,
       decidedAt: row.decided_at,
     };
