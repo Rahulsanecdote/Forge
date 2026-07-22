@@ -96,6 +96,7 @@ function ApprovalStatus({ status }: { status?: string }) {
     'publish-complete': 'Published to Google Business. The approved posts are now live.',
     'publish-already': 'This run was already published to Google Business.',
     'publish-blocked': 'Not published — the draft contains a banned phrase. Revise and regenerate.',
+    'publish-blocked-billing': 'Not published — this client has no active subscription. Start their plan (or set a comp override) on the client page.',
     'publish-unsupported': 'Only approved Google Business posts can be published here.',
     'publish-unconfigured': 'Not published — configure the channel credentials (Google token / Meta page token / Instagram account) first.',
     'publish-missing-image': 'Not published — every Instagram post needs a generated image first.',
@@ -126,6 +127,7 @@ function ApprovalStatus({ status }: { status?: string }) {
   const isError =
     status === 'approval-blocked' ||
     status === 'publish-blocked' ||
+    status === 'publish-blocked-billing' ||
     status === 'publish-unsupported' ||
     status === 'publish-unconfigured' ||
     status === 'publish-missing-image' ||

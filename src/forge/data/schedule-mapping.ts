@@ -102,11 +102,12 @@ export function parseScheduledFor(
   return { ok: true, at: at.toISOString() };
 }
 
-// Map a publish outcome status onto the schedule's terminal state. A run that was
-// already published (idempotency short-circuit) counts as published, not failed —
-// the desired end state is reached either way.
-export function scheduleStatusForPublish(publishStatus: string): 'published' | 'failed' {
-  return publishStatus === 'publish-complete' || publishStatus === 'publish-already'
-    ? 'published'
-    : 'failed';
+// Map a publish outcome status onto the schedule's next state. A run that was already
+// published (idempotency short-circuit) counts as published, not failed — the desired end
+// state is reached either way. A billing block is not terminal: the client may pay later,
+// so the schedule returns to 'pending' to retry rather than failing permanently.
+export function scheduleStatusForPublish(publishStatus: string): 'published' | 'failed' | 'pending' {
+  if (publishStatus === 'publish-complete' || publishStatus === 'publish-already') return 'published';
+  if (publishStatus === 'publish-blocked-billing') return 'pending';
+  return 'failed';
 }

@@ -6,6 +6,7 @@ import { draftReviewResponses } from '../forge/tools/draft-review-responses';
 import { importGoogleBusinessProfileReviewsForClient } from '../forge/data/google-business-profile';
 import { loadDueSchedules, runDueSchedule } from '../forge/data/schedules';
 import { loadRecentlyPublishedRunIds, refreshRunMetrics } from '../forge/data/analytics';
+import { isDeliveryActive } from '@/lib/billing/entitlements';
 import { supabase } from '../supabase';
 import { env } from '../env';
 
@@ -19,7 +20,11 @@ const METRICS_WINDOW_DAYS = 30;
 export const weeklyContent = inngest.createFunction(
   { id: 'weekly-content', triggers: [{ cron: CONTENT_CRON }] },
   async ({ step }) => {
-    const clients = await step.run('list-clients', () => listClients());
+    const allClients = await step.run('list-clients', () => listClients());
+    // Hard billing gate: skip clients without an active subscription (or a comp override).
+    const clients = allClients.filter((client) =>
+      isDeliveryActive({ subscriptionStatus: client.subscriptionStatus, billingOverride: client.billingOverride }),
+    );
 
     const results: { client: string; summary: string }[] = [];
     for (const client of clients) {
@@ -42,7 +47,10 @@ export const weeklyContent = inngest.createFunction(
 export const reviewSweep = inngest.createFunction(
   { id: 'review-sweep', triggers: [{ cron: REVIEW_CRON }] },
   async ({ step }) => {
-    const clients = await step.run('list-clients', () => listClients());
+    const allClients = await step.run('list-clients', () => listClients());
+    const clients = allClients.filter((client) =>
+      isDeliveryActive({ subscriptionStatus: client.subscriptionStatus, billingOverride: client.billingOverride }),
+    );
     const model = resolveModel();
 
     let drafted = 0;

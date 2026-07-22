@@ -15,6 +15,8 @@ import { submissionFromFormData } from '@/lib/onboarding/invitations';
 import { brandVoiceFromOnboarding } from '@/lib/onboarding/brand-voice';
 import { createReviewRequests } from '@/lib/reviews/requests';
 import { parseRecipients } from '@/lib/reviews/recipients';
+import { getPlan, DEFAULT_PLAN_KEY } from '@/lib/billing/plans';
+import { isSubscriptionStatus } from '@/lib/billing/entitlements';
 import type { ClientContext } from '@/forge/types';
 
 export async function login(formData: FormData) {
@@ -348,6 +350,99 @@ export async function generateReviewRequests(formData: FormData) {
 
   revalidatePath(`/dashboard/clients/${slug}`);
   redirectClient(slug, `reviews-created-${result.created}-${result.sent}`);
+}
+
+function absoluteAppBase(): string | null {
+  const base = (process.env.NEXT_PUBLIC_APP_URL ?? '').replace(/\/$/, '');
+  return /^https?:\/\//i.test(base) ? base : null;
+}
+
+// Start a Stripe Checkout subscription for a client and redirect to the hosted page.
+// Falls back to the manual-status controls (billing-unconfigured) when Stripe or the app
+// URL isn't set up.
+export async function startClientSubscription(formData: FormData) {
+  await requireAdmin();
+  const clientId = stringValue(formData, 'client_id');
+  const slug = stringValue(formData, 'slug') || 'unknown';
+  const plan = getPlan(stringValue(formData, 'plan') || DEFAULT_PLAN_KEY);
+  if (!clientId || !plan) redirectClient(slug, 'billing-invalid');
+
+  const priceId = (process.env[plan!.priceEnvVar] ?? '').trim();
+  const base = absoluteAppBase();
+  const { stripeConfigured, createCheckoutSession } = await import('@/lib/billing/stripe');
+  if (!stripeConfigured() || !priceId || !base) redirectClient(slug, 'billing-unconfigured');
+
+  const supabase = getAdminSupabase();
+  const { data: client } = await supabase
+    .from('clients')
+    .select('stripe_customer_id')
+    .eq('id', clientId)
+    .maybeSingle();
+
+  let url: string;
+  try {
+    url = await createCheckoutSession({
+      clientId,
+      priceId,
+      customerId: (client as { stripe_customer_id?: string } | null)?.stripe_customer_id ?? null,
+      successUrl: `${base}/dashboard/clients/${slug}?status=billing-checkout-started`,
+      cancelUrl: `${base}/dashboard/clients/${slug}?status=billing-canceled`,
+    });
+  } catch {
+    redirectClient(slug, 'billing-error');
+  }
+  redirect(url!);
+}
+
+// Open the Stripe Billing Portal so a client can manage or cancel their subscription.
+export async function openBillingPortal(formData: FormData) {
+  await requireAdmin();
+  const clientId = stringValue(formData, 'client_id');
+  const slug = stringValue(formData, 'slug') || 'unknown';
+  const base = absoluteAppBase();
+
+  const supabase = getAdminSupabase();
+  const { data: client } = await supabase
+    .from('clients')
+    .select('stripe_customer_id')
+    .eq('id', clientId)
+    .maybeSingle();
+  const customerId = (client as { stripe_customer_id?: string } | null)?.stripe_customer_id;
+
+  const { stripeConfigured, createBillingPortalSession } = await import('@/lib/billing/stripe');
+  if (!stripeConfigured() || !customerId || !base) redirectClient(slug, 'billing-no-customer');
+
+  let url: string;
+  try {
+    url = await createBillingPortalSession(customerId!, `${base}/dashboard/clients/${slug}`);
+  } catch {
+    redirectClient(slug, 'billing-error');
+  }
+  redirect(url!);
+}
+
+// Manual billing control: set the plan, subscription status, and comp override by hand.
+// The fallback when Stripe isn't wired up, and the way to comp a pilot client.
+export async function setClientBilling(formData: FormData) {
+  await requireAdmin();
+  const clientId = stringValue(formData, 'client_id');
+  const slug = stringValue(formData, 'slug') || 'unknown';
+  if (!clientId) redirectClient(slug, 'billing-invalid');
+
+  const status = stringValue(formData, 'subscription_status');
+  const planKey = stringValue(formData, 'plan');
+  const update: Record<string, unknown> = {
+    billing_override: formData.get('billing_override') != null,
+    plan: planKey && getPlan(planKey) ? planKey : null,
+  };
+  if (status && isSubscriptionStatus(status)) update.subscription_status = status;
+
+  const { error } = await getAdminSupabase().from('clients').update(update).eq('id', clientId);
+  if (error) redirectClient(slug, 'billing-error');
+
+  revalidatePath('/dashboard');
+  revalidatePath(`/dashboard/clients/${slug}`);
+  redirectClient(slug, 'billing-saved');
 }
 
 export async function updateBrandVoice(formData: FormData) {

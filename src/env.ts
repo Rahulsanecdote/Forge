@@ -57,6 +57,12 @@ const schema = z.object({
   FORGE_IMAGE_MODEL: optionalConfigSchema, // defaults per provider if unset
   FORGE_IMAGE_BUCKET: optionalConfigSchema, // Supabase Storage bucket; default content-images
 
+  // Billing (Stripe). Server-only, all optional. Unset → manual operator billing control.
+  STRIPE_SECRET_KEY: optionalConfigSchema,
+  STRIPE_WEBHOOK_SECRET: optionalConfigSchema,
+  STRIPE_PRICE_STARTER: optionalConfigSchema, // Stripe Price id for the Starter plan
+  STRIPE_PRICE_GROWTH: optionalConfigSchema, // Stripe Price id for the Growth plan
+
   // Review-request delivery. Server-only, all optional. Email via Resend, SMS via
   // Twilio. Unset providers fall back to manual send (operator copies the link).
   RESEND_API_KEY: optionalConfigSchema,
@@ -103,6 +109,10 @@ const runtimeEnv = {
   META_PAGE_ACCESS_TOKEN: process.env.META_PAGE_ACCESS_TOKEN,
   META_GRAPH_VERSION: process.env.META_GRAPH_VERSION,
   INSTAGRAM_BUSINESS_ACCOUNT_ID: process.env.INSTAGRAM_BUSINESS_ACCOUNT_ID,
+  STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
+  STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET,
+  STRIPE_PRICE_STARTER: process.env.STRIPE_PRICE_STARTER,
+  STRIPE_PRICE_GROWTH: process.env.STRIPE_PRICE_GROWTH,
   RESEND_API_KEY: process.env.RESEND_API_KEY,
   FORGE_REVIEW_FROM_EMAIL: process.env.FORGE_REVIEW_FROM_EMAIL,
   TWILIO_ACCOUNT_SID: process.env.TWILIO_ACCOUNT_SID,

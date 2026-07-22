@@ -3,15 +3,20 @@ import { notFound, redirect } from 'next/navigation';
 import {
   generateReviewRequests,
   logout,
+  openBillingPortal,
   publishReviewReply,
   runClientTask,
   runKeywordResearch,
+  setClientBilling,
+  startClientSubscription,
   updateBrandVoice,
   updateClientProfile,
 } from '../../actions';
 import { isAdminAuthenticated } from '@/lib/admin/auth';
 import { loadClientDetail, loadClientPerformance } from '@/lib/admin/data';
 import { loadReviewRequestSummary, type ReviewRequestItem } from '@/lib/reviews/requests';
+import { billingSummary, SUBSCRIPTION_STATUSES } from '@/lib/billing/entitlements';
+import { PLANS } from '@/lib/billing/plans';
 import { CopyButton } from '@/components/dashboard/copy-button';
 import { clientPortalLoginKey } from '@/lib/portal/session';
 
@@ -80,6 +85,13 @@ function StatusBanner({ status }: { status?: string }) {
     'reply-unconfigured': 'Reply not published — configure a write-scoped Google token and the account/location IDs first.',
     'reply-error': 'Reply could not be published. Check the Google write scope and server logs.',
     'reply-invalid': 'Select a drafted Google reply to publish.',
+    'billing-saved': 'Billing updated.',
+    'billing-checkout-started': 'Checkout opened. The subscription activates once payment completes (synced via Stripe webhook).',
+    'billing-canceled': 'Checkout canceled — no subscription was started.',
+    'billing-unconfigured': 'Stripe isn’t configured (or the plan has no price / the app URL is missing). Use the manual controls below, or set the STRIPE_* env vars.',
+    'billing-no-customer': 'No Stripe customer yet for this client — start a subscription first.',
+    'billing-error': 'The billing action failed. Check the Stripe keys and server logs.',
+    'billing-invalid': 'That billing request was invalid.',
     'reviews-no-url': 'Add a Google review URL to this client before generating requests.',
     'reviews-no-names': 'Enter at least one customer name, or leave the field blank for a single generic link.',
     'reviews-error': 'Review requests could not be created. Check the server logs.',
@@ -202,6 +214,10 @@ export default async function ClientDetailPage({
   const { client, brandVoice, toolRuns, reviews, contentApprovals, errors } = detail;
   const performance = await loadClientPerformance(client.id);
   const reviewRequests = await loadReviewRequestSummary(client.id);
+  const billing = billingSummary({
+    subscriptionStatus: client.subscription_status,
+    billingOverride: client.billing_override,
+  });
   const portalKey = clientPortalLoginKey(client.id);
   const portalLink = portalKey
     ? `${(process.env.NEXT_PUBLIC_APP_URL ?? '').replace(/\/$/, '')}/portal/login?c=${client.id}&k=${portalKey}`
@@ -365,6 +381,117 @@ export default async function ClientDetailPage({
               </button>
             </form>
           </div>
+        </section>
+
+        <section className="mt-6 border border-gold-border bg-surface/50 p-5" aria-label="Billing">
+          <div className="flex flex-wrap items-baseline justify-between gap-3">
+            <div className="font-mono text-xs uppercase tracking-wide text-muted">Billing</div>
+            <div className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-wide">
+              <span
+                className={`inline-block h-1.5 w-1.5 rounded-full ${billing.active ? 'bg-emerald-400' : 'bg-red-400'}`}
+              />
+              <span className={billing.active ? 'text-emerald-200' : 'text-red-200'}>{billing.label}</span>
+            </div>
+          </div>
+          <p className="mt-3 max-w-3xl font-sans text-sm leading-6 text-muted">
+            {billing.active
+              ? 'This client is active — automated posting, scheduled publishing, and review sweeps run for them.'
+              : 'Delivery is paused for this client: the weekly-content, scheduled-publish, and review-sweep jobs skip them and the Publish action is blocked until a subscription is active (or you set a comp override below).'}
+          </p>
+
+          <dl className="mt-4 grid grid-cols-2 gap-4 font-mono text-xs sm:grid-cols-4">
+            <div>
+              <dt className="text-muted-dark">Plan</dt>
+              <dd className="mt-1 text-ink">{client.plan ? (PLANS[client.plan]?.name ?? client.plan) : 'n/a'}</dd>
+            </div>
+            <div>
+              <dt className="text-muted-dark">Status</dt>
+              <dd className="mt-1 text-ink">{client.subscription_status}</dd>
+            </div>
+            <div>
+              <dt className="text-muted-dark">Renews / ends</dt>
+              <dd className="mt-1 text-ink">
+                {client.current_period_end ? formatDate(client.current_period_end) : 'n/a'}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-muted-dark">Stripe customer</dt>
+              <dd className="mt-1 truncate text-ink">{client.stripe_customer_id ?? 'none'}</dd>
+            </div>
+          </dl>
+
+          <div className="mt-5 flex flex-wrap items-center gap-3">
+            {Object.values(PLANS).map((plan) => (
+              <form action={startClientSubscription} key={plan.key}>
+                <input type="hidden" name="client_id" value={client.id} />
+                <input type="hidden" name="slug" value={client.slug} />
+                <input type="hidden" name="plan" value={plan.key} />
+                <button className="border border-gold-border px-4 py-2 font-mono text-[11px] uppercase tracking-wide text-gold transition hover:border-gold/60 hover:bg-gold-dim">
+                  Start {plan.name} · ${plan.priceMonthly}/mo
+                </button>
+              </form>
+            ))}
+            {client.stripe_customer_id && (
+              <form action={openBillingPortal}>
+                <input type="hidden" name="client_id" value={client.id} />
+                <input type="hidden" name="slug" value={client.slug} />
+                <button className="border border-gold-border px-4 py-2 font-mono text-[11px] uppercase tracking-wide text-muted transition hover:border-gold/60 hover:text-gold">
+                  Manage billing (Stripe)
+                </button>
+              </form>
+            )}
+          </div>
+
+          <form action={setClientBilling} className="mt-6 border-t border-gold-border/60 pt-5">
+            <input type="hidden" name="client_id" value={client.id} />
+            <input type="hidden" name="slug" value={client.slug} />
+            <div className="font-mono text-[11px] uppercase tracking-wide text-muted-dark">
+              Manual controls (fallback / comps)
+            </div>
+            <div className="mt-4 grid gap-4 md:grid-cols-3">
+              <label className="flex min-w-0 flex-col gap-2">
+                <span className="font-mono text-xs uppercase tracking-wide text-muted">Plan</span>
+                <select
+                  name="plan"
+                  defaultValue={client.plan ?? ''}
+                  className="w-full border border-gold-border bg-bg px-4 py-3 font-mono text-sm text-ink outline-none focus:border-gold/60"
+                >
+                  <option value="">None</option>
+                  {Object.values(PLANS).map((plan) => (
+                    <option key={plan.key} value={plan.key}>
+                      {plan.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="flex min-w-0 flex-col gap-2">
+                <span className="font-mono text-xs uppercase tracking-wide text-muted">Subscription status</span>
+                <select
+                  name="subscription_status"
+                  defaultValue={client.subscription_status}
+                  className="w-full border border-gold-border bg-bg px-4 py-3 font-mono text-sm text-ink outline-none focus:border-gold/60"
+                >
+                  {SUBSCRIPTION_STATUSES.map((status) => (
+                    <option key={status} value={status}>
+                      {status}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="flex items-center gap-3 md:mt-8">
+                <input
+                  type="checkbox"
+                  name="billing_override"
+                  defaultChecked={client.billing_override}
+                  className="h-4 w-4 accent-gold"
+                />
+                <span className="font-mono text-xs text-muted">Comp override (treat as active)</span>
+              </label>
+            </div>
+            <button className="mt-4 border border-gold-border px-5 py-3 font-mono text-xs uppercase tracking-wide text-gold transition hover:border-gold/60 hover:bg-gold-dim">
+              Save Billing
+            </button>
+          </form>
         </section>
 
         <form action={updateBrandVoice} className="mt-6 border border-gold-border bg-surface/50 p-5">

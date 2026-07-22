@@ -60,6 +60,16 @@ export async function runDueSchedule(schedule: DueSchedule): Promise<ScheduleRun
   const outcome = await publishApprovedRun(schedule.run_id);
   const status = scheduleStatusForPublish(outcome.status);
 
+  // Billing-blocked: release the claim back to pending (recording why) so the post
+  // publishes automatically once the client is active again, rather than failing for good.
+  if (status === 'pending') {
+    await supabase
+      .from('content_schedules')
+      .update({ status: 'pending', last_error: outcome.status, updated_at: new Date().toISOString() })
+      .eq('id', schedule.id);
+    return { scheduleId: schedule.id, runId: schedule.run_id, status: 'skipped', publishStatus: outcome.status };
+  }
+
   await supabase
     .from('content_schedules')
     .update({

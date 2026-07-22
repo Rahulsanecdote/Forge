@@ -23,6 +23,8 @@ export interface ClientContext {
   primaryCta?: string | null;
   googleBusinessAccountId?: string | null;
   googleBusinessLocationId?: string | null;
+  subscriptionStatus?: string | null;
+  billingOverride?: boolean | null;
   brandVoice: BrandVoice;
 }
 

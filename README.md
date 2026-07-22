@@ -82,6 +82,15 @@ Open `/dashboard` to manage clients and inspect recent agent runs. Selecting a r
 draft preview at `/dashboard/runs/[id]`, including generated captions, hashtags, and image
 directions. Production access is protected by `FORGE_ADMIN_PASSWORD`.
 
+**Billing & plan enforcement.** Each client carries a subscription state, and Forge
+**hard-blocks automated work for non-paying clients** — the weekly-content, review-sweep,
+and scheduled-publish crons skip them and the Publish action is blocked (manual draft
+generation still works so you can catch up). Configure Stripe (`STRIPE_SECRET_KEY`,
+`STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_STARTER`/`STRIPE_PRICE_GROWTH`) and the client page
+gets **Start subscription** (Stripe Checkout) + **Manage billing** (Stripe portal) buttons;
+`POST /api/stripe/webhook` keeps `subscription_status` in sync. With Stripe unset, the same
+page's **manual controls** let you set status or **comp** a client (`billing_override`).
+
 The dashboard also has a **content calendar** (`/dashboard/calendar`): a cross-client month
 grid of scheduled and published posts — each placed on its own client's local day — with a
 side rail of drafts still awaiting your approval. It's a read-only cockpit over the existing
