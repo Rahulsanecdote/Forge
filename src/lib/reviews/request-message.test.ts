@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildReviewRequestMessage } from './request-message';
+import { buildReviewRequestMessage, buildReviewRequestSubject } from './request-message';
 
 const url = 'https://forge.app/r/abc123';
 
@@ -32,4 +32,12 @@ test('uses only the first name from a full name', () => {
     customerName: 'Dr. Jane Q. Public',
   });
   assert.match(msg, /^Hi Dr\.,/);
+});
+
+test('email subject names the business', () => {
+  assert.equal(
+    buildReviewRequestSubject('Unchained Coffee Co.'),
+    'A quick favor — would you review Unchained Coffee Co.?',
+  );
+  assert.match(buildReviewRequestSubject('   '), /review us\?$/);
 });

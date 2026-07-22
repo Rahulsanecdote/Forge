@@ -14,6 +14,7 @@ import { findBannedPhraseViolations, parseSocialPostOutput } from '@/lib/admin/r
 import { submissionFromFormData } from '@/lib/onboarding/invitations';
 import { brandVoiceFromOnboarding } from '@/lib/onboarding/brand-voice';
 import { createReviewRequests } from '@/lib/reviews/requests';
+import { parseRecipients } from '@/lib/reviews/recipients';
 import type { ClientContext } from '@/forge/types';
 
 export async function login(formData: FormData) {
@@ -338,15 +339,15 @@ export async function generateReviewRequests(formData: FormData) {
   const slug = stringValue(formData, 'slug') || 'unknown';
   if (!clientId) redirectClient(slug, 'reviews-invalid');
 
-  const names = listValue(formData, 'customer_names');
-  const result = await createReviewRequests(clientId, names);
+  const recipients = parseRecipients(stringValue(formData, 'customer_names'));
+  const result = await createReviewRequests(clientId, recipients);
 
   if (!result.ok) {
     redirectClient(slug, `reviews-${result.code.replace(/_/g, '-')}`);
   }
 
   revalidatePath(`/dashboard/clients/${slug}`);
-  redirectClient(slug, `reviews-created-${result.created}`);
+  redirectClient(slug, `reviews-created-${result.created}-${result.sent}`);
 }
 
 export async function updateBrandVoice(formData: FormData) {
