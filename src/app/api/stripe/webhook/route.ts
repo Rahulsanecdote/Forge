@@ -27,17 +27,18 @@ async function applyToClient(
   keys: { clientId: string | null; customerId: string | null; subscriptionId: string | null },
 ): Promise<void> {
   const supabase = getAdminSupabase();
-  if (keys.clientId) {
-    await supabase.from('clients').update(patch).eq('id', keys.clientId);
-    return;
-  }
-  if (keys.subscriptionId) {
-    await supabase.from('clients').update(patch).eq('stripe_subscription_id', keys.subscriptionId);
-    return;
-  }
-  if (keys.customerId) {
-    await supabase.from('clients').update(patch).eq('stripe_customer_id', keys.customerId);
-  }
+  const table = supabase.from('clients');
+  // Supabase resolves with { error } instead of throwing, so an ignored error would let us
+  // ACK the webhook while the row stayed stale (a paid client stuck inactive). Surface it so
+  // the POST handler returns 5xx and Stripe retries. A missing match is not an error.
+  const { error } = keys.clientId
+    ? await table.update(patch).eq('id', keys.clientId)
+    : keys.subscriptionId
+      ? await table.update(patch).eq('stripe_subscription_id', keys.subscriptionId)
+      : keys.customerId
+        ? await table.update(patch).eq('stripe_customer_id', keys.customerId)
+        : { error: null };
+  if (error) throw new Error(`clients update failed: ${error.message}`);
 }
 
 function metadataClientId(object: Record<string, unknown>): string | null {

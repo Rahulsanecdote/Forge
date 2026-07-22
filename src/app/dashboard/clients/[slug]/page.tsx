@@ -421,16 +421,20 @@ export default async function ClientDetailPage({
           </dl>
 
           <div className="mt-5 flex flex-wrap items-center gap-3">
-            {Object.values(PLANS).map((plan) => (
-              <form action={startClientSubscription} key={plan.key}>
-                <input type="hidden" name="client_id" value={client.id} />
-                <input type="hidden" name="slug" value={client.slug} />
-                <input type="hidden" name="plan" value={plan.key} />
-                <button className="border border-gold-border px-4 py-2 font-mono text-[11px] uppercase tracking-wide text-gold transition hover:border-gold/60 hover:bg-gold-dim">
-                  Start {plan.name} · ${plan.priceMonthly}/mo
-                </button>
-              </form>
-            ))}
+            {/* Only offer Checkout when there is no existing Stripe subscription — otherwise a
+                second `mode=subscription` session would double-bill the same customer. Plan
+                changes and reactivation go through the Billing Portal instead. */}
+            {!client.stripe_subscription_id &&
+              Object.values(PLANS).map((plan) => (
+                <form action={startClientSubscription} key={plan.key}>
+                  <input type="hidden" name="client_id" value={client.id} />
+                  <input type="hidden" name="slug" value={client.slug} />
+                  <input type="hidden" name="plan" value={plan.key} />
+                  <button className="border border-gold-border px-4 py-2 font-mono text-[11px] uppercase tracking-wide text-gold transition hover:border-gold/60 hover:bg-gold-dim">
+                    Start {plan.name} · ${plan.priceMonthly}/mo
+                  </button>
+                </form>
+              ))}
             {client.stripe_customer_id && (
               <form action={openBillingPortal}>
                 <input type="hidden" name="client_id" value={client.id} />
@@ -439,6 +443,11 @@ export default async function ClientDetailPage({
                   Manage billing (Stripe)
                 </button>
               </form>
+            )}
+            {client.stripe_subscription_id && (
+              <span className="font-mono text-[11px] text-muted-dark">
+                Change or cancel the plan via Manage billing to avoid a duplicate subscription.
+              </span>
             )}
           </div>
 
