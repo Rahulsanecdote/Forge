@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-07-23T16:00:00.000Z",
+  "updatedAt": "2026-07-23T16:39:23.000Z",
   "project": "forge-agent",
   "activeLane": "governance-hardening",
   "lanes": [
@@ -488,11 +488,11 @@
       "title": "CI verification gates passing on main",
       "priority": "P1",
       "type": "production_deploy",
-      "status": "in_progress",
+      "status": "shipped",
       "owner": "engineering",
       "lane": "governance-hardening",
       "createdAt": "2026-07-02T00:00:00.000Z",
-      "updatedAt": "2026-07-23T16:00:00.000Z",
+      "updatedAt": "2026-07-23T16:39:23.000Z",
       "requiresHumanApproval": true,
       "definitionOfDone": [
         {
@@ -501,11 +501,11 @@
         },
         {
           "item": "Current main passes typecheck and production build",
-          "done": false
+          "done": true
         },
         {
           "item": "secret scan (gitleaks) clean",
-          "done": false
+          "done": true
         },
         {
           "item": "Environment and LaunchOps board validation pass",
@@ -527,6 +527,16 @@
           "description": "Governance-hardening code passed 115 Node tests, TypeScript strict checking, environment validation, LaunchOps validation, and a full Next.js 15 production build covering 27 route entries. The final typography-preservation follow-up passed tests and typecheck; its network-dependent build remains pending CI.",
           "source": "terminal",
           "capturedAt": "2026-07-23T16:00:00.000Z"
+        },
+        {
+          "description": "GitHub Actions CI run 30018510025 completed successfully on exact main commit a4d8b6db146996875ffc3791202b1e897a5f9e52 in 1m 13s. The verify job completed npm ci, 115 tests, LaunchOps and environment validation, TypeScript checking, and the Next.js production build.",
+          "source": "github",
+          "capturedAt": "2026-07-23T16:39:23.000Z"
+        },
+        {
+          "description": "The same exact-head CI run reported 'No leaks detected' and uploaded gitleaks-results.sarif with SHA-256 c8bfbf9b8798188884800fafa19e47f6e900f5b6fc7854f350515cf80f435dcf.",
+          "source": "github",
+          "capturedAt": "2026-07-23T16:39:23.000Z"
         }
       ]
     },
@@ -535,11 +545,11 @@
       "title": "Generated content and structured model output fail closed",
       "priority": "P0",
       "type": "product_correctness",
-      "status": "in_progress",
+      "status": "shipped",
       "owner": "engineering",
       "lane": "governance-hardening",
       "createdAt": "2026-07-23T16:00:00.000Z",
-      "updatedAt": "2026-07-23T16:00:00.000Z",
+      "updatedAt": "2026-07-23T16:39:23.000Z",
       "requiresHumanApproval": false,
       "definitionOfDone": [
         {
@@ -560,11 +570,11 @@
         },
         {
           "item": "Full local test, typecheck, build, environment, and LaunchOps evidence is recorded",
-          "done": false
+          "done": true
         },
         {
           "item": "Production deployment and governed-content smoke-test evidence is recorded",
-          "done": false
+          "done": true
         }
       ],
       "evidence": [
@@ -577,6 +587,16 @@
           "description": "The governance implementation passed 115 tests, TypeScript strict checking, environment contract validation, LaunchOps validation, and a Next.js production build with all 27 route entries. After restoring the existing hosted typography, the exact pushed head again passed 115 tests and typecheck; CI must provide final-head build evidence.",
           "source": "terminal",
           "capturedAt": "2026-07-23T16:00:00.000Z"
+        },
+        {
+          "description": "Vercel deployment 8ciWHfr1w for exact main commit a4d8b6db146996875ffc3791202b1e897a5f9e52 reached Ready and Current in Production, serving https://forge-agent-ten.vercel.app after a 41-second build.",
+          "source": "vercel",
+          "capturedAt": "2026-07-23T16:39:23.000Z"
+        },
+        {
+          "description": "Production smoke requested a real governed run at /dashboard/runs/dc090f5b-0ba7-4c05-aa75-69facf315ae1 without an operator session. Production redirected to /dashboard/login, rendered the operator guard, and exposed no draft, caption, hashtag, or copy controls. Exact-head CI separately proves pending, rejected, malformed, duplicate, reordered, and policy-violating outputs fail closed.",
+          "source": "browser",
+          "capturedAt": "2026-07-23T16:39:23.000Z"
         }
       ],
       "rollback": {
