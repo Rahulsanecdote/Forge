@@ -501,7 +501,7 @@
         },
         {
           "item": "Current main passes typecheck and production build",
-          "done": true
+          "done": false
         },
         {
           "item": "secret scan (gitleaks) clean",
@@ -524,7 +524,7 @@
           "capturedAt": "2026-07-11T02:35:00.000Z"
         },
         {
-          "description": "Governance-hardening branch passed 115 Node tests, TypeScript strict checking, environment validation, LaunchOps validation, and a full Next.js 15 production build covering 27 route entries.",
+          "description": "Governance-hardening code passed 115 Node tests, TypeScript strict checking, environment validation, LaunchOps validation, and a full Next.js 15 production build covering 27 route entries. The final typography-preservation follow-up passed tests and typecheck; its network-dependent build remains pending CI.",
           "source": "terminal",
           "capturedAt": "2026-07-23T16:00:00.000Z"
         }
@@ -560,7 +560,7 @@
         },
         {
           "item": "Full local test, typecheck, build, environment, and LaunchOps evidence is recorded",
-          "done": true
+          "done": false
         },
         {
           "item": "Production deployment and governed-content smoke-test evidence is recorded",
@@ -574,7 +574,7 @@
           "capturedAt": "2026-07-23T16:00:00.000Z"
         },
         {
-          "description": "Full local verification passed: 115 tests, TypeScript strict checking, environment contract validation, LaunchOps validation, and a Next.js production build with all 27 route entries generated or compiled successfully.",
+          "description": "The governance implementation passed 115 tests, TypeScript strict checking, environment contract validation, LaunchOps validation, and a Next.js production build with all 27 route entries. After restoring the existing hosted typography, the exact pushed head again passed 115 tests and typecheck; CI must provide final-head build evidence.",
           "source": "terminal",
           "capturedAt": "2026-07-23T16:00:00.000Z"
         }
