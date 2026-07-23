@@ -44,19 +44,35 @@ not Supabase Auth:
   (`src/lib/portal/data.ts`) — this is the sole tenant boundary. Reads go through the
   service role, exactly like the operator portal; nothing in the portal writes.
 
-**Secret & revocation.** Links/sessions are signed with `FORGE_PORTAL_SECRET`, falling
-back to `FORGE_ADMIN_PASSWORD` when unset (so it works with no extra config). The link is
-a bearer credential — anyone with it can act as that client (including approving their
-drafts). Revocation is currently coarse: **rotate `FORGE_PORTAL_SECRET`** (or the admin
-password) to invalidate every outstanding link and session. Per-client revocation is a
-future increment.
+**Secret & revocation.** Links/sessions are signed with a **per-client secret** derived
+from the global secret + client id + the client's `portal_key_version`
+(`portalClientSecret`, in `src/lib/portal/token.ts`). The global secret is
+`FORGE_PORTAL_SECRET`, falling back to `FORGE_ADMIN_PASSWORD` when unset (so it works with
+no extra config). The link is a bearer credential — anyone with it can act as that client
+(including approving their drafts) — so there are two levels of revocation:
+
+- **Per-client (targeted):** the client page's **Revoke & rotate** button bumps that
+  client's `portal_key_version`. Every query in `session.ts` derives the signing secret
+  from the *current* version, so all of that client's outstanding links and sessions stop
+  verifying immediately and the page shows a fresh link to re-share. **Other clients are
+  unaffected.** (`getPortalClientId` parses the client id from the cookie, loads that
+  client's version, then verifies against the version-derived secret.)
+- **Global (kill switch):** rotating `FORGE_PORTAL_SECRET` (or the admin password)
+  invalidates **every** client's links and sessions at once.
+
+Pre-migration (before `portal_key_version` exists) the version defaults to 1 and the portal
+keeps working; per-client revoke needs the migration applied. On first rollout of versioning,
+links and sessions signed with the pre-versioning raw secret stay valid **while the client is
+still at version 1** (the raw secret is accepted for verification alongside the derived one),
+so deploying does not log anyone out; the first explicit **Revoke** for a client
+(version → 2) drops that legacy acceptance.
 
 ## Files
 
 | File | Role |
 |---|---|
-| `src/lib/portal/token.ts` | Pure HMAC helpers (login key + session token); unit-tested |
-| `src/lib/portal/session.ts` | Server-only: secret resolution + cookie read/write |
+| `src/lib/portal/token.ts` | Pure HMAC helpers (login key + session token + per-client derived secret); unit-tested |
+| `src/lib/portal/session.ts` | Server-only: per-client secret derivation (reads `portal_key_version`) + cookie read/write |
 | `src/lib/portal/data.ts` | Client-scoped data loader (service role), incl. pending drafts + images |
 | `src/lib/portal/approvals.ts` | Client-scoped approve/reject write (banned-phrase gate, evidence) |
 | `src/app/portal/login/route.ts` | Verifies the link key, sets the session cookie |

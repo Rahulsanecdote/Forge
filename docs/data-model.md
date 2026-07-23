@@ -21,6 +21,7 @@ required**. The optional pgvector table is in `supabase/optional/`.
 | `supabase/migrations/20260722020000_review_request_delivery.sql` | `review_requests` delivery columns (`channel`, `contact`, `send_status`, `sent_at`, `delivery_error`) for automated email/SMS sending |
 | `supabase/migrations/20260722030000_client_billing.sql` | `clients` billing columns (`plan`, `subscription_status`, `billing_override`, `stripe_customer_id`, `stripe_subscription_id`, `current_period_end`) + Stripe id indexes |
 | `supabase/migrations/20260722040000_review_optouts.sql` | `review_optouts` suppression list (email/SMS opt-outs; RLS, service-role grants) |
+| `supabase/migrations/20260723010000_portal_key_version.sql` | `clients.portal_key_version` for per-client portal revocation |
 | `supabase/optional/client_memory.sql` | `client_memory` + pgvector (reserved for a later increment; apply by hand) |
 
 Apply locally with `supabase db reset`; in a hosted project, run the SQL files in
@@ -55,6 +56,7 @@ A business Forge runs marketing for.
 | `stripe_customer_id` | text | Stripe customer, set on checkout/webhook |
 | `stripe_subscription_id` | text | Stripe subscription, set on webhook |
 | `current_period_end` | timestamptz | current billing period end (from Stripe) |
+| `portal_key_version` | int | not null, default 1 — bumped to revoke this client's portal links/sessions |
 | `created_at` | timestamptz | default `now()` |
 
 **Billing enforcement.** `isDeliveryActive` (pure, in `src/lib/billing/entitlements.ts`)

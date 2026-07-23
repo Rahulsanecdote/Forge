@@ -5,6 +5,7 @@ import {
   logout,
   openBillingPortal,
   publishReviewReply,
+  revokeClientPortal,
   runClientTask,
   runKeywordResearch,
   setClientBilling,
@@ -85,6 +86,9 @@ function StatusBanner({ status }: { status?: string }) {
     'reply-unconfigured': 'Reply not published — configure a write-scoped Google token and the account/location IDs first.',
     'reply-error': 'Reply could not be published. Check the Google write scope and server logs.',
     'reply-invalid': 'Select a drafted Google reply to publish.',
+    'portal-revoked': 'Portal access revoked. The old link and any active sessions no longer work — share the new link below.',
+    'portal-error': 'Could not revoke portal access. Try again.',
+    'portal-invalid': 'That portal request was invalid.',
     'billing-saved': 'Billing updated.',
     'billing-checkout-started': 'Checkout opened. The subscription activates once payment completes (synced via Stripe webhook).',
     'billing-canceled': 'Checkout canceled — no subscription was started.',
@@ -218,7 +222,7 @@ export default async function ClientDetailPage({
     subscriptionStatus: client.subscription_status,
     billingOverride: client.billing_override,
   });
-  const portalKey = clientPortalLoginKey(client.id);
+  const portalKey = await clientPortalLoginKey(client.id);
   const portalLink = portalKey
     ? `${(process.env.NEXT_PUBLIC_APP_URL ?? '').replace(/\/$/, '')}/portal/login?c=${client.id}&k=${portalKey}`
     : null;
@@ -608,15 +612,22 @@ export default async function ClientDetailPage({
               Share this private link with {client.name} so they can review and{' '}
               <span className="text-ink">approve or reject their own drafts</span>, and track what&apos;s
               scheduled and how it&apos;s performing. Anyone with the link can act (no password);
-              approvals still pass the banned-phrase check. Rotate{' '}
-              <span className="font-mono text-gold">FORGE_PORTAL_SECRET</span> to revoke all
-              outstanding links.
+              approvals still pass the banned-phrase check. If the link is ever shared too widely
+              or a contact leaves, <span className="text-ink">Revoke &amp; rotate</span> below to kill
+              it and issue a fresh one — only this client is affected.
             </p>
             <div className="mt-4 flex flex-wrap items-center gap-3">
               <code className="max-w-full overflow-x-auto whitespace-nowrap border border-gold-border bg-bg px-3 py-2 font-mono text-[11px] text-muted">
                 {portalLink}
               </code>
               <CopyButton value={portalLink} label="Copy link" />
+              <form action={revokeClientPortal}>
+                <input type="hidden" name="client_id" value={client.id} />
+                <input type="hidden" name="slug" value={client.slug} />
+                <button className="border border-gold-border px-3 py-2 font-mono text-[11px] uppercase tracking-wide text-muted transition hover:border-red-400/50 hover:text-red-200">
+                  Revoke &amp; rotate
+                </button>
+              </form>
             </div>
           </section>
         )}
