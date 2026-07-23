@@ -72,6 +72,7 @@ test('scheduleStatusForPublish maps publish outcomes to a terminal schedule stat
   assert.equal(scheduleStatusForPublish('publish-error'), 'failed');
   assert.equal(scheduleStatusForPublish('publish-unconfigured'), 'failed');
   assert.equal(scheduleStatusForPublish('publish-missing-image'), 'failed');
+  assert.equal(scheduleStatusForPublish('publish-reconcile'), 'failed');
   // A billing block is not terminal — the schedule returns to pending to retry later.
   assert.equal(scheduleStatusForPublish('publish-blocked-billing'), 'pending');
 });

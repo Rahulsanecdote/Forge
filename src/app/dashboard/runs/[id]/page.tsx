@@ -9,9 +9,11 @@ import {
   generatePostImage,
   publishApprovedContent,
   refreshPublishedMetrics,
+  resolvePublicationCheckpoint,
   runClientTask,
   scheduleApprovedContent,
 } from '../../actions';
+import { isPublicationRunComplete } from '@/forge/data/publication-checkpoint-policy';
 import { isAdminAuthenticated } from '@/lib/admin/auth';
 import { getAdminSupabase, loadClientPostingInsights, loadToolRunDetail } from '@/lib/admin/data';
 import {
@@ -97,15 +99,21 @@ function ApprovalStatus({ status }: { status?: string }) {
     'approval-blocked': 'Approval blocked by the current brand policy.',
     'approval-error': 'The approval decision could not be saved.',
     'approval-invalid': 'The approval decision was invalid.',
-    'publish-complete': 'Published to Google Business. The approved posts are now live.',
-    'publish-already': 'This run was already published to Google Business.',
+    'publish-complete': 'Published. The approved posts are now live on the configured channel.',
+    'publish-already': 'Every post in this run already has a completed publication checkpoint.',
     'publish-blocked': 'Not published — the draft contains a banned phrase. Revise and regenerate.',
     'publish-blocked-billing': 'Not published — this client has no active subscription. Start their plan (or set a comp override) on the client page.',
     'publish-unsupported': 'Only approved Google Business posts can be published here.',
     'publish-unconfigured': 'Not published — configure the channel credentials (Google token / Meta page token / Instagram account) first.',
     'publish-missing-image': 'Not published — every Instagram post needs a generated image first.',
+    'publish-reconcile': 'Publishing stopped at an uncertain provider outcome. Reconcile the publication checkpoint before retrying.',
     'publish-error': 'Publishing failed. Check the channel credentials and server logs.',
     'publish-invalid': 'That publish request was invalid.',
+    'reconcile-published': 'Publication reconciled as live and recorded in the audit trail.',
+    'reconcile-rearmed': 'Publication confirmed absent. This post is re-armed for a safe retry.',
+    'reconcile-reference': 'Enter the external post URL or provider resource name before confirming it is live.',
+    'reconcile-error': 'The publication checkpoint could not be reconciled.',
+    'reconcile-invalid': 'That reconciliation request was invalid.',
     'image-generated': 'Image generated and attached to the post.',
     'image-removed': 'Image removed from the post.',
     'image-limit': 'This post already has the maximum of 10 images (Instagram carousel limit).',
@@ -119,6 +127,7 @@ function ApprovalStatus({ status }: { status?: string }) {
     'schedule-unsupported': 'Only Google Business, Facebook, or Instagram posts can be scheduled.',
     'schedule-blocked': 'Not scheduled — the draft contains a banned phrase. Revise and regenerate.',
     'schedule-missing-image': 'Not scheduled — every Instagram post needs a generated image first.',
+    'schedule-reconcile': 'Not scheduled — resolve the uncertain publication checkpoint first.',
     'schedule-error': 'The schedule could not be saved. It may no longer be pending.',
     'schedule-invalid': 'That schedule request was invalid.',
     'metrics-refreshed': 'Engagement metrics refreshed from the platform.',
@@ -135,6 +144,7 @@ function ApprovalStatus({ status }: { status?: string }) {
     status === 'publish-unsupported' ||
     status === 'publish-unconfigured' ||
     status === 'publish-missing-image' ||
+    status === 'publish-reconcile' ||
     status === 'image-unconfigured' ||
     status === 'image-limit' ||
     status === 'metrics-unsupported' ||
@@ -144,6 +154,7 @@ function ApprovalStatus({ status }: { status?: string }) {
     status === 'schedule-unsupported' ||
     status === 'schedule-blocked' ||
     status === 'schedule-missing-image' ||
+    status === 'schedule-reconcile' ||
     status.endsWith('error') ||
     status.endsWith('invalid');
 
@@ -177,7 +188,7 @@ export default async function ToolRunDetailPage({
   const detail = await loadToolRunDetail(runId.data);
   if (!detail) notFound();
 
-  const { run, client, approval, currentBannedPhrases, errors } = detail;
+  const { run, client, approval, publications, currentBannedPhrases, errors } = detail;
   const socialPosts = run.tool === 'create_social_posts' ? parseSocialPostOutput(run.output) : null;
   const keywordResearch = run.tool === 'research_keywords' ? parseKeywordResearchOutput(run.output) : null;
   const bannedPhraseViolations = findBannedPhraseViolations(run.output, currentBannedPhrases);
@@ -187,22 +198,32 @@ export default async function ToolRunDetailPage({
   };
   const contentExportAllowed = canExportApprovedContent(contentExportPolicy);
   const contentExportBlockedBy = contentExportBlockReason(contentExportPolicy);
+  const reconciliationQueue = publications.filter(
+    (publication) => publication.status === 'reconcile',
+  );
 
-  const publishedReferences =
+  const publishedEvidence =
     socialPosts && approval?.status === 'approved'
       ? (
           (
             await getAdminSupabase()
               .from('forge_run_evidence')
-              .select('reference')
+              .select('reference, payload')
               .eq('run_id', run.id)
               .eq('kind', 'published_url')
           ).data ?? []
         )
-          .map((row: { reference: string | null }) => row.reference)
-          .filter((reference): reference is string => Boolean(reference))
       : [];
-  const isPublished = publishedReferences.length > 0;
+  const publishedReferences = publishedEvidence
+    .map((row: { reference: string | null }) => row.reference)
+    .filter((reference): reference is string => Boolean(reference));
+  const isPublished = socialPosts
+    ? isPublicationRunComplete({
+        postCount: socialPosts.posts.length,
+        checkpoints: publications,
+        evidencePayloads: publishedEvidence.map((row: { payload: unknown }) => row.payload),
+      })
+    : false;
   const publishTarget =
     socialPosts?.platform === 'google_business'
       ? 'Google Business'
@@ -423,6 +444,63 @@ export default async function ToolRunDetailPage({
           </div>
         )}
 
+        {reconciliationQueue.length > 0 && (
+          <section className="mt-6 border border-red-400/40 bg-red-500/10 p-5">
+            <div className="font-mono text-xs uppercase tracking-wide text-red-100">
+              Publication reconciliation required
+            </div>
+            <p className="mt-3 max-w-3xl font-sans text-sm leading-6 text-muted">
+              The provider may have accepted these posts before Forge received a reliable response.
+              Verify each channel directly. Never retry until you confirm the post is absent.
+            </p>
+            <div className="mt-5 space-y-4">
+              {reconciliationQueue.map((publication) => (
+                <article
+                  key={publication.id}
+                  className="border border-red-300/30 bg-bg/60 p-4"
+                >
+                  <div className="font-mono text-xs text-ink">
+                    Post {publication.post_index + 1} · {platformName(publication.platform)}
+                  </div>
+                  <p className="mt-2 break-words font-mono text-[11px] leading-5 text-red-100">
+                    {publication.last_error ?? 'Provider outcome was ambiguous.'}
+                  </p>
+                  <form action={resolvePublicationCheckpoint} className="mt-4 space-y-3">
+                    <input type="hidden" name="run_id" value={run.id} />
+                    <input type="hidden" name="publication_id" value={publication.id} />
+                    <label className="block">
+                      <span className="font-mono text-[11px] uppercase tracking-wide text-muted-dark">
+                        External URL or resource name
+                      </span>
+                      <input
+                        name="reference"
+                        defaultValue={publication.reference ?? ''}
+                        className="mt-2 w-full border border-red-300/30 bg-bg px-3 py-2 font-mono text-xs text-ink outline-none focus:border-red-200"
+                      />
+                    </label>
+                    <div className="flex flex-wrap gap-3">
+                      <button
+                        name="decision"
+                        value="published"
+                        className="bg-red-200 px-4 py-2 font-mono text-[11px] uppercase tracking-wide text-bg"
+                      >
+                        Confirm live
+                      </button>
+                      <button
+                        name="decision"
+                        value="retry"
+                        className="border border-red-300/40 px-4 py-2 font-mono text-[11px] uppercase tracking-wide text-red-100"
+                      >
+                        Confirm absent and re-arm
+                      </button>
+                    </div>
+                  </form>
+                </article>
+              ))}
+            </div>
+          </section>
+        )}
+
         {socialPosts && contentExportAllowed && (
             <section className="mt-6 border border-emerald-300/40 bg-emerald-500/10 p-5">
               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -439,7 +517,7 @@ export default async function ToolRunDetailPage({
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
-                  {!isPublished && publishTarget && (
+                  {!isPublished && publishTarget && reconciliationQueue.length === 0 && (
                     <form action={publishApprovedContent}>
                       <input type="hidden" name="run_id" value={run.id} />
                       <button className="bg-emerald-400/90 px-5 py-3 font-mono text-xs uppercase tracking-wide text-bg transition hover:bg-emerald-300">
@@ -450,7 +528,7 @@ export default async function ToolRunDetailPage({
                   <CopyButton value={socialPublishingPackage(socialPosts.posts)} label="Copy package" />
                 </div>
               </div>
-              {!isPublished && publishTarget && (
+              {!isPublished && publishTarget && reconciliationQueue.length === 0 && (
                 <div className="mt-5 border-t border-emerald-300/30 pt-5">
                   {pendingSchedule ? (
                     <div className="flex flex-wrap items-center justify-between gap-3">

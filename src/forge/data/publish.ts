@@ -3,6 +3,14 @@ import { loadClient } from '../clients';
 import type { ClientContext } from '../types';
 import { parseSocialPostOutput, findBannedPhraseViolations } from '@/lib/admin/run-output';
 import { isDeliveryActive } from '@/lib/billing/entitlements';
+import {
+  claimContentPublication,
+  decidePublicationClaim,
+  finalizeContentPublication,
+  markContentPublicationForReconciliation,
+  releaseContentPublicationClaim,
+  type PublicationPlatform,
+} from './publication-checkpoints';
 
 // Terminal status strings shared with the dashboard status banner. The immediate
 // "Publish" action and the scheduled-publish cron both funnel through
@@ -15,6 +23,7 @@ export type PublishRunStatus =
   | 'publish-blocked-billing'
   | 'publish-unconfigured'
   | 'publish-missing-image'
+  | 'publish-reconcile'
   | 'publish-error';
 
 export interface PublishRunOutcome {
@@ -22,21 +31,121 @@ export interface PublishRunOutcome {
   publishedCount: number;
 }
 
-interface EvidenceRow {
+interface PublishedPost {
   reference: string;
   description: string;
   payload: Record<string, unknown>;
 }
 
+interface DraftPost {
+  caption: string;
+  hashtags: string[];
+}
+
+type ProviderPublishResult =
+  | { published: true; post: PublishedPost }
+  | { published: false; status: PublishRunStatus };
+
 function outcome(status: PublishRunStatus, publishedCount = 0): PublishRunOutcome {
   return { status, publishedCount };
 }
 
+function errorMessage(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.length > 600 ? `${message.slice(0, 600)}...` : message;
+}
+
+async function markForReconciliation(publicationId: string, error: unknown) {
+  try {
+    await markContentPublicationForReconciliation(publicationId, errorMessage(error));
+  } catch (checkpointError) {
+    console.error('[publishApprovedRun/reconcile]', checkpointError);
+  }
+}
+
+async function publishOnePost(input: {
+  platform: PublicationPlatform;
+  client: ClientContext;
+  message: string;
+  post: DraftPost;
+  imageUrls: string[];
+}): Promise<ProviderPublishResult> {
+  if (input.platform === 'google_business') {
+    const { publishApprovedSocialPostToGoogle } = await import('./google-business-profile');
+    const result = await publishApprovedSocialPostToGoogle({
+      client: input.client,
+      summary: input.message,
+    });
+    if (!result.published) {
+      return {
+        published: false,
+        status: result.code === 'unconfigured' ? 'publish-unconfigured' : 'publish-error',
+      };
+    }
+    return {
+      published: true,
+      post: {
+        reference: result.post.searchUrl ?? result.post.name,
+        description: 'Google Business local post published by Forge.',
+        payload: { name: result.post.name, searchUrl: result.post.searchUrl },
+      },
+    };
+  }
+
+  if (input.platform === 'facebook') {
+    const { publishApprovedFacebookPost } = await import('./meta');
+    const result = await publishApprovedFacebookPost({
+      message: input.message,
+      link: input.client.website,
+    });
+    if (!result.published) {
+      return {
+        published: false,
+        status: result.code === 'unconfigured' ? 'publish-unconfigured' : 'publish-error',
+      };
+    }
+    return {
+      published: true,
+      post: {
+        reference: result.post.url,
+        description: 'Facebook page post published by Forge.',
+        payload: { id: result.post.id, url: result.post.url },
+      },
+    };
+  }
+
+  const { publishApprovedInstagramPost } = await import('./instagram');
+  const result = await publishApprovedInstagramPost({
+    caption: input.post.caption,
+    hashtags: input.post.hashtags,
+    imageUrls: input.imageUrls,
+  });
+  if (!result.published) {
+    return {
+      published: false,
+      status:
+        result.code === 'unconfigured'
+          ? 'publish-unconfigured'
+          : result.code === 'missing_image'
+            ? 'publish-missing-image'
+            : 'publish-error',
+    };
+  }
+  return {
+    published: true,
+    post: {
+      reference: result.post.url,
+      description: 'Instagram post published by Forge.',
+      payload: { mediaId: result.post.mediaId, url: result.post.url },
+    },
+  };
+}
+
 // Publish an approved social-post run to its platform. This is the single
-// fail-closed publish path: it re-validates the approval, re-checks banned-phrase
-// compliance, is idempotent against prior published_url evidence, and records one
-// published_url evidence row per live post. It never throws — every failure maps
-// to a PublishRunStatus so callers (server action + cron) can react uniformly.
+// fail-closed publish path: it re-validates the approval and current brand policy,
+// then claims and finalizes one durable checkpoint per post. Existing publishing
+// or reconciliation checkpoints block automatic retries because the external
+// provider may already have accepted that post.
 export async function publishApprovedRun(runId: string): Promise<PublishRunOutcome> {
   try {
     const { data: run } = await supabase
@@ -89,49 +198,27 @@ export async function publishApprovedRun(runId: string): Promise<PublishRunOutco
       return outcome('publish-blocked');
     }
 
-    // Idempotency: if any post was already published for this run, do not re-post.
-    const { data: alreadyPublished } = await supabase
+    // Evidence created before per-post checkpoints did not include a post index.
+    // Preserve the old whole-run idempotency behavior for those historical runs.
+    const { data: publishedEvidence } = await supabase
       .from('forge_run_evidence')
-      .select('id')
+      .select('payload')
       .eq('run_id', runId)
-      .eq('kind', 'published_url')
-      .limit(1);
-    if (alreadyPublished && alreadyPublished.length > 0) return outcome('publish-already');
+      .eq('kind', 'published_url');
+    const hasLegacyPublishedEvidence = (publishedEvidence ?? []).some(
+      (row: { payload: unknown }) =>
+        !row.payload ||
+        typeof row.payload !== 'object' ||
+        !Number.isInteger((row.payload as Record<string, unknown>).postIndex),
+    );
+    if (hasLegacyPublishedEvidence) return outcome('publish-already');
 
     const messages = parsed.posts.map((post) =>
       [post.caption, post.hashtags.join(' ')].filter(Boolean).join('\n\n'),
     );
 
-    let evidence: EvidenceRow[] = [];
-    let failureStatus: PublishRunStatus | null = null;
-
-    if (parsed.platform === 'google_business') {
-      const { publishApprovedSocialPostsToGoogle } = await import('./google-business-profile');
-      const result = await publishApprovedSocialPostsToGoogle({ client, summaries: messages });
-      if (result.published) {
-        evidence = result.posts.map((post) => ({
-          reference: post.searchUrl ?? post.name,
-          description: 'Google Business local post published by Forge.',
-          payload: { name: post.name, searchUrl: post.searchUrl },
-        }));
-      } else {
-        failureStatus = result.code === 'unconfigured' ? 'publish-unconfigured' : 'publish-error';
-      }
-    } else if (parsed.platform === 'facebook') {
-      const { publishApprovedFacebookPosts } = await import('./meta');
-      const result = await publishApprovedFacebookPosts({ messages, link: client.website });
-      if (result.published) {
-        evidence = result.posts.map((post) => ({
-          reference: post.url,
-          description: 'Facebook page post published by Forge.',
-          payload: { id: post.id, url: post.url },
-        }));
-      } else {
-        failureStatus = result.code === 'unconfigured' ? 'publish-unconfigured' : 'publish-error';
-      }
-    } else {
-      // instagram — every post needs at least one generated image (a public URL).
-      // Multiple images per post (ordered by asset_index) publish as a carousel.
+    const imagesByIndex = new Map<number, string[]>();
+    if (parsed.platform === 'instagram') {
       const { data: assets } = await supabase
         .from('content_assets')
         .select('post_index, asset_index, public_url')
@@ -139,48 +226,79 @@ export async function publishApprovedRun(runId: string): Promise<PublishRunOutco
         .eq('kind', 'image')
         .order('post_index', { ascending: true })
         .order('asset_index', { ascending: true });
-      const imagesByIndex = new Map<number, string[]>();
       for (const row of (assets ?? []) as Array<{ post_index: number; public_url: string }>) {
         const urls = imagesByIndex.get(row.post_index) ?? [];
         urls.push(row.public_url);
         imagesByIndex.set(row.post_index, urls);
       }
-      const { publishApprovedInstagramPosts } = await import('./instagram');
-      const result = await publishApprovedInstagramPosts({
-        posts: parsed.posts.map((post, index) => ({
-          caption: post.caption,
-          hashtags: post.hashtags,
-          imageUrls: imagesByIndex.get(index) ?? [],
-        })),
-      });
-      if (result.published) {
-        evidence = result.posts.map((post) => ({
-          reference: post.url,
-          description: 'Instagram post published by Forge.',
-          payload: { mediaId: post.mediaId, url: post.url },
-        }));
-      } else {
-        failureStatus =
-          result.code === 'unconfigured'
-            ? 'publish-unconfigured'
-            : result.code === 'missing_image'
-              ? 'publish-missing-image'
-              : 'publish-error';
+      if (parsed.posts.some((_, index) => (imagesByIndex.get(index) ?? []).length === 0)) {
+        return outcome('publish-missing-image');
       }
     }
 
-    if (evidence.length === 0) return outcome(failureStatus ?? 'publish-error');
+    let publishedCount = 0;
+    let skippedCount = 0;
 
-    for (const row of evidence) {
-      await supabase.from('forge_run_evidence').insert({
-        run_id: runId,
-        kind: 'published_url',
-        description: row.description,
-        reference: row.reference,
-        payload: row.payload,
+    for (const [postIndex, post] of parsed.posts.entries()) {
+      const claim = await claimContentPublication({
+        runId,
+        clientId: run.client_id,
+        postIndex,
+        platform: parsed.platform as PublicationPlatform,
       });
+      const decision = decidePublicationClaim(claim);
+      if (decision === 'skip') {
+        skippedCount += 1;
+        continue;
+      }
+      if (decision === 'reconcile') return outcome('publish-reconcile', publishedCount);
+
+      let providerResult: ProviderPublishResult;
+      try {
+        providerResult = await publishOnePost({
+          platform: parsed.platform,
+          client,
+          message: messages[postIndex],
+          post,
+          imageUrls: imagesByIndex.get(postIndex) ?? [],
+        });
+      } catch (error) {
+        await markForReconciliation(claim.publication_id, error);
+        return outcome('publish-reconcile', publishedCount);
+      }
+
+      if (!providerResult.published) {
+        try {
+          await releaseContentPublicationClaim(claim.publication_id);
+        } catch (error) {
+          await markForReconciliation(claim.publication_id, error);
+          return outcome('publish-reconcile', publishedCount);
+        }
+        return outcome(providerResult.status, publishedCount);
+      }
+
+      try {
+        await finalizeContentPublication({
+          publicationId: claim.publication_id,
+          reference: providerResult.post.reference,
+          description: providerResult.post.description,
+          payload: {
+            ...providerResult.post.payload,
+            postIndex,
+            platform: parsed.platform,
+            checkpointId: claim.publication_id,
+          },
+        });
+        publishedCount += 1;
+      } catch (error) {
+        await markForReconciliation(claim.publication_id, error);
+        return outcome('publish-reconcile', publishedCount);
+      }
     }
-    return outcome('publish-complete', evidence.length);
+
+    return skippedCount === parsed.posts.length
+      ? outcome('publish-already')
+      : outcome('publish-complete', publishedCount);
   } catch (error) {
     console.error('[publishApprovedRun]', error);
     return outcome('publish-error');

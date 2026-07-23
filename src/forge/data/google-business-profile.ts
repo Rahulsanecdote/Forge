@@ -334,6 +334,10 @@ export type PublishLocalPostsResult =
   | { published: true; posts: GoogleLocalPostResult[] }
   | { published: false; code: 'unconfigured' | 'no_posts'; reason: string };
 
+export type PublishLocalPostResult =
+  | { published: true; post: GoogleLocalPostResult }
+  | { published: false; code: 'unconfigured' | 'no_posts'; reason: string };
+
 export async function createGoogleBusinessLocalPost(input: {
   accountId: string;
   locationId: string;
@@ -373,25 +377,47 @@ export async function publishApprovedSocialPostsToGoogle(input: {
     return { published: false, code: 'no_posts', reason: 'No approved post content to publish.' };
   }
 
+  const posts: GoogleLocalPostResult[] = [];
+  for (const summary of summaries) {
+    const result = await publishApprovedSocialPostToGoogle({
+      client: input.client,
+      summary,
+    });
+    if (!result.published) return result;
+    posts.push(result.post);
+  }
+  return { published: true, posts };
+}
+
+export async function publishApprovedSocialPostToGoogle(input: {
+  client: ClientContext;
+  summary: string;
+}): Promise<PublishLocalPostResult> {
+  const summary = input.summary.trim();
+  if (!summary) {
+    return { published: false, code: 'no_posts', reason: 'No approved post content to publish.' };
+  }
+
   const config = resolveGoogleBusinessProfileConfig(input.client);
   if (!config) {
-    return { published: false, code: 'unconfigured', reason: 'Missing Google Business Profile account/location IDs.' };
+    return {
+      published: false,
+      code: 'unconfigured',
+      reason: 'Missing Google Business Profile account/location IDs.',
+    };
   }
 
   const access = await resolveGoogleAccessToken();
   if ('reason' in access) return { published: false, code: 'unconfigured', reason: access.reason };
 
-  const posts: GoogleLocalPostResult[] = [];
-  for (const summary of summaries) {
-    posts.push(
-      await createGoogleBusinessLocalPost({
-        accountId: config.accountId,
-        locationId: config.locationId,
-        accessToken: access.token,
-        summary,
-        callToActionUrl: input.client.website,
-      }),
-    );
-  }
-  return { published: true, posts };
+  return {
+    published: true,
+    post: await createGoogleBusinessLocalPost({
+      accountId: config.accountId,
+      locationId: config.locationId,
+      accessToken: access.token,
+      summary,
+      callToActionUrl: input.client.website,
+    }),
+  };
 }

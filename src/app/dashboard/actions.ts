@@ -836,6 +836,53 @@ export async function publishApprovedContent(formData: FormData) {
   redirectRun(runId.data, outcome.status);
 }
 
+export async function resolvePublicationCheckpoint(formData: FormData) {
+  await requireAdmin();
+  const runId = z.string().uuid().safeParse(stringValue(formData, 'run_id'));
+  const publicationId = z.string().uuid().safeParse(stringValue(formData, 'publication_id'));
+  const decision = z.enum(['published', 'retry']).safeParse(stringValue(formData, 'decision'));
+  if (!runId.success || !publicationId.success || !decision.success) {
+    redirectRun(runId.success ? runId.data : 'invalid', 'reconcile-invalid');
+  }
+
+  const detail = await loadToolRunDetail(runId.data);
+  const publication = detail?.publications.find((row) => row.id === publicationId.data);
+  if (!detail?.client || !publication || publication.status !== 'reconcile') {
+    redirectRun(runId.data, 'reconcile-error');
+  }
+
+  let confirmedReference: string | null = null;
+  if (decision.data === 'published') {
+    const reference = z.string().trim().min(1).max(500).safeParse(
+      stringValue(formData, 'reference'),
+    );
+    if (!reference.success) redirectRun(runId.data, 'reconcile-reference');
+    confirmedReference = reference.data;
+  }
+
+  try {
+    const { confirmContentPublication, rearmContentPublication } = await import(
+      '@/forge/data/publication-checkpoints'
+    );
+    if (decision.data === 'published') {
+      await confirmContentPublication(publicationId.data, confirmedReference!);
+    } else {
+      await rearmContentPublication(publicationId.data);
+    }
+  } catch (error) {
+    console.error('[dashboard/resolvePublicationCheckpoint]', error);
+    redirectRun(runId.data, 'reconcile-error');
+  }
+
+  revalidatePath('/dashboard');
+  revalidatePath(`/dashboard/clients/${detail.client.slug}`);
+  revalidatePath(`/dashboard/runs/${runId.data}`);
+  redirectRun(
+    runId.data,
+    decision.data === 'published' ? 'reconcile-published' : 'reconcile-rearmed',
+  );
+}
+
 // Refresh reach/engagement for a published run's posts from the Meta Graph API and
 // store the latest snapshot (content_metrics + durable metric evidence). Fails closed;
 // maps the outcome to an operator status banner.
@@ -883,6 +930,14 @@ export async function scheduleApprovedContent(formData: FormData) {
   ) {
     redirectRun(runId.data, 'schedule-error');
   }
+  if (
+    detail.publications.some(
+      (publication) =>
+        publication.status === 'publishing' || publication.status === 'reconcile',
+    )
+  ) {
+    redirectRun(runId.data, 'schedule-reconcile');
+  }
 
   // Interpret the operator's wall-clock time in the client's configured timezone.
   const { parseScheduledFor } = await import('@/forge/data/schedule-mapping');
@@ -908,13 +963,23 @@ export async function scheduleApprovedContent(formData: FormData) {
   }
 
   const supabase = getAdminSupabase();
-  const { data: alreadyPublished } = await supabase
+  const { data: publishedEvidence } = await supabase
     .from('forge_run_evidence')
-    .select('id')
+    .select('payload')
     .eq('run_id', runId.data)
-    .eq('kind', 'published_url')
-    .limit(1);
-  if (alreadyPublished && alreadyPublished.length > 0) redirectRun(runId.data, 'schedule-already');
+    .eq('kind', 'published_url');
+  const { isPublicationRunComplete } = await import(
+    '@/forge/data/publication-checkpoint-policy'
+  );
+  if (isPublicationRunComplete({
+    postCount: parsed.posts.length,
+    checkpoints: detail.publications,
+    evidencePayloads: (publishedEvidence ?? []).map(
+      (row: { payload: unknown }) => row.payload,
+    ),
+  })) {
+    redirectRun(runId.data, 'schedule-already');
+  }
 
   if (parsed.platform === 'instagram') {
     const { data: assets } = await supabase

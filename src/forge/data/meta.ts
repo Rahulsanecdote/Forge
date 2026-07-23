@@ -12,6 +12,10 @@ export type PublishFacebookResult =
   | { published: true; posts: FacebookPostResult[] }
   | { published: false; code: 'unconfigured' | 'no_posts'; reason: string };
 
+export type PublishSingleFacebookResult =
+  | { published: true; post: FacebookPostResult }
+  | { published: false; code: 'unconfigured' | 'no_posts'; reason: string };
+
 function graphVersion() {
   return env.META_GRAPH_VERSION?.trim() || DEFAULT_GRAPH_VERSION;
 }
@@ -68,21 +72,40 @@ export async function publishApprovedFacebookPosts(input: {
     return { published: false, code: 'no_posts', reason: 'No approved post content to publish.' };
   }
 
-  const config = resolveMetaPageConfig();
-  if (!config) {
-    return { published: false, code: 'unconfigured', reason: 'Missing META_PAGE_ID or META_PAGE_ACCESS_TOKEN.' };
-  }
-
   const posts: FacebookPostResult[] = [];
   for (const message of messages) {
-    posts.push(
-      await publishFacebookPagePost({
-        pageId: config.pageId,
-        accessToken: config.accessToken,
-        message,
-        link: input.link,
-      }),
-    );
+    const result = await publishApprovedFacebookPost({ message, link: input.link });
+    if (!result.published) return result;
+    posts.push(result.post);
   }
   return { published: true, posts };
+}
+
+export async function publishApprovedFacebookPost(input: {
+  message: string;
+  link?: string | null;
+}): Promise<PublishSingleFacebookResult> {
+  const message = input.message.trim();
+  if (!message) {
+    return { published: false, code: 'no_posts', reason: 'No approved post content to publish.' };
+  }
+
+  const config = resolveMetaPageConfig();
+  if (!config) {
+    return {
+      published: false,
+      code: 'unconfigured',
+      reason: 'Missing META_PAGE_ID or META_PAGE_ACCESS_TOKEN.',
+    };
+  }
+
+  return {
+    published: true,
+    post: await publishFacebookPagePost({
+      pageId: config.pageId,
+      accessToken: config.accessToken,
+      message,
+      link: input.link,
+    }),
+  };
 }

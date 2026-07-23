@@ -103,6 +103,19 @@ export interface DashboardContentApproval {
   decided_at: string | null;
 }
 
+export interface DashboardContentPublication {
+  id: string;
+  run_id: string;
+  post_index: number;
+  platform: 'google_business' | 'facebook' | 'instagram';
+  status: 'publishing' | 'published' | 'reconcile';
+  reference: string | null;
+  last_error: string | null;
+  claimed_at: string | null;
+  published_at: string | null;
+  updated_at: string | null;
+}
+
 export interface DashboardApprovalQueueItem extends DashboardContentApproval {
   client_name: string | null;
   client_slug: string | null;
@@ -124,6 +137,7 @@ export interface DashboardToolRunDetail {
   run: DashboardToolRun;
   client: Pick<DashboardClient, 'id' | 'slug' | 'name' | 'timezone'> | null;
   approval: DashboardContentApproval | null;
+  publications: DashboardContentPublication[];
   currentBannedPhrases: string[];
   errors: string[];
 }
@@ -488,6 +502,7 @@ export async function loadToolRunDetail(id: string): Promise<DashboardToolRunDet
 
   let client: DashboardToolRunDetail['client'] = null;
   let approval: DashboardContentApproval | null = null;
+  let publications: DashboardContentPublication[] = [];
   let currentBannedPhrases: string[] = [];
   if (run.client_id) {
     const { data: clientData, error: clientError } = await supabase
@@ -524,12 +539,24 @@ export async function loadToolRunDetail(id: string): Promise<DashboardToolRunDet
 
     if (approvalError) errors.push(`content_approvals: ${approvalError.message}`);
     approval = (approvalData ?? null) as DashboardContentApproval | null;
+
+    const { data: publicationData, error: publicationError } = await supabase
+      .from('content_publications')
+      .select(
+        'id, run_id, post_index, platform, status, reference, last_error, claimed_at, published_at, updated_at',
+      )
+      .eq('run_id', run.id)
+      .order('post_index', { ascending: true });
+
+    if (publicationError) errors.push(`content_publications: ${publicationError.message}`);
+    publications = (publicationData ?? []) as DashboardContentPublication[];
   }
 
   return {
     run: run as DashboardToolRun,
     client,
     approval,
+    publications,
     currentBannedPhrases,
     errors,
   };

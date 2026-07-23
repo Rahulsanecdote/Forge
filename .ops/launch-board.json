@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-07-23T16:39:23.000Z",
+  "updatedAt": "2026-07-23T18:45:00.000Z",
   "project": "forge-agent",
-  "activeLane": "governance-hardening",
+  "activeLane": "delivery-hardening",
   "lanes": [
     {
       "id": "launch-readiness",
@@ -19,8 +19,14 @@
     {
       "id": "governance-hardening",
       "title": "Phase 02.6 — Governance hardening",
-      "status": "active",
+      "status": "parked",
       "phase": "02.6"
+    },
+    {
+      "id": "delivery-hardening",
+      "title": "Phase 03 — Authenticated delivery",
+      "status": "active",
+      "phase": "03"
     },
     {
       "id": "migration-readiness",
@@ -601,6 +607,65 @@
       ],
       "rollback": {
         "strategy": "revert the export policy helper, stable review mapping, strict output schemas, and associated CI/LaunchOps changes as one phase",
+        "verified": false
+      }
+    },
+    {
+      "id": "publication-checkpoints",
+      "title": "External publishing is resumable without duplicating live posts",
+      "priority": "P0",
+      "type": "production_deploy",
+      "status": "in_progress",
+      "owner": "engineering",
+      "lane": "delivery-hardening",
+      "createdAt": "2026-07-23T17:47:56.000Z",
+      "updatedAt": "2026-07-23T18:45:00.000Z",
+      "requiresHumanApproval": true,
+      "definitionOfDone": [
+        {
+          "item": "Each run and post index has one durable publication checkpoint",
+          "done": true
+        },
+        {
+          "item": "A checkpoint is claimed before the external API call and ambiguous outcomes require reconciliation instead of automatic retry",
+          "done": true
+        },
+        {
+          "item": "Google Business, Facebook, and Instagram publish one checkpointed post at a time",
+          "done": true
+        },
+        {
+          "item": "Manual and scheduled publishing share the same fail-closed resume behavior",
+          "done": true
+        },
+        {
+          "item": "Focused tests and full CI gates pass",
+          "done": false
+        },
+        {
+          "item": "Production migration, deployment, and non-publishing smoke evidence are recorded",
+          "done": false
+        }
+      ],
+      "evidence": [
+        {
+          "description": "Architecture audit found batch-level idempotency only: a provider can create an early post before a later post fails, while Forge records no per-post checkpoint and may duplicate the earlier post on retry.",
+          "source": "terminal",
+          "capturedAt": "2026-07-23T17:47:56.000Z"
+        },
+        {
+          "description": "Implemented atomic per-post claims, one-at-a-time provider adapters, transactional evidence finalization, and an operator reconciliation queue shared by manual and scheduled publishing.",
+          "source": "terminal",
+          "capturedAt": "2026-07-23T18:45:00.000Z"
+        },
+        {
+          "description": "Local TypeScript validation and all 119 unit tests pass; environment and LaunchOps contracts validate.",
+          "source": "terminal",
+          "capturedAt": "2026-07-23T18:45:00.000Z"
+        }
+      ],
+      "rollback": {
+        "strategy": "disable automated publish actions and scheduled delivery, retain publication checkpoints as audit records, and revert the checkpoint-aware runtime",
         "verified": false
       }
     }

@@ -1,6 +1,6 @@
 # Forge — Build Context for Codex (`AGENTS.md`)
 
-> **Version:** v1.27 · **Updated:** 2026-07-23 · **Repo:** `forge-agent`
+> **Version:** v1.28 · **Updated:** 2026-07-23 · **Repo:** `forge-agent`
 > **How to use:** Codex reads this automatically as `AGENTS.md`. (Also works pasted into a
 > Claude Code / Codex session at start, or renamed `CLAUDE.md`.) Read it fully before
 > changing code. Obey the Non-Negotiables. Append to the Decision Log on any structural
@@ -156,6 +156,7 @@ npm run typecheck               # must pass
 | 2026-07-22 | Review-delivery opt-out compliance (CAN-SPAM / TCPA): a global `(channel, contact)` `review_optouts` suppression list checked before every send. Email carries an unsubscribe link (`/u/<token>`) + `List-Unsubscribe` header + `FORGE_MAILING_ADDRESS`; SMS carries "Reply STOP". Opt-outs arrive via the email link or a signature-verified Twilio inbound webhook (`/api/twilio/inbound`) and mark future requests `skipped` ("Recipient opted out"). Pure, tested helpers for contact normalization, footers, and Twilio signature verification; footers are added per channel (manual copy links carry none — operator owns that channel). |
 | 2026-07-22 | Client self-approval portal: the `/portal` surface gains one client write action — approve/reject their own pending drafts. `decideClientApproval` scopes every query to the verified session `client_id` (sole tenant boundary), re-runs the banned-phrase gate on approve, status-guards the `content_approvals` update against double-decide, and records durable `approval` evidence (`decidedBy: client_portal`) with rollback on evidence-write failure. The portal shows each pending draft in full (captions, hashtags, images); scheduling/publishing and the billing gate are unchanged. Still service-role over a signed cookie — real per-client auth + RLS remain deferred. |
 | 2026-07-22 | Billing & plan enforcement: `clients` gain Stripe subscription state (`subscription_status`, `billing_override`, stripe ids, `current_period_end`). `isDeliveryActive` (pure, tested) hard-gates automated delivery — the three delivery crons skip non-active clients and `publishApprovedRun` returns `publish-blocked-billing` (billing-blocked schedules return to `pending`, not failed); manual generation stays ungated so operators can prep drafts. Stripe via REST (no SDK dep) read lazily from `process.env`: Checkout + Billing Portal actions and a signature-verified `POST /api/stripe/webhook` sync status; unset Stripe falls back to manual operator controls + comp override. `billing_override` comps pilots regardless of Stripe. |
+| 2026-07-23 | Authenticated delivery now checkpoints each run/post before calling Google Business, Facebook, or Instagram. Successful provider responses and durable evidence finalize atomically; ambiguous provider or database outcomes enter a fail-closed operator reconciliation queue, while manual and scheduled publishing share the same idempotent path. |
 
 ## 9. Conventions
 - Conventional Commits (`feat:`, `fix:`, `docs:`…). One focused change per PR.

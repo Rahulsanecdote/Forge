@@ -18,6 +18,10 @@ export type PublishInstagramResult =
   | { published: true; posts: InstagramPostResult[] }
   | { published: false; code: 'unconfigured' | 'missing_image' | 'no_posts'; reason: string };
 
+export type PublishSingleInstagramResult =
+  | { published: true; post: InstagramPostResult }
+  | { published: false; code: 'unconfigured' | 'missing_image' | 'no_posts'; reason: string };
+
 function graphVersion() {
   return env.META_GRAPH_VERSION?.trim() || DEFAULT_GRAPH_VERSION;
 }
@@ -138,6 +142,24 @@ export async function publishApprovedInstagramPosts(input: {
     return { published: false, code: 'no_posts', reason: 'No approved posts to publish.' };
   }
 
+  const posts: InstagramPostResult[] = [];
+  for (const post of input.posts) {
+    const result = await publishApprovedInstagramPost(post);
+    if (!result.published) return result;
+    posts.push(result.post);
+  }
+  return { published: true, posts };
+}
+
+export async function publishApprovedInstagramPost(input: {
+  caption: string;
+  hashtags: string[];
+  imageUrls: Array<string | null | undefined>;
+}): Promise<PublishSingleInstagramResult> {
+  if (!input.caption.trim()) {
+    return { published: false, code: 'no_posts', reason: 'No approved post content to publish.' };
+  }
+
   const config = resolveInstagramConfig();
   if (!config) {
     return {
@@ -147,8 +169,8 @@ export async function publishApprovedInstagramPosts(input: {
     };
   }
 
-  const plans = input.posts.map((post) => ({ post, plan: planInstagramMedia(post.imageUrls) }));
-  if (plans.some(({ plan }) => plan.kind === 'none')) {
+  const plan = planInstagramMedia(input.imageUrls);
+  if (plan.kind === 'none') {
     return {
       published: false,
       code: 'missing_image',
@@ -156,28 +178,26 @@ export async function publishApprovedInstagramPosts(input: {
     };
   }
 
-  const posts: InstagramPostResult[] = [];
-  for (const { post, plan } of plans) {
-    const caption = buildInstagramCaption(post.caption, post.hashtags);
-    if (plan.kind === 'carousel') {
-      posts.push(
-        await publishInstagramCarousel({
-          igUserId: config.igUserId,
-          accessToken: config.accessToken,
-          imageUrls: plan.imageUrls,
-          caption,
-        }),
-      );
-    } else if (plan.kind === 'single') {
-      posts.push(
-        await publishInstagramPost({
-          igUserId: config.igUserId,
-          accessToken: config.accessToken,
-          imageUrl: plan.imageUrl,
-          caption,
-        }),
-      );
-    }
+  const caption = buildInstagramCaption(input.caption, input.hashtags);
+  if (plan.kind === 'carousel') {
+    return {
+      published: true,
+      post: await publishInstagramCarousel({
+        igUserId: config.igUserId,
+        accessToken: config.accessToken,
+        imageUrls: plan.imageUrls,
+        caption,
+      }),
+    };
   }
-  return { published: true, posts };
+
+  return {
+    published: true,
+    post: await publishInstagramPost({
+      igUserId: config.igUserId,
+      accessToken: config.accessToken,
+      imageUrl: plan.imageUrl,
+      caption,
+    }),
+  };
 }
