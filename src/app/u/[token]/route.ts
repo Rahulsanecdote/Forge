@@ -7,7 +7,18 @@ export const dynamic = 'force-dynamic';
 // the same and returns 200 with no body. Recording an opt-out is fail-safe (it only
 // suppresses future sends), so an unknown/expired token simply confirms without error.
 
-function page(title: string, body: string): Response {
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function page(rawTitle: string, rawBody: string): Response {
+  const title = escapeHtml(rawTitle);
+  const body = escapeHtml(rawBody);
   const html = `<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">

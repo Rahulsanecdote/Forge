@@ -141,30 +141,51 @@ export async function createReviewRequests(
   if (error) return { ok: false, code: 'error' };
 
   const canDeliver = hasAbsoluteAppUrl();
-  // Compliance: never send to a contact that has opted out.
-  const suppressed = await loadSuppressed(
-    rows
-      .filter((r) => (r.channel === 'email' || r.channel === 'sms') && r.contact)
-      .map((r) => ({ channel: r.channel, contact: r.contact as string })),
-  );
+  const mailingConfigured = Boolean(mailingAddress());
+
+  // Compliance: never send to a contact that has opted out. Fail closed if the suppression
+  // list can't be read — better to leave requests as manual than risk re-contacting someone.
+  let suppressed = new Set<string>();
+  let suppressionOk = true;
+  try {
+    suppressed = await loadSuppressed(
+      rows
+        .filter((r) => (r.channel === 'email' || r.channel === 'sms') && r.contact)
+        .map((r) => ({ channel: r.channel, contact: r.contact as string })),
+    );
+  } catch {
+    suppressionOk = false;
+  }
 
   let sent = 0;
   let failed = 0;
   let manual = 0;
   for (const row of rows) {
-    const isOptedOut =
-      (row.channel === 'email' || row.channel === 'sms') &&
-      row.contact != null &&
-      suppressed.has(optOutKey(row.channel, row.contact));
+    const deliverable = (row.channel === 'email' || row.channel === 'sms') && row.contact != null;
+    const isOptedOut = deliverable && suppressed.has(optOutKey(row.channel, row.contact as string));
+    const cannotVerify = deliverable && !suppressionOk;
+    // CAN-SPAM requires a physical address in every commercial email; don't send without it.
+    const emailNeedsAddress = row.channel === 'email' && row.contact != null && !mailingConfigured;
 
-    if (row.channel === 'manual' || !row.contact || !canDeliver || isOptedOut) {
+    if (
+      row.channel === 'manual' ||
+      !row.contact ||
+      !canDeliver ||
+      isOptedOut ||
+      cannotVerify ||
+      emailNeedsAddress
+    ) {
       manual += 1;
       // Explain why an otherwise-deliverable request stayed manual/unsent.
       const skipReason = isOptedOut
         ? 'Recipient opted out — not sent.'
-        : !canDeliver && row.channel !== 'manual' && row.contact
-          ? 'App URL not configured (NEXT_PUBLIC_APP_URL) — copy the link and send manually.'
-          : null;
+        : cannotVerify
+          ? 'Could not verify the opt-out list — not sent. Try again.'
+          : emailNeedsAddress
+            ? 'Set FORGE_MAILING_ADDRESS before emailing (CAN-SPAM) — copy the link and send manually.'
+            : !canDeliver && row.channel !== 'manual' && row.contact
+              ? 'App URL not configured (NEXT_PUBLIC_APP_URL) — copy the link and send manually.'
+              : null;
       await getAdminSupabase()
         .from('review_requests')
         .update({ send_status: 'skipped', delivery_error: skipReason })

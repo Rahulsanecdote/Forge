@@ -17,10 +17,14 @@ export async function loadSuppressed(
   if (relevant.length === 0) return new Set();
 
   const contacts = Array.from(new Set(relevant.map((p) => normalizeContact(p.channel, p.contact))));
-  const { data } = await getAdminSupabase()
+  const { data, error } = await getAdminSupabase()
     .from('review_optouts')
     .select('channel, contact')
     .in('contact', contacts);
+  // Fail closed: if we can't read the suppression list we must not assume "no opt-outs".
+  // The caller treats a throw as "couldn't verify" and skips the send rather than risking
+  // contacting someone who opted out.
+  if (error) throw new Error(`Could not load opt-outs: ${error.message}`);
 
   const suppressed = new Set<string>();
   for (const row of (data ?? []) as Array<{ channel: ReviewChannel; contact: string }>) {
