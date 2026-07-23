@@ -30,3 +30,28 @@ export function buildReviewRequestSubject(businessName: string): string {
   const business = businessName.trim() || 'us';
   return `A quick favor — would you review ${business}?`;
 }
+
+// SMS opt-out disclosure. Carriers/TCPA expect a STOP instruction; Twilio then blocks
+// further messages to a number that replies STOP.
+export function appendSmsOptOut(body: string): string {
+  return `${body}\n\nReply STOP to opt out.`;
+}
+
+// Email compliance footer (CAN-SPAM): a working unsubscribe link plus the sender's
+// physical mailing address. Both are required; the address comes from config.
+export function appendEmailFooter(
+  body: string,
+  opts: { businessName: string; unsubscribeUrl: string; mailingAddress?: string | null },
+): string {
+  const business = opts.businessName.trim() || 'us';
+  const lines = [
+    body,
+    '',
+    '—',
+    `You received this because you're a customer of ${business}.`,
+    `Unsubscribe: ${opts.unsubscribeUrl}`,
+  ];
+  const address = opts.mailingAddress?.trim();
+  if (address) lines.push(address);
+  return lines.join('\n');
+}

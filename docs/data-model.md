@@ -20,6 +20,7 @@ required**. The optional pgvector table is in `supabase/optional/`.
 | `supabase/migrations/20260722010000_review_requests.sql` | `clients.google_review_url` + `review_requests` (click-tracked review asks; RLS, service-role grants) |
 | `supabase/migrations/20260722020000_review_request_delivery.sql` | `review_requests` delivery columns (`channel`, `contact`, `send_status`, `sent_at`, `delivery_error`) for automated email/SMS sending |
 | `supabase/migrations/20260722030000_client_billing.sql` | `clients` billing columns (`plan`, `subscription_status`, `billing_override`, `stripe_customer_id`, `stripe_subscription_id`, `current_period_end`) + Stripe id indexes |
+| `supabase/migrations/20260722040000_review_optouts.sql` | `review_optouts` suppression list (email/SMS opt-outs; RLS, service-role grants) |
 | `supabase/optional/client_memory.sql` | `client_memory` + pgvector (reserved for a later increment; apply by hand) |
 
 Apply locally with `supabase db reset`; in a hosted project, run the SQL files in
@@ -317,6 +318,28 @@ closed when the client has no `google_review_url` configured (nowhere to send pe
 Automated sending is env-gated (`RESEND_API_KEY` + `FORGE_REVIEW_FROM_EMAIL` for email;
 `TWILIO_ACCOUNT_SID` + `TWILIO_AUTH_TOKEN` + `TWILIO_FROM_NUMBER` for SMS); with neither
 set the feature still works as manual copy-and-send links.
+
+### `review_optouts`
+
+Suppression list for delivery compliance (CAN-SPAM / TCPA). Sent email carries an
+unsubscribe link (`/u/<token>`) **and** a `List-Unsubscribe` header plus the operator's
+mailing address (`FORGE_MAILING_ADDRESS`); sent SMS carries a "Reply STOP" instruction.
+When a customer unsubscribes (email link) or replies STOP (synced via the Twilio inbound
+webhook `POST /api/twilio/inbound`, signature-verified), a row lands here and
+`createReviewRequests` **skips that contact on every future send** (marked `skipped` with
+"Recipient opted out"). Global by `(channel, contact)` — one opt-out suppresses that address
+across all clients this instance sends for.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid | PK |
+| `channel` | text | not null — `'email'` \| `'sms'` |
+| `contact` | text | not null — normalized (lowercased email / E.164 phone) |
+| `reason` | text | `'email_unsubscribe'` \| `'sms_stop'` \| `'manual'` |
+| `created_at` | timestamptz | default `now()` |
+
+Unique on `(channel, contact)` (idempotent opt-out). RLS is enabled; only `service_role`
+has table privileges.
 
 ### Client onboarding invitations
 

@@ -106,6 +106,12 @@ provider is configured it **sends the request for you** — email via
 copy-and-send links. Opening a link records the click and forwards the customer straight to
 the business's Google review page, so you can watch the request → click funnel.
 
+Automated sends are **compliance-aware**: every email includes an unsubscribe link and a
+`List-Unsubscribe` header plus your mailing address (`FORGE_MAILING_ADDRESS`), every SMS
+includes "Reply STOP", and opt-outs (email unsubscribe or SMS STOP, the latter synced via
+`/api/twilio/inbound`) land on a suppression list that's checked before every send — so an
+opted-out customer is never contacted again.
+
 ## Add your business
 
 **Fastest — let Forge draft the brand voice from a description:**
