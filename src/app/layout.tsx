@@ -1,6 +1,36 @@
 import type { Metadata } from 'next';
+import { Bebas_Neue, DM_Serif_Display, IBM_Plex_Mono, DM_Sans } from 'next/font/google';
 import { site } from '@/lib/site-config';
 import './globals.css';
+
+const bebas = Bebas_Neue({
+  weight: '400',
+  subsets: ['latin'],
+  variable: '--font-bebas',
+  display: 'swap',
+});
+
+const dmSerif = DM_Serif_Display({
+  weight: '400',
+  style: ['normal', 'italic'],
+  subsets: ['latin'],
+  variable: '--font-dm-serif',
+  display: 'swap',
+});
+
+const plexMono = IBM_Plex_Mono({
+  weight: ['300', '400', '500'],
+  subsets: ['latin'],
+  variable: '--font-plex-mono',
+  display: 'swap',
+});
+
+const dmSans = DM_Sans({
+  weight: ['300', '400', '500'],
+  subsets: ['latin'],
+  variable: '--font-dm-sans',
+  display: 'swap',
+});
 
 export const metadata: Metadata = {
   metadataBase: new URL(site.domain),
@@ -35,7 +65,10 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html
+      lang="en"
+      className={`${bebas.variable} ${dmSerif.variable} ${plexMono.variable} ${dmSans.variable}`}
+    >
       <body className="bg-bg text-ink antialiased">
         {/* Ambient overlays */}
         <div className="fx-grid pointer-events-none fixed inset-0 z-[1]" />
