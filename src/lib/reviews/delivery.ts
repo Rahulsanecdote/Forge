@@ -29,6 +29,7 @@ export interface DeliverInput {
   contact: string | null;
   businessName: string;
   message: string;
+  unsubscribeUrl?: string;
 }
 
 function boundError(value: unknown): string {
@@ -41,12 +42,23 @@ async function readErrorBody(response: Response): Promise<string> {
   return text.length > 300 ? `${text.slice(0, 300)}...` : text;
 }
 
-async function sendEmail(to: string, businessName: string, message: string): Promise<DeliveryResult> {
+async function sendEmail(
+  to: string,
+  businessName: string,
+  message: string,
+  unsubscribeUrl?: string,
+): Promise<DeliveryResult> {
   const apiKey = optionalEnv('RESEND_API_KEY');
   const from = optionalEnv('FORGE_REVIEW_FROM_EMAIL');
   if (!apiKey || !from) {
     return { status: 'skipped', error: 'Email not configured (RESEND_API_KEY / FORGE_REVIEW_FROM_EMAIL).' };
   }
+
+  // One-click unsubscribe (RFC 8058) in addition to the in-body link, so Gmail/Apple Mail
+  // surface a native Unsubscribe control.
+  const headers = unsubscribeUrl
+    ? { 'List-Unsubscribe': `<${unsubscribeUrl}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' }
+    : undefined;
 
   try {
     const response = await fetch('https://api.resend.com/emails', {
@@ -57,6 +69,7 @@ async function sendEmail(to: string, businessName: string, message: string): Pro
         to: [to],
         subject: buildReviewRequestSubject(businessName),
         text: message,
+        ...(headers ? { headers } : {}),
       }),
     });
     if (!response.ok) {
@@ -103,7 +116,9 @@ export async function deliverReviewRequest(input: DeliverInput): Promise<Deliver
   if (input.channel === 'manual' || !contact) {
     return { status: 'skipped' };
   }
-  if (input.channel === 'email') return sendEmail(contact, input.businessName, input.message);
+  if (input.channel === 'email') {
+    return sendEmail(contact, input.businessName, input.message, input.unsubscribeUrl);
+  }
   if (input.channel === 'sms') return sendSms(contact, input.message);
   return { status: 'skipped' };
 }

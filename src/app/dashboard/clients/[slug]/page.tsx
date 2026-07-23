@@ -686,7 +686,9 @@ export default async function ClientDetailPage({
                   {item.contact && (
                     <div className="mt-2 font-mono text-[11px] text-muted-dark">
                       {item.channel === 'email' ? '✉' : item.channel === 'sms' ? '☎' : '•'} {item.contact}
-                      {item.sendStatus === 'failed' && item.deliveryError ? ` — ${item.deliveryError}` : ''}
+                      {(item.sendStatus === 'failed' || item.sendStatus === 'skipped') && item.deliveryError
+                        ? ` — ${item.deliveryError}`
+                        : ''}
                     </div>
                   )}
                   <p className="mt-3 border-l border-gold-border pl-3 font-sans text-sm leading-6 text-ink">

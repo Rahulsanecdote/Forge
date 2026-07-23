@@ -67,6 +67,7 @@ const schema = z.object({
   // Twilio. Unset providers fall back to manual send (operator copies the link).
   RESEND_API_KEY: optionalConfigSchema,
   FORGE_REVIEW_FROM_EMAIL: optionalConfigSchema, // verified Resend sender, e.g. reviews@yourdomain.com
+  FORGE_MAILING_ADDRESS: optionalConfigSchema, // physical postal address for the CAN-SPAM email footer
   TWILIO_ACCOUNT_SID: optionalConfigSchema,
   TWILIO_AUTH_TOKEN: optionalConfigSchema,
   TWILIO_FROM_NUMBER: optionalConfigSchema, // E.164 sending number, e.g. +12055551234
@@ -115,6 +116,7 @@ const runtimeEnv = {
   STRIPE_PRICE_GROWTH: process.env.STRIPE_PRICE_GROWTH,
   RESEND_API_KEY: process.env.RESEND_API_KEY,
   FORGE_REVIEW_FROM_EMAIL: process.env.FORGE_REVIEW_FROM_EMAIL,
+  FORGE_MAILING_ADDRESS: process.env.FORGE_MAILING_ADDRESS,
   TWILIO_ACCOUNT_SID: process.env.TWILIO_ACCOUNT_SID,
   TWILIO_AUTH_TOKEN: process.env.TWILIO_AUTH_TOKEN,
   TWILIO_FROM_NUMBER: process.env.TWILIO_FROM_NUMBER,
