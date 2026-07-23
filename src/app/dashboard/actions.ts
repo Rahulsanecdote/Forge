@@ -445,6 +445,33 @@ export async function setClientBilling(formData: FormData) {
   redirectClient(slug, 'billing-saved');
 }
 
+// Per-client portal revocation: bump the client's portal_key_version, which invalidates
+// every outstanding portal link and session for this client and rotates the link the
+// operator shares. Other clients are unaffected.
+export async function revokeClientPortal(formData: FormData) {
+  await requireAdmin();
+  const clientId = stringValue(formData, 'client_id');
+  const slug = stringValue(formData, 'slug') || 'unknown';
+  if (!clientId) redirectClient(slug, 'portal-invalid');
+
+  const supabase = getAdminSupabase();
+  const { data } = await supabase
+    .from('clients')
+    .select('portal_key_version')
+    .eq('id', clientId)
+    .maybeSingle();
+  const current = (data as { portal_key_version?: number } | null)?.portal_key_version ?? 1;
+
+  const { error } = await supabase
+    .from('clients')
+    .update({ portal_key_version: current + 1 })
+    .eq('id', clientId);
+  if (error) redirectClient(slug, 'portal-error');
+
+  revalidatePath(`/dashboard/clients/${slug}`);
+  redirectClient(slug, 'portal-revoked');
+}
+
 export async function updateBrandVoice(formData: FormData) {
   await requireAdmin();
   const clientId = stringValue(formData, 'client_id');

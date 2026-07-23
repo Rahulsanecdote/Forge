@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  parsePortalSessionClientId,
+  portalClientSecret,
   portalLoginKey,
   portalSessionToken,
   verifyPortalLoginKey,
@@ -45,4 +47,30 @@ test('login key and session token are distinct (no cross-use)', () => {
   assert.notEqual(key, session);
   // The raw login key is not a valid session token.
   assert.equal(verifyPortalSessionToken(key, secret), null);
+});
+
+test('bumping the per-client key version revokes only that client (login key + session)', () => {
+  const v1 = portalClientSecret(secret, clientId, 1);
+  const v2 = portalClientSecret(secret, clientId, 2);
+  assert.notEqual(v1, v2);
+
+  // A link/session issued under version 1 no longer verifies once the version is bumped.
+  const keyV1 = portalLoginKey(clientId, v1);
+  const sessionV1 = portalSessionToken(clientId, v1);
+  assert.equal(verifyPortalLoginKey(clientId, keyV1, v1), clientId);
+  assert.equal(verifyPortalLoginKey(clientId, keyV1, v2), null);
+  assert.equal(verifyPortalSessionToken(sessionV1, v1), clientId);
+  assert.equal(verifyPortalSessionToken(sessionV1, v2), null);
+
+  // Another client's derived secret is independent — revoking one doesn't touch the other.
+  const other = '00000000-0000-0000-0000-000000000000';
+  assert.notEqual(portalClientSecret(secret, other, 1), v1);
+});
+
+test('parsePortalSessionClientId extracts the id without verifying, and rejects junk', () => {
+  const token = portalSessionToken(clientId, portalClientSecret(secret, clientId, 1));
+  assert.equal(parsePortalSessionClientId(token), clientId);
+  assert.equal(parsePortalSessionClientId('v1.only-two'), null);
+  assert.equal(parsePortalSessionClientId('v2.abc.sig'), null); // wrong version prefix
+  assert.equal(parsePortalSessionClientId(null), null);
 });

@@ -20,6 +20,23 @@ function safeEqualHex(a: string, b: string): boolean {
   }
 }
 
+// Per-client signing secret derived from the global portal secret, the client id, and a
+// rotating key version. Signing every client's login key / session with their own derived
+// secret means bumping one client's version invalidates only that client — the basis for
+// per-client revocation. Callers pass the result as `secret` to the functions below.
+export function portalClientSecret(secret: string, clientId: string, keyVersion: number): string {
+  return hmacHex(secret, `forge-portal-client:${clientId}:${keyVersion}`);
+}
+
+// Parse the client id out of a session token without verifying it — so the caller can look
+// up that client's current key version, then verify against the version-derived secret.
+export function parsePortalSessionClientId(token: string | null | undefined): string | null {
+  if (!token) return null;
+  const parts = token.split('.');
+  if (parts.length !== 3 || parts[0] !== SESSION_VERSION || !parts[1]) return null;
+  return parts[1];
+}
+
 // The unguessable key placed in a client's portal login link. An operator shares
 // `/portal/login?c=<clientId>&k=<key>`; possession of the link grants read-only
 // access to exactly that client.

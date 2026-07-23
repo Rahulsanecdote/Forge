@@ -14,13 +14,13 @@ export const dynamic = 'force-dynamic';
 // the portal's "no access" state rather than leaking why it failed.
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  const clientId = verifyLoginKey(url.searchParams.get('c'), url.searchParams.get('k'));
+  const clientId = await verifyLoginKey(url.searchParams.get('c'), url.searchParams.get('k'));
 
   if (!clientId) {
     return NextResponse.redirect(new URL('/portal', url.origin));
   }
 
-  const value = newSessionCookieValue(clientId);
+  const value = await newSessionCookieValue(clientId);
   const response = NextResponse.redirect(new URL('/portal', url.origin));
   if (value) {
     response.cookies.set(PORTAL_COOKIE, value, {
