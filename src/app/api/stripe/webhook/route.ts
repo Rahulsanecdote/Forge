@@ -46,6 +46,19 @@ function metadataClientId(object: Record<string, unknown>): string | null {
   return asString(metadata?.client_id);
 }
 
+// The current period end as a unix timestamp. Older Stripe API versions expose it on the
+// subscription; newer ones (2025-03+) moved it onto each subscription item, so fall back to
+// the latest item's value. Returns null when neither is present.
+function subscriptionPeriodEnd(object: Record<string, unknown>): number | null {
+  if (typeof object.current_period_end === 'number') return object.current_period_end;
+  const items = (object.items as { data?: unknown } | undefined)?.data;
+  if (!Array.isArray(items)) return null;
+  const ends = items
+    .map((item) => (item as { current_period_end?: unknown })?.current_period_end)
+    .filter((value): value is number => typeof value === 'number');
+  return ends.length > 0 ? Math.max(...ends) : null;
+}
+
 export async function POST(request: Request) {
   const secret = webhookSecret();
   if (!secret) {
@@ -76,7 +89,7 @@ export async function POST(request: Request) {
       );
     } else if (type === 'customer.subscription.created' || type === 'customer.subscription.updated') {
       const status = asString(object.status);
-      const periodEnd = typeof object.current_period_end === 'number' ? object.current_period_end : null;
+      const periodEnd = subscriptionPeriodEnd(object);
       await applyToClient(
         {
           subscription_status: status ? mapStripeStatus(status) : 'inactive',
