@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-07-23T18:45:00.000Z",
+  "updatedAt": "2026-07-23T19:01:00.000Z",
   "project": "forge-agent",
   "activeLane": "delivery-hardening",
   "lanes": [
@@ -619,7 +619,7 @@
       "owner": "engineering",
       "lane": "delivery-hardening",
       "createdAt": "2026-07-23T17:47:56.000Z",
-      "updatedAt": "2026-07-23T18:45:00.000Z",
+      "updatedAt": "2026-07-23T19:01:00.000Z",
       "requiresHumanApproval": true,
       "definitionOfDone": [
         {
@@ -640,7 +640,7 @@
         },
         {
           "item": "Focused tests and full CI gates pass",
-          "done": false
+          "done": true
         },
         {
           "item": "Production migration, deployment, and non-publishing smoke evidence are recorded",
@@ -659,9 +659,19 @@
           "capturedAt": "2026-07-23T18:45:00.000Z"
         },
         {
-          "description": "Local TypeScript validation and all 119 unit tests pass; environment and LaunchOps contracts validate.",
+          "description": "Local TypeScript validation and all 122 unit tests pass; environment and LaunchOps contracts validate.",
           "source": "terminal",
           "capturedAt": "2026-07-23T18:45:00.000Z"
+        },
+        {
+          "description": "GitHub Actions CI #104 passed commit 37c68f7 in 1m 8s, including tests, typecheck, production build, environment validation, LaunchOps validation, and gitleaks.",
+          "source": "https://github.com/Rahulsanecdote/Forge/actions/runs/30035629113",
+          "capturedAt": "2026-07-23T19:01:00.000Z"
+        },
+        {
+          "description": "Vercel deployed commit 37c68f7 as the current production deployment in 36s; unauthenticated /dashboard smoke redirected to /dashboard/login without exposing operator data.",
+          "source": "https://vercel.com/rahuls-projects-5433a772/forge-agent/CnqWLNGFBy45cc51u1Cd7k1vU7Re",
+          "capturedAt": "2026-07-23T19:01:00.000Z"
         }
       ],
       "rollback": {
