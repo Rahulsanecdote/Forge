@@ -15,6 +15,10 @@ import {
 import { isAdminAuthenticated } from '@/lib/admin/auth';
 import { getAdminSupabase, loadClientPostingInsights, loadToolRunDetail } from '@/lib/admin/data';
 import {
+  canExportApprovedContent,
+  contentExportBlockReason,
+} from '@/lib/admin/content-export-policy';
+import {
   findBannedPhraseViolations,
   formatRunPayload,
   parseKeywordResearchOutput,
@@ -177,6 +181,12 @@ export default async function ToolRunDetailPage({
   const socialPosts = run.tool === 'create_social_posts' ? parseSocialPostOutput(run.output) : null;
   const keywordResearch = run.tool === 'research_keywords' ? parseKeywordResearchOutput(run.output) : null;
   const bannedPhraseViolations = findBannedPhraseViolations(run.output, currentBannedPhrases);
+  const contentExportPolicy = {
+    approvalStatus: approval?.status,
+    bannedPhraseViolations,
+  };
+  const contentExportAllowed = canExportApprovedContent(contentExportPolicy);
+  const contentExportBlockedBy = contentExportBlockReason(contentExportPolicy);
 
   const publishedReferences =
     socialPosts && approval?.status === 'approved'
@@ -413,9 +423,7 @@ export default async function ToolRunDetailPage({
           </div>
         )}
 
-        {socialPosts &&
-          approval?.status === 'approved' &&
-          bannedPhraseViolations.length === 0 && (
+        {socialPosts && contentExportAllowed && (
             <section className="mt-6 border border-emerald-300/40 bg-emerald-500/10 p-5">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
@@ -717,11 +725,11 @@ export default async function ToolRunDetailPage({
                     <div className="font-mono text-xs uppercase tracking-wide text-gold">
                       Draft {String(index + 1).padStart(2, '0')}
                     </div>
-                    {bannedPhraseViolations.length === 0 ? (
+                    {contentExportAllowed ? (
                       <CopyButton value={captionWithHashtags} label="Copy post" />
                     ) : (
                       <span className="font-mono text-[11px] uppercase tracking-wide text-red-200">
-                        Needs revision
+                        {contentExportBlockedBy}
                       </span>
                     )}
                   </div>

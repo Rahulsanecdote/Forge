@@ -15,18 +15,39 @@ const schema = z.object({
 
 type Input = z.infer<typeof schema>;
 
-interface CompetitorView {
-  name: string;
-  likely_strengths: string[];
-  likely_gaps: string[];
+const competitorViewSchema = z.object({
+  name: z.string().trim().min(1),
+  likely_strengths: z.array(z.string().trim().min(1)),
+  likely_gaps: z.array(z.string().trim().min(1)),
+});
+
+const analysisSchema = z.object({
+  summary: z.string().trim().min(1),
+  per_competitor: z.array(competitorViewSchema).min(1),
+  where_client_wins: z.array(z.string().trim().min(1)),
+  opportunities: z.array(z.string().trim().min(1)).min(1),
+  recommended_positioning: z.string().trim().min(1),
+});
+
+function normalizedName(value: string) {
+  return value.trim().toLocaleLowerCase('en-US');
 }
 
-interface Analysis {
-  summary: string;
-  per_competitor: CompetitorView[];
-  where_client_wins: string[];
-  opportunities: string[];
-  recommended_positioning: string;
+export function parseCompetitorAnalysis(text: string, expectedNames: string[]) {
+  const parsed = analysisSchema.safeParse(parseJsonBlock<unknown>(text));
+  if (!parsed.success) {
+    throw new Error(`Model returned invalid competitor analysis JSON: ${z.prettifyError(parsed.error)}`);
+  }
+  const expected = new Set(expectedNames.map(normalizedName));
+  const returned = new Set(parsed.data.per_competitor.map((entry) => normalizedName(entry.name)));
+  if (
+    returned.size !== parsed.data.per_competitor.length ||
+    returned.size !== expected.size ||
+    [...returned].some((name) => !expected.has(name))
+  ) {
+    throw new Error('Model competitor analysis did not match the requested competitors exactly.');
+  }
+  return parsed.data;
 }
 
 export const analyzeCompetitors: ForgeTool<Input> = {
@@ -49,14 +70,9 @@ export const analyzeCompetitors: ForgeTool<Input> = {
       .join('\n');
 
     const { text } = await generateText({ model: ctx.model, prompt, maxOutputTokens: 2048 });
-    return (
-      parseJsonBlock<Analysis>(text) ?? {
-        summary: '',
-        per_competitor: [],
-        where_client_wins: [],
-        opportunities: [],
-        recommended_positioning: '',
-      }
+    return parseCompetitorAnalysis(
+      text,
+      input.competitors.map((competitor) => competitor.name),
     );
   },
 };

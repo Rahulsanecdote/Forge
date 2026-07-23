@@ -12,12 +12,18 @@ const schema = z.object({
 
 type Input = z.infer<typeof schema>;
 
-interface KeywordCluster {
-  theme: string;
-  intent: 'informational' | 'commercial' | 'transactional' | 'local';
-  keywords: string[];
-  content_angle: string;
-}
+const keywordClusterSchema = z.object({
+  theme: z.string().trim().min(1),
+  intent: z.enum(['informational', 'commercial', 'transactional', 'local']),
+  keywords: z.array(z.string().trim().min(1)).min(1).max(10),
+  content_angle: z.string().trim().min(1),
+});
+
+const keywordClustersSchema = z.object({
+  clusters: z.array(keywordClusterSchema).min(1).max(12),
+});
+
+type KeywordCluster = z.infer<typeof keywordClusterSchema>;
 
 interface KeywordResearchOutput {
   topic: string;
@@ -52,6 +58,14 @@ function maybeLine(label: string, value: string | string[] | null | undefined) {
   return text && text.trim() ? `${label}: ${text.trim()}.` : '';
 }
 
+export function parseKeywordClusters(text: string) {
+  const parsed = keywordClustersSchema.safeParse(parseJsonBlock<unknown>(text));
+  if (!parsed.success) {
+    throw new Error(`Model returned invalid keyword cluster JSON: ${z.prettifyError(parsed.error)}`);
+  }
+  return parsed.data.clusters;
+}
+
 export const researchKeywords: ForgeTool<Input> = {
   name: 'research_keywords',
   description:
@@ -84,8 +98,7 @@ export const researchKeywords: ForgeTool<Input> = {
       .join('\n');
 
     const { text } = await generateText({ model: ctx.model, prompt, maxOutputTokens: 2048 });
-    const parsed = parseJsonBlock<{ clusters: KeywordCluster[] }>(text);
-    const clusters = parsed?.clusters ?? [];
+    const clusters = parseKeywordClusters(text);
     const keywordData = await fetchKeywordMetricsFromDataForSeo(uniqueKeywordsFromClusters(clusters));
 
     return {

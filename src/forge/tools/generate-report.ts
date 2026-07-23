@@ -24,12 +24,23 @@ const schema = z.object({
 
 type Input = z.infer<typeof schema>;
 
-interface Report {
-  period: string;
-  executive_summary: string;
-  whats_working: string[];
-  needs_attention: string[];
-  recommended_actions: string[];
+const reportSchema = z.object({
+  period: z.string().trim().min(1),
+  executive_summary: z.string().trim().min(1),
+  whats_working: z.array(z.string().trim().min(1)),
+  needs_attention: z.array(z.string().trim().min(1)),
+  recommended_actions: z.array(z.string().trim().min(1)).min(1),
+});
+
+export function parseReport(text: string, expectedPeriod: string) {
+  const parsed = reportSchema.safeParse(parseJsonBlock<unknown>(text));
+  if (!parsed.success) {
+    throw new Error(`Model returned invalid report JSON: ${z.prettifyError(parsed.error)}`);
+  }
+  if (parsed.data.period !== expectedPeriod) {
+    throw new Error('Model report period did not match the requested reporting period.');
+  }
+  return parsed.data;
 }
 
 export const generateReport: ForgeTool<Input> = {
@@ -54,14 +65,6 @@ export const generateReport: ForgeTool<Input> = {
       .join('\n');
 
     const { text } = await generateText({ model: ctx.model, prompt, maxOutputTokens: 2048 });
-    return (
-      parseJsonBlock<Report>(text) ?? {
-        period: input.period,
-        executive_summary: '',
-        whats_working: [],
-        needs_attention: [],
-        recommended_actions: [],
-      }
-    );
+    return parseReport(text, input.period);
   },
 };

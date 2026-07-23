@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-07-20T03:37:00.000Z",
+  "updatedAt": "2026-07-23T16:00:00.000Z",
   "project": "forge-agent",
-  "activeLane": "portal-readiness",
+  "activeLane": "governance-hardening",
   "lanes": [
     {
       "id": "launch-readiness",
@@ -13,8 +13,14 @@
     {
       "id": "portal-readiness",
       "title": "Phase 02 — Content approval workflow",
-      "status": "active",
+      "status": "parked",
       "phase": "02"
+    },
+    {
+      "id": "governance-hardening",
+      "title": "Phase 02.6 — Governance hardening",
+      "status": "active",
+      "phase": "02.6"
     },
     {
       "id": "migration-readiness",
@@ -482,27 +488,27 @@
       "title": "CI verification gates passing on main",
       "priority": "P1",
       "type": "production_deploy",
-      "status": "shipped",
+      "status": "in_progress",
       "owner": "engineering",
-      "lane": "launch-readiness",
+      "lane": "governance-hardening",
       "createdAt": "2026-07-02T00:00:00.000Z",
-      "updatedAt": "2026-07-11T02:35:00.000Z",
+      "updatedAt": "2026-07-23T16:00:00.000Z",
       "requiresHumanApproval": true,
       "definitionOfDone": [
         {
-          "item": "typecheck + lint pass",
+          "item": "CI installs the committed lockfile with npm ci and runs the full test suite",
           "done": true
         },
         {
-          "item": "production build passes",
+          "item": "Current main passes typecheck and production build",
           "done": true
         },
         {
           "item": "secret scan (gitleaks) clean",
-          "done": true
+          "done": false
         },
         {
-          "item": "env validation script passes",
+          "item": "Environment and LaunchOps board validation pass",
           "done": true
         }
       ],
@@ -516,8 +522,67 @@
           "description": "Local npm run typecheck and npm run build completed successfully on 2026-07-11.",
           "source": "terminal",
           "capturedAt": "2026-07-11T02:35:00.000Z"
+        },
+        {
+          "description": "Governance-hardening branch passed 115 Node tests, TypeScript strict checking, environment validation, LaunchOps validation, and a full Next.js 15 production build covering 27 route entries.",
+          "source": "terminal",
+          "capturedAt": "2026-07-23T16:00:00.000Z"
         }
       ]
+    },
+    {
+      "id": "governed-content-output",
+      "title": "Generated content and structured model output fail closed",
+      "priority": "P0",
+      "type": "product_correctness",
+      "status": "in_progress",
+      "owner": "engineering",
+      "lane": "governance-hardening",
+      "createdAt": "2026-07-23T16:00:00.000Z",
+      "updatedAt": "2026-07-23T16:00:00.000Z",
+      "requiresHumanApproval": false,
+      "definitionOfDone": [
+        {
+          "item": "Every draft copy or export action requires an approved record and a clean current policy check",
+          "done": true
+        },
+        {
+          "item": "Review replies are associated by stable review ID instead of model array position",
+          "done": true
+        },
+        {
+          "item": "Review, keyword, report, and competitor model outputs use strict runtime schemas",
+          "done": true
+        },
+        {
+          "item": "Focused tests prove pending, rejected, malformed, duplicate, reordered, and mismatched outputs fail closed",
+          "done": true
+        },
+        {
+          "item": "Full local test, typecheck, build, environment, and LaunchOps evidence is recorded",
+          "done": true
+        },
+        {
+          "item": "Production deployment and governed-content smoke-test evidence is recorded",
+          "done": false
+        }
+      ],
+      "evidence": [
+        {
+          "description": "Focused Node tests cover approval-required export, current-policy violations, stable review ID mapping, duplicate review IDs, empty keyword clusters, report period mismatch, and competitor set mismatch.",
+          "source": "terminal",
+          "capturedAt": "2026-07-23T16:00:00.000Z"
+        },
+        {
+          "description": "Full local verification passed: 115 tests, TypeScript strict checking, environment contract validation, LaunchOps validation, and a Next.js production build with all 27 route entries generated or compiled successfully.",
+          "source": "terminal",
+          "capturedAt": "2026-07-23T16:00:00.000Z"
+        }
+      ],
+      "rollback": {
+        "strategy": "revert the export policy helper, stable review mapping, strict output schemas, and associated CI/LaunchOps changes as one phase",
+        "verified": false
+      }
     }
   ],
   "policies": {

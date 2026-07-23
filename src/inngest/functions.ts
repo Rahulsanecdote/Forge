@@ -70,21 +70,21 @@ export const reviewSweep = inngest.createFunction(
         if (!pending?.length) return 0;
 
         const reviews = pending.map((r: any) => ({
+          reviewId: r.id,
           author: r.author ?? 'Customer',
           rating: r.rating,
-          text: r.text,
+          text: r.text ?? '',
         }));
 
         const replies = (await draftReviewResponses.execute({ reviews }, { client, model })) as Array<{
-          reply?: string;
-          needs_manager?: boolean;
+          review_id: string;
+          reply: string;
+          needs_manager: boolean;
         }>;
+        const repliesByReviewId = new Map(replies.map((reply) => [reply.review_id, reply]));
 
-        // Only act on reviews that actually got a usable reply. Malformed or
-        // short model output leaves some entries empty; those stay 'new' so a
-        // later sweep retries them instead of being silently dropped.
         const updates = pending
-          .map((row: any, i: number) => ({ row, reply: replies[i] }))
+          .map((row: any) => ({ row, reply: repliesByReviewId.get(row.id) }))
           .filter((u: { reply?: { reply?: string } }) => (u.reply?.reply ?? '').trim().length > 0);
 
         const results = await Promise.all(

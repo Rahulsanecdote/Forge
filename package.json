@@ -4,7 +4,7 @@
   "description": "Open-source vertical AI marketing agent",
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "NEXT_TELEMETRY_DISABLED=1 next build",
     "start": "next start",
     "forge:onboard": "tsx scripts/onboard.ts",
     "forge:client:add": "tsx scripts/add-client.ts",
