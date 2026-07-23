@@ -1,7 +1,13 @@
-import { env } from '../../env';
-
 const DATAFORSEO_KEYWORD_OVERVIEW_URL =
   'https://api.dataforseo.com/v3/dataforseo_labs/google/keyword_overview/live';
+
+// Read DataForSEO config lazily from process.env (matching the Supabase/Stripe/delivery
+// layers). Importing the validated `@/env` object here would hard-exit without SUPABASE_*
+// during Next's build-time page collection and in the pure unit tests for this module.
+function optionalEnv(name: string): string | undefined {
+  const value = process.env[name]?.trim();
+  return value || undefined;
+}
 
 export interface KeywordMetric {
   keyword: string;
@@ -74,16 +80,18 @@ function boolFromEnv(value: string | undefined) {
 }
 
 function resolveDataForSeoConfig(): DataForSeoConfig | null {
-  if (!env.DATAFORSEO_LOGIN || !env.DATAFORSEO_PASSWORD) return null;
+  const login = optionalEnv('DATAFORSEO_LOGIN');
+  const password = optionalEnv('DATAFORSEO_PASSWORD');
+  if (!login || !password) return null;
 
   return {
-    login: env.DATAFORSEO_LOGIN,
-    password: env.DATAFORSEO_PASSWORD,
-    locationCode: parseLocationCode(env.DATAFORSEO_LOCATION_CODE) ?? 2840,
-    locationName: env.DATAFORSEO_LOCATION_NAME,
-    languageCode: env.DATAFORSEO_LANGUAGE_CODE ?? 'en',
-    languageName: env.DATAFORSEO_LANGUAGE_NAME,
-    includeClickstream: boolFromEnv(env.DATAFORSEO_INCLUDE_CLICKSTREAM),
+    login,
+    password,
+    locationCode: parseLocationCode(optionalEnv('DATAFORSEO_LOCATION_CODE')) ?? 2840,
+    locationName: optionalEnv('DATAFORSEO_LOCATION_NAME'),
+    languageCode: optionalEnv('DATAFORSEO_LANGUAGE_CODE') ?? 'en',
+    languageName: optionalEnv('DATAFORSEO_LANGUAGE_NAME'),
+    includeClickstream: boolFromEnv(optionalEnv('DATAFORSEO_INCLUDE_CLICKSTREAM')),
   };
 }
 
