@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { findBannedPhraseViolations, parseKeywordResearchOutput } from './run-output';
+import { findBannedPhraseViolations, parseKeywordResearchOutput, parseReportOutput } from './run-output';
 
 test('finds current-policy violations in historical structured output', () => {
   const output = {
@@ -83,5 +83,23 @@ test('parses keyword research output for dashboard metrics preview', () => {
       warning: null,
     },
     note: 'Keyword clusters are LLM-generated; metrics are from DataForSEO.',
+  });
+});
+
+test('parses report output for dashboard report preview', () => {
+  const output = parseReportOutput({
+    period: 'July 2026',
+    executive_summary: 'Reach improved while review volume needs attention.',
+    whats_working: ['Instagram posts are driving steady engagement.'],
+    needs_attention: ['Google review velocity is below target.'],
+    recommended_actions: ['Run a review request batch this week.'],
+  });
+
+  assert.deepEqual(output, {
+    period: 'July 2026',
+    executiveSummary: 'Reach improved while review volume needs attention.',
+    whatsWorking: ['Instagram posts are driving steady engagement.'],
+    needsAttention: ['Google review velocity is below target.'],
+    recommendedActions: ['Run a review request batch this week.'],
   });
 });

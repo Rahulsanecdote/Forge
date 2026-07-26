@@ -116,6 +116,12 @@ to send active monitoring issues from the `monitoring-alerts` cron. The alert bo
 and links operators back to `/dashboard/monitoring`; when the webhook is unset or there are
 no active issues, the cron skips cleanly.
 
+Each client page also includes **performance report generation**. Forge can seed the
+`generate_report` tool with the client's measured post reach, impressions, engagement,
+and platform breakdown from `content_metrics`, plus any operator-entered metrics and
+highlights. The result is saved as a `tool_runs` record with durable report evidence and
+opens as a copyable client-ready report preview at `/dashboard/runs/[id]`.
+
 Each client page also includes **review generation**: set the client's Google Review URL,
 paste a list of happy customers (each as `Name, email or phone`), and Forge mints a
 click-tracked link (`/r/<token>`) plus a ready-to-send message for each one. When a delivery

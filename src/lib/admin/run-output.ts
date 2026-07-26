@@ -98,6 +98,24 @@ export interface KeywordResearchOutput {
   note: string | null;
 }
 
+const reportOutputSchema = z
+  .object({
+    period: z.string(),
+    executive_summary: z.string(),
+    whats_working: z.array(z.string()),
+    needs_attention: z.array(z.string()),
+    recommended_actions: z.array(z.string()),
+  })
+  .passthrough();
+
+export interface ReportOutput {
+  period: string;
+  executiveSummary: string;
+  whatsWorking: string[];
+  needsAttention: string[];
+  recommendedActions: string[];
+}
+
 export function parseSocialPostOutput(output: unknown): SocialPostDraftOutput | null {
   const parsed = socialPostOutputSchema.safeParse(output);
   if (!parsed.success) return null;
@@ -147,6 +165,19 @@ export function parseKeywordResearchOutput(output: unknown): KeywordResearchOutp
         }
       : null,
     note: parsed.data.note ?? null,
+  };
+}
+
+export function parseReportOutput(output: unknown): ReportOutput | null {
+  const parsed = reportOutputSchema.safeParse(output);
+  if (!parsed.success) return null;
+
+  return {
+    period: parsed.data.period,
+    executiveSummary: parsed.data.executive_summary,
+    whatsWorking: parsed.data.whats_working,
+    needsAttention: parsed.data.needs_attention,
+    recommendedActions: parsed.data.recommended_actions,
   };
 }
 

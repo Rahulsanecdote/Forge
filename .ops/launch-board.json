@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-07-26T21:16:20.320Z",
+  "updatedAt": "2026-07-26T21:45:00.000Z",
   "project": "forge-agent",
   "activeLane": "observability-readiness",
   "lanes": [
@@ -770,6 +770,60 @@
       ],
       "rollback": {
         "strategy": "remove the /dashboard/monitoring route and dashboard link while retaining underlying delivery, approval, metric, and checkpoint tables",
+        "verified": false
+      }
+    },
+    {
+      "id": "client-performance-reporting",
+      "title": "Operators can generate client-ready performance reports from live metrics",
+      "priority": "P0",
+      "type": "product_correctness",
+      "status": "in_progress",
+      "owner": "engineering",
+      "lane": "observability-readiness",
+      "createdAt": "2026-07-26T21:45:00.000Z",
+      "updatedAt": "2026-07-26T21:45:00.000Z",
+      "requiresHumanApproval": false,
+      "definitionOfDone": [
+        {
+          "item": "Client dashboard exposes a first-class report generation form",
+          "done": true
+        },
+        {
+          "item": "Report action includes current measured performance metrics when available and accepts operator-supplied metrics/highlights",
+          "done": true
+        },
+        {
+          "item": "Report runs are recorded as tool_runs with durable report evidence and audit rows",
+          "done": true
+        },
+        {
+          "item": "Run detail renders a readable report preview with copyable client-ready text",
+          "done": true
+        },
+        {
+          "item": "Focused parser tests and local launch gates pass",
+          "done": true
+        },
+        {
+          "item": "CI/build and production smoke evidence are recorded after push",
+          "done": false
+        }
+      ],
+      "evidence": [
+        {
+          "description": "Implemented the next reporting phase: a client-page Performance Report form, runPerformanceReport dashboard action, live content_metrics rollup seeding, durable generate_report evidence/audit writes, and a structured report preview on /dashboard/runs/[id].",
+          "source": "terminal",
+          "capturedAt": "2026-07-26T21:45:00.000Z"
+        },
+        {
+          "description": "Local validation passed: 131 Node tests, npm run typecheck, npm run launch:validate, npm run env:validate, and git diff --check. Local npm run build was stopped after no additional Next output; final build proof is delegated to GitHub CI.",
+          "source": "terminal",
+          "capturedAt": "2026-07-26T21:50:00.000Z"
+        }
+      ],
+      "rollback": {
+        "strategy": "remove the dashboard report form/action and report preview parser while leaving historical report tool_runs intact",
         "verified": false
       }
     }

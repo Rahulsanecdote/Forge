@@ -24,6 +24,7 @@ import {
   findBannedPhraseViolations,
   formatRunPayload,
   parseKeywordResearchOutput,
+  parseReportOutput,
   parseSocialPostOutput,
 } from '@/lib/admin/run-output';
 import { resolveScheduleTimeZone } from '@/forge/data/schedule-mapping';
@@ -89,6 +90,30 @@ function socialPublishingPackage(posts: Array<{
     .join('\n\n---\n\n');
 }
 
+function reportPackage(report: {
+  period: string;
+  executiveSummary: string;
+  whatsWorking: string[];
+  needsAttention: string[];
+  recommendedActions: string[];
+}) {
+  return [
+    `Performance Report — ${report.period}`,
+    '',
+    'Executive Summary',
+    report.executiveSummary,
+    '',
+    "What's Working",
+    ...report.whatsWorking.map((item) => `- ${item}`),
+    '',
+    'Needs Attention',
+    ...report.needsAttention.map((item) => `- ${item}`),
+    '',
+    'Recommended Actions',
+    ...report.recommendedActions.map((item) => `- ${item}`),
+  ].join('\n');
+}
+
 function ApprovalStatus({ status }: { status?: string }) {
   if (!status) return null;
 
@@ -136,6 +161,7 @@ function ApprovalStatus({ status }: { status?: string }) {
     'metrics-unconfigured': 'Set META_PAGE_ACCESS_TOKEN to pull post metrics.',
     'metrics-error': 'Could not refresh metrics. Check the Meta token and server logs.',
     'metrics-invalid': 'That metrics request was invalid.',
+    'report-complete': 'Report generated and recorded as durable run evidence.',
   };
   const isError =
     status === 'approval-blocked' ||
@@ -191,6 +217,7 @@ export default async function ToolRunDetailPage({
   const { run, client, approval, publications, currentBannedPhrases, errors } = detail;
   const socialPosts = run.tool === 'create_social_posts' ? parseSocialPostOutput(run.output) : null;
   const keywordResearch = run.tool === 'research_keywords' ? parseKeywordResearchOutput(run.output) : null;
+  const report = run.tool === 'generate_report' ? parseReportOutput(run.output) : null;
   const bannedPhraseViolations = findBannedPhraseViolations(run.output, currentBannedPhrases);
   const contentExportPolicy = {
     approvalStatus: approval?.status,
@@ -343,6 +370,8 @@ export default async function ToolRunDetailPage({
                 ? `${socialPosts.posts.length} generated drafts`
                 : keywordResearch
                   ? 'Keyword research'
+                  : report
+                    ? `Performance report · ${report.period}`
                   : 'Agent run detail'}
             </h2>
             <p className="mt-3 max-w-3xl font-sans text-sm leading-6 text-muted">
@@ -365,21 +394,25 @@ export default async function ToolRunDetailPage({
             </div>
             <div>
               <dt className="uppercase tracking-wide text-muted-dark">
-                {keywordResearch ? 'Data Source' : 'Platform'}
+                {keywordResearch ? 'Data Source' : report ? 'Artifact' : 'Platform'}
               </dt>
               <dd className="mt-1 text-ink">
                 {keywordResearch
                   ? (keywordResearch.dataSource?.provider ?? 'n/a')
+                  : report
+                    ? 'Report'
                   : platformName(socialPosts?.platform ?? null)}
               </dd>
             </div>
             <div>
               <dt className="uppercase tracking-wide text-muted-dark">
-                {keywordResearch ? 'Configured' : 'Approval'}
+                {keywordResearch ? 'Configured' : report ? 'Evidence' : 'Approval'}
               </dt>
               <dd className="mt-1 uppercase text-ink">
                 {keywordResearch
                   ? (keywordResearch.dataSource?.configured ? 'yes' : 'no')
+                  : report
+                    ? 'evidence'
                   : (approval?.status ?? 'not queued')}
               </dd>
             </div>
@@ -666,7 +699,58 @@ export default async function ToolRunDetailPage({
           </section>
         )}
 
-        {keywordResearch ? (
+        {report ? (
+          <section className="mt-8 space-y-6" aria-label="Performance report output">
+            <div className="border border-gold-border bg-surface/50 p-5">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <div className="font-mono text-xs uppercase tracking-wide text-muted">
+                    Client Report
+                  </div>
+                  <h3 className="mt-3 font-serif text-3xl text-ink">{report.period}</h3>
+                </div>
+                <CopyButton value={reportPackage(report)} label="Copy report" />
+              </div>
+
+              <div className="mt-6 border-l border-gold-border pl-5">
+                <div className="font-mono text-[11px] uppercase tracking-wide text-muted-dark">
+                  Executive Summary
+                </div>
+                <p className="mt-3 max-w-4xl font-sans text-base leading-7 text-ink">
+                  {report.executiveSummary}
+                </p>
+              </div>
+            </div>
+
+            <div className="grid gap-5 lg:grid-cols-3">
+              {[
+                { title: "What's Working", items: report.whatsWorking },
+                { title: 'Needs Attention', items: report.needsAttention },
+                { title: 'Recommended Actions', items: report.recommendedActions },
+              ].map((section) => (
+                <article key={section.title} className="border border-gold-border bg-surface/50 p-5">
+                  <div className="font-mono text-xs uppercase tracking-wide text-gold">
+                    {section.title}
+                  </div>
+                  {section.items.length > 0 ? (
+                    <ul className="mt-4 space-y-3">
+                      {section.items.map((item, index) => (
+                        <li
+                          key={`${section.title}-${index}`}
+                          className="border-b border-gold-border/60 pb-3 font-sans text-sm leading-6 text-muted last:border-b-0 last:pb-0"
+                        >
+                          {item}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="mt-4 font-mono text-xs text-muted-dark">No items generated.</p>
+                  )}
+                </article>
+              ))}
+            </div>
+          </section>
+        ) : keywordResearch ? (
           <section className="mt-8 space-y-6" aria-label="Keyword research output">
             <div className="border border-gold-border bg-surface/50 p-5">
               <div className="flex flex-wrap items-start justify-between gap-4">

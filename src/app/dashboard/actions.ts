@@ -9,7 +9,7 @@ import {
   setAdminSession,
   verifyAdminPassword,
 } from '@/lib/admin/auth';
-import { getAdminSupabase, loadClientDetail, loadToolRunDetail } from '@/lib/admin/data';
+import { getAdminSupabase, loadClientDetail, loadClientPerformance, loadToolRunDetail } from '@/lib/admin/data';
 import { findBannedPhraseViolations, parseSocialPostOutput } from '@/lib/admin/run-output';
 import { submissionFromFormData } from '@/lib/onboarding/invitations';
 import { brandVoiceFromOnboarding } from '@/lib/onboarding/brand-voice';
@@ -619,6 +619,147 @@ export async function runKeywordResearch(formData: FormData) {
   revalidatePath(`/dashboard/clients/${slug}`);
   if (!runId) redirectClient(slug, 'keyword-error');
   redirectRun(runId, 'keyword-complete');
+}
+
+function parseReportMetricLines(value: string) {
+  return value
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const [rawName, ...rest] = line.split(':');
+      const name = rawName?.trim();
+      const remainder = rest.join(':').trim();
+      if (!name || !remainder) return null;
+
+      const changeMatch = remainder.match(/\(([^)]+)\)\s*$/);
+      const value = changeMatch
+        ? remainder.slice(0, changeMatch.index).trim()
+        : remainder;
+      return {
+        name,
+        value,
+        ...(changeMatch?.[1] ? { change: changeMatch[1].trim() } : {}),
+      };
+    })
+    .filter((metric): metric is { name: string; value: string; change?: string } => Boolean(metric));
+}
+
+function reportMetricsFromPerformance(
+  performance: NonNullable<Awaited<ReturnType<typeof loadClientPerformance>>>,
+) {
+  const metrics = [
+    { name: 'Measured posts', value: String(performance.measuredPosts) },
+    { name: 'Total reach', value: String(performance.totals.reach) },
+    { name: 'Total impressions', value: String(performance.totals.impressions) },
+    { name: 'Likes', value: String(performance.totals.likes) },
+    { name: 'Comments', value: String(performance.totals.comments) },
+    { name: 'Shares', value: String(performance.totals.shares) },
+    { name: 'Saves', value: String(performance.totals.saved) },
+  ];
+
+  for (const platform of performance.byPlatform.slice(0, 3)) {
+    metrics.push({
+      name: `${platform.platform} posts measured`,
+      value: `${platform.posts} posts, ${platform.reach} reach, ${platform.likes + platform.comments + platform.shares} engagements`,
+    });
+  }
+
+  return metrics;
+}
+
+export async function runPerformanceReport(formData: FormData) {
+  await requireAdmin();
+  const slug = stringValue(formData, 'slug');
+  const period = stringValue(formData, 'period');
+  const highlights = listValue(formData, 'highlights');
+  const manualMetrics = parseReportMetricLines(stringValue(formData, 'metrics'));
+  const includeLiveMetrics = formData.get('include_live_metrics') != null;
+
+  if (!slug || !period) redirectClient(slug || 'unknown', 'report-invalid');
+
+  const detail = await loadClientDetail(slug);
+  if (!detail) redirect('/dashboard?status=client-missing');
+
+  const performance = includeLiveMetrics ? await loadClientPerformance(detail.client.id) : null;
+  const metrics = [
+    ...(performance ? reportMetricsFromPerformance(performance) : []),
+    ...manualMetrics,
+  ];
+  const input = { period, metrics, highlights };
+  const task = `Generate a performance report for ${period} using only provided metrics and highlights.`;
+  const supabase = getAdminSupabase();
+  let runId: string | null = null;
+
+  try {
+    const [{ DEFAULT_AGENT_KEY, assertToolPermission }, { resolveModel }, { generateReport }] =
+      await Promise.all([
+        import('@/forge/authority'),
+        import('@/forge/model'),
+        import('@/forge/tools/generate-report'),
+      ]);
+    const authority = await assertToolPermission({
+      agentKey: DEFAULT_AGENT_KEY,
+      toolName: generateReport.name,
+    });
+    if (authority.verificationGates.length > 0 || authority.requiresApproval) {
+      throw new Error('Report generation requires an authority gate that is not configured in the dashboard.');
+    }
+
+    const { data: run, error: runError } = await supabase
+      .from('tool_runs')
+      .insert({
+        agent_id: authority.agentId,
+        client_id: detail.client.id,
+        task,
+        tool: generateReport.name,
+        input,
+        status: 'running',
+        started_at: new Date().toISOString(),
+      })
+      .select('id')
+      .single();
+    if (runError || !run) {
+      throw new Error(`Could not record report run: ${runError?.message ?? 'missing run id'}`);
+    }
+    runId = run.id;
+
+    const output = await generateReport.execute(input, {
+      client: clientContextFromDetail(detail),
+      model: resolveModel(),
+    });
+
+    const { error: outputError } = await supabase
+      .from('tool_runs')
+      .update({ output, status: 'succeeded', completed_at: new Date().toISOString(), error: null })
+      .eq('id', run.id);
+    if (outputError) throw new Error(`Could not persist report output: ${outputError.message}`);
+
+    const { error: evidenceError } = await supabase.from('forge_run_evidence').insert({
+      run_id: run.id,
+      kind: 'report',
+      description: 'Structured performance report generated from the operator dashboard.',
+      payload: output,
+    });
+    if (evidenceError) throw new Error(`Could not record report evidence: ${evidenceError.message}`);
+
+    const { error: auditError } = await supabase.from('forge_run_audits').insert({
+      run_id: run.id,
+      status: 'succeeded',
+      summary: 'generate_report completed and produced durable report evidence.',
+      findings: [],
+    });
+    if (auditError) throw new Error(`Could not record report audit: ${auditError.message}`);
+  } catch (error) {
+    console.error('[dashboard/runPerformanceReport]', error);
+    if (runId) await markDashboardRunFailed(runId, error);
+    redirectClient(slug, 'report-error');
+  }
+
+  revalidatePath('/dashboard');
+  revalidatePath(`/dashboard/clients/${slug}`);
+  if (!runId) redirectClient(slug, 'report-error');
+  redirectRun(runId, 'report-complete');
 }
 
 const approvalDecisionSchema = z.enum(['approved', 'rejected']);

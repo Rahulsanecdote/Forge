@@ -8,6 +8,7 @@ import {
   revokeClientPortal,
   runClientTask,
   runKeywordResearch,
+  runPerformanceReport,
   setClientBilling,
   startClientSubscription,
   updateBrandVoice,
@@ -74,6 +75,7 @@ function StatusBanner({ status }: { status?: string }) {
     'voice-saved': 'Brand voice saved.',
     'run-complete': 'Forge run completed and was logged.',
     'keyword-complete': 'Keyword research completed with DataForSEO metrics when credentials are configured.',
+    'report-complete': 'Performance report generated from live metrics and provided highlights.',
     'profile-invalid': 'Enter a valid profile name and lowercase URL slug.',
     'profile-error': 'Client profile could not be saved.',
     'voice-error': 'Brand voice could not be saved.',
@@ -81,6 +83,8 @@ function StatusBanner({ status }: { status?: string }) {
     'run-invalid': 'Enter a task before running Forge.',
     'keyword-error': 'Keyword research could not complete. Check provider keys and server logs.',
     'keyword-invalid': 'Enter a keyword topic before running research.',
+    'report-error': 'Performance report could not complete. Check provider keys and server logs.',
+    'report-invalid': 'Enter a reporting period before generating a report.',
     'reply-published': 'Reply published to Google. The review is now marked posted.',
     'reply-blocked': 'Reply not published — the draft contains a banned phrase. Edit the brand voice or draft and retry.',
     'reply-unconfigured': 'Reply not published — configure a write-scoped Google token and the account/location IDs first.',
@@ -368,6 +372,57 @@ export default async function ClientDetailPage({
               </div>
               <button className="mt-5 bg-gold px-5 py-3 font-mono text-xs uppercase tracking-wide text-bg transition hover:bg-gold-soft">
                 Run Keyword Research
+              </button>
+            </form>
+
+            <form action={runPerformanceReport} className="border border-gold-border bg-surface/50 p-5">
+              <input type="hidden" name="slug" value={client.slug} />
+              <div className="font-mono text-xs uppercase tracking-wide text-muted">
+                Performance Report
+              </div>
+              <p className="mt-3 font-sans text-sm leading-6 text-muted">
+                Generate a client-ready report from measured post performance plus your period
+                highlights. Forge uses only the metrics listed here; it will not invent numbers.
+              </p>
+              <div className="mt-5">
+                <Field
+                  label="Period"
+                  name="period"
+                  defaultValue={new Intl.DateTimeFormat('en-US', {
+                    month: 'long',
+                    year: 'numeric',
+                  }).format(new Date())}
+                />
+              </div>
+              <label className="mt-4 flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  name="include_live_metrics"
+                  defaultChecked
+                  className="h-4 w-4 accent-gold"
+                />
+                <span className="font-mono text-xs text-muted">
+                  Include current measured post metrics
+                </span>
+              </label>
+              <div className="mt-4">
+                <TextArea
+                  label="Extra Metrics — one per line as Name: value (optional change)"
+                  name="metrics"
+                  rows={4}
+                  defaultValue=""
+                />
+              </div>
+              <div className="mt-4">
+                <TextArea
+                  label="Highlights — one per line"
+                  name="highlights"
+                  rows={4}
+                  defaultValue=""
+                />
+              </div>
+              <button className="mt-5 bg-gold px-5 py-3 font-mono text-xs uppercase tracking-wide text-bg transition hover:bg-gold-soft">
+                Generate Report
               </button>
             </form>
 
