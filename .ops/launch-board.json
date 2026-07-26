@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-07-26T19:41:09.766Z",
+  "updatedAt": "2026-07-26T21:16:20.320Z",
   "project": "forge-agent",
   "activeLane": "observability-readiness",
   "lanes": [
@@ -698,7 +698,7 @@
       "owner": "engineering",
       "lane": "observability-readiness",
       "createdAt": "2026-07-26T19:05:00.000Z",
-      "updatedAt": "2026-07-26T19:41:09.766Z",
+      "updatedAt": "2026-07-26T21:16:20.320Z",
       "requiresHumanApproval": true,
       "definitionOfDone": [
         {
@@ -707,6 +707,10 @@
         },
         {
           "item": "Monitoring reads current approvals, schedules, publication checkpoints, review delivery, billing gates, and metrics without calling external publishing APIs",
+          "done": true
+        },
+        {
+          "item": "Monitoring alert cron sends active issues to an optional operator webhook and skips cleanly when unconfigured or clean",
           "done": true
         },
         {
@@ -742,6 +746,26 @@
           "description": "Production smoke against https://forge-agent-ten.vercel.app passed: / redirects to /dashboard; /dashboard, /dashboard/onboarding, and /dashboard/monitoring redirect to /dashboard/login; /marketing returns 200 without operator internals.",
           "source": "terminal",
           "capturedAt": "2026-07-26T19:41:09.766Z"
+        },
+        {
+          "description": "Implemented monitoring-alerts Inngest cron with optional FORGE_ALERT_WEBHOOK_URL. Alert payloads are JSON, reuse the /dashboard/monitoring issue model, skip when unconfigured or clean, and fail closed for invalid URLs, network errors, and non-2xx webhook responses.",
+          "source": "terminal",
+          "capturedAt": "2026-07-26T20:45:52.000Z"
+        },
+        {
+          "description": "Local validation passed for alerting head 8228a42: all 130 Node tests, npm run typecheck, npm run launch:validate, npm run env:validate, and git diff --check.",
+          "source": "terminal",
+          "capturedAt": "2026-07-26T20:45:52.000Z"
+        },
+        {
+          "description": "GitHub Actions CI run 30219667211 passed commit 8228a4245617c05e11fdbab24f023776b8d4681b, including tests, LaunchOps validation, environment validation, TypeScript checking, Next production build, and gitleaks secret scan.",
+          "source": "https://github.com/Rahulsanecdote/Forge/actions/runs/30219667211",
+          "capturedAt": "2026-07-26T20:45:52.000Z"
+        },
+        {
+          "description": "Production smoke against https://forge-agent-ten.vercel.app passed after alerting deploy: / redirects to /dashboard; /dashboard, /dashboard/onboarding, and /dashboard/monitoring redirect to /dashboard/login; /marketing returns 200 without operator internals.",
+          "source": "terminal",
+          "capturedAt": "2026-07-26T21:16:20.320Z"
         }
       ],
       "rollback": {
