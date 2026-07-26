@@ -82,6 +82,18 @@ Open `/dashboard` to manage clients and inspect recent agent runs. Selecting a r
 draft preview at `/dashboard/runs/[id]`, including generated captions, hashtags, and image
 directions. Production access is protected by `FORGE_ADMIN_PASSWORD`.
 
+Before treating a deployment as ready, run the unauthenticated LaunchOps smoke check. It
+verifies the production app entry redirects into the dashboard, protected operator routes
+redirect to login, and the public marketing page remains reachable without leaking operator
+internals:
+
+```bash
+LAUNCH_SMOKE_APP_URL=https://forge-agent-ten.vercel.app npm run launch:smoke
+```
+
+Set `LAUNCH_SMOKE_RUN_ID=<run-id>` to include a protected draft-preview route in the same
+check.
+
 **Billing & plan enforcement.** Each client carries a subscription state, and Forge
 **hard-blocks automated work for non-paying clients** — the weekly-content, review-sweep,
 and scheduled-publish crons skip them and the Publish action is blocked (manual draft
