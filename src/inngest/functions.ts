@@ -7,6 +7,8 @@ import { importGoogleBusinessProfileReviewsForClient } from '../forge/data/googl
 import { loadDueSchedules, runDueSchedule } from '../forge/data/schedules';
 import { loadRecentlyPublishedRunIds, refreshRunMetrics } from '../forge/data/analytics';
 import { isDeliveryActive } from '@/lib/billing/entitlements';
+import { loadMonitoringData } from '@/lib/admin/data';
+import { sendMonitoringAlert } from '@/lib/admin/alerts';
 import { supabase } from '../supabase';
 import { env } from '../env';
 
@@ -14,6 +16,7 @@ const CONTENT_CRON = env.FORGE_CONTENT_CRON ?? '0 9 * * 1'; // Mondays 09:00 UTC
 const REVIEW_CRON = env.FORGE_REVIEW_CRON ?? '0 8 * * *'; // daily 08:00 UTC
 const PUBLISH_CRON = env.FORGE_PUBLISH_CRON ?? '*/15 * * * *'; // every 15 minutes
 const METRICS_CRON = env.FORGE_METRICS_CRON ?? '0 */6 * * *'; // every 6 hours
+const ALERT_CRON = env.FORGE_ALERT_CRON ?? '*/30 * * * *'; // every 30 minutes
 const METRICS_WINDOW_DAYS = 30;
 
 // Generate next week's social posts for every client.
@@ -162,4 +165,20 @@ export const refreshMetrics = inngest.createFunction(
   },
 );
 
-export const functions = [weeklyContent, reviewSweep, scheduledPublish, refreshMetrics];
+// Push active monitoring issues to an operator-owned webhook. The webhook can be Slack,
+// Discord, Make, Zapier, or any endpoint that accepts JSON. Unconfigured or clean states
+// skip without failing the Inngest run.
+export const monitoringAlerts = inngest.createFunction(
+  { id: 'monitoring-alerts', triggers: [{ cron: ALERT_CRON }] },
+  async ({ step }) => {
+    const data = await step.run('load-monitoring-data', () => loadMonitoringData());
+    return step.run('send-monitoring-alert', () =>
+      sendMonitoringAlert({
+        data,
+        webhookUrl: env.FORGE_ALERT_WEBHOOK_URL,
+      }),
+    );
+  },
+);
+
+export const functions = [weeklyContent, reviewSweep, scheduledPublish, refreshMetrics, monitoringAlerts];

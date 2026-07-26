@@ -108,6 +108,14 @@ grid of scheduled and published posts — each placed on its own client's local 
 side rail of drafts still awaiting your approval. It's a read-only cockpit over the existing
 `content_schedules` and `content_approvals` tables (no extra setup).
 
+The **monitoring cockpit** (`/dashboard/monitoring`) rolls up delivery health across pending
+approvals, due or failed schedules, publication checkpoints that need reconciliation,
+review-request delivery failures, billing delivery gates, and post-metric freshness. Set
+`FORGE_ALERT_WEBHOOK_URL` to an operator-owned webhook (Slack, Discord, Make, Zapier, etc.)
+to send active monitoring issues from the `monitoring-alerts` cron. The alert body is JSON
+and links operators back to `/dashboard/monitoring`; when the webhook is unset or there are
+no active issues, the cron skips cleanly.
+
 Each client page also includes **review generation**: set the client's Google Review URL,
 paste a list of happy customers (each as `Name, email or phone`), and Forge mints a
 click-tracked link (`/r/<token>`) plus a ready-to-send message for each one. When a delivery
