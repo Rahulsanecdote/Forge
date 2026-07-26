@@ -18,6 +18,7 @@ if (!appUrl) {
   await checkRedirect('/', '/dashboard');
   await checkRedirect('/dashboard', '/dashboard/login');
   await checkRedirect('/dashboard/onboarding', '/dashboard/login');
+  await checkRedirect('/dashboard/monitoring', '/dashboard/login');
   await checkOk('/marketing');
 
   if (runId) {
