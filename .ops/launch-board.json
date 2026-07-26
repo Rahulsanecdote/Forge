@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-07-26T15:45:09.000Z",
+  "updatedAt": "2026-07-26T19:41:09.766Z",
   "project": "forge-agent",
-  "activeLane": "delivery-hardening",
+  "activeLane": "observability-readiness",
   "lanes": [
     {
       "id": "launch-readiness",
@@ -25,7 +25,7 @@
     {
       "id": "delivery-hardening",
       "title": "Phase 03 — Authenticated delivery",
-      "status": "active",
+      "status": "parked",
       "phase": "03"
     },
     {
@@ -42,8 +42,8 @@
     },
     {
       "id": "observability-readiness",
-      "title": "PostHog + Sentry live",
-      "status": "parked",
+      "title": "Reporting + observability readiness",
+      "status": "active",
       "phase": "01"
     },
     {
@@ -686,6 +686,66 @@
       ],
       "rollback": {
         "strategy": "disable automated publish actions and scheduled delivery, retain publication checkpoints as audit records, and revert the checkpoint-aware runtime",
+        "verified": false
+      }
+    },
+    {
+      "id": "operations-monitoring-cockpit",
+      "title": "Operators can monitor delivery health and reporting freshness from one cockpit",
+      "priority": "P0",
+      "type": "production_deploy",
+      "status": "shipped",
+      "owner": "engineering",
+      "lane": "observability-readiness",
+      "createdAt": "2026-07-26T19:05:00.000Z",
+      "updatedAt": "2026-07-26T19:41:09.766Z",
+      "requiresHumanApproval": true,
+      "definitionOfDone": [
+        {
+          "item": "Dashboard exposes a protected monitoring route with delivery health, active issues, and production proof queues",
+          "done": true
+        },
+        {
+          "item": "Monitoring reads current approvals, schedules, publication checkpoints, review delivery, billing gates, and metrics without calling external publishing APIs",
+          "done": true
+        },
+        {
+          "item": "Focused tests prove stale publishing, severity escalation, and issue generation",
+          "done": true
+        },
+        {
+          "item": "CI verifies tests, LaunchOps validation, env validation, typecheck, production build, and secret scan on exact head",
+          "done": true
+        },
+        {
+          "item": "Production smoke proves the monitoring route is protected and the public marketing route remains safe",
+          "done": true
+        }
+      ],
+      "evidence": [
+        {
+          "description": "Implemented /dashboard/monitoring with server-side service-role reads for content approvals, schedules, content_publications reconciliation, review-request delivery failures, content_metrics freshness, and billing delivery gates. The page links directly to client/run records for operator action and does not call provider publishing APIs.",
+          "source": "terminal",
+          "capturedAt": "2026-07-26T19:05:00.000Z"
+        },
+        {
+          "description": "Local validation passed: 126 Node tests, npm run typecheck, npm run launch:validate, npm run env:validate, node --check scripts/verify-production-smoke.mjs, and git diff --check.",
+          "source": "terminal",
+          "capturedAt": "2026-07-26T19:34:00.000Z"
+        },
+        {
+          "description": "GitHub Actions CI run 30217150041 passed commit bf86b3e57913978299abfaa404d90ec645dd7712 in 1m 16s, including tests, LaunchOps validation, environment validation, TypeScript checking, Next production build, and gitleaks secret scan.",
+          "source": "https://github.com/Rahulsanecdote/Forge/actions/runs/30217150041",
+          "capturedAt": "2026-07-26T19:36:30.000Z"
+        },
+        {
+          "description": "Production smoke against https://forge-agent-ten.vercel.app passed: / redirects to /dashboard; /dashboard, /dashboard/onboarding, and /dashboard/monitoring redirect to /dashboard/login; /marketing returns 200 without operator internals.",
+          "source": "terminal",
+          "capturedAt": "2026-07-26T19:41:09.766Z"
+        }
+      ],
+      "rollback": {
+        "strategy": "remove the /dashboard/monitoring route and dashboard link while retaining underlying delivery, approval, metric, and checkpoint tables",
         "verified": false
       }
     }
