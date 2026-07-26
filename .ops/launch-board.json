@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-07-23T19:01:00.000Z",
+  "updatedAt": "2026-07-26T15:45:09.000Z",
   "project": "forge-agent",
   "activeLane": "delivery-hardening",
   "lanes": [
@@ -615,11 +615,11 @@
       "title": "External publishing is resumable without duplicating live posts",
       "priority": "P0",
       "type": "production_deploy",
-      "status": "in_progress",
+      "status": "shipped",
       "owner": "engineering",
       "lane": "delivery-hardening",
       "createdAt": "2026-07-23T17:47:56.000Z",
-      "updatedAt": "2026-07-23T19:01:00.000Z",
+      "updatedAt": "2026-07-26T15:45:09.000Z",
       "requiresHumanApproval": true,
       "definitionOfDone": [
         {
@@ -644,7 +644,7 @@
         },
         {
           "item": "Production migration, deployment, and non-publishing smoke evidence are recorded",
-          "done": false
+          "done": true
         }
       ],
       "evidence": [
@@ -672,6 +672,16 @@
           "description": "Vercel deployed commit 37c68f7 as the current production deployment in 36s; unauthenticated /dashboard smoke redirected to /dashboard/login without exposing operator data.",
           "source": "https://vercel.com/rahuls-projects-5433a772/forge-agent/CnqWLNGFBy45cc51u1Cd7k1vU7Re",
           "capturedAt": "2026-07-23T19:01:00.000Z"
+        },
+        {
+          "description": "Production migration history was reconciled against a schema-only dump: verified existing carousel, metrics, and review-request migrations were marked applied; delivery, billing, opt-out, portal-key, and publication-checkpoint migrations then applied successfully. Local and remote histories now match through 20260723174832.",
+          "source": "terminal",
+          "capturedAt": "2026-07-26T15:45:09.000Z"
+        },
+        {
+          "description": "Post-migration production verification found content_publications with RLS enabled, service-role-only table and RPC access, all six checkpoint functions, required constraints and indexes, and no Supabase public-schema lint errors.",
+          "source": "terminal",
+          "capturedAt": "2026-07-26T15:45:09.000Z"
         }
       ],
       "rollback": {
