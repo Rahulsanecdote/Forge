@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-07-26T23:17:21.271Z",
+  "updatedAt": "2026-07-26T23:45:00.000Z",
   "project": "forge-agent",
   "activeLane": "observability-readiness",
   "lanes": [
@@ -834,6 +834,55 @@
       ],
       "rollback": {
         "strategy": "remove the dashboard report form/action and report preview parser while leaving historical report tool_runs intact",
+        "verified": false
+      }
+    },
+    {
+      "id": "real-client-reporting-proof",
+      "title": "Real-client reporting proof is captured from production data",
+      "priority": "P0",
+      "type": "observability",
+      "status": "in_progress",
+      "owner": "engineering",
+      "lane": "observability-readiness",
+      "createdAt": "2026-07-26T23:45:00.000Z",
+      "updatedAt": "2026-07-26T23:45:00.000Z",
+      "requiresHumanApproval": false,
+      "definitionOfDone": [
+        {
+          "item": "Repeatable LaunchOps verifier exists for production report evidence",
+          "done": true
+        },
+        {
+          "item": "A real production client has at least one measured content_metrics row",
+          "done": false
+        },
+        {
+          "item": "A production generate_report run is created for that client using measured metrics",
+          "done": false
+        },
+        {
+          "item": "npm run launch:report-proof passes with LAUNCH_REPORT_RUN_ID set to the production run",
+          "done": false
+        },
+        {
+          "item": "The verified run URL, client, metric-row count, evidence-row count, and audit-row count are recorded as LaunchOps evidence",
+          "done": false
+        },
+        {
+          "item": "Final-head CI/gitleaks and production smoke pass after the proof record is committed",
+          "done": false
+        }
+      ],
+      "evidence": [
+        {
+          "description": "Added npm run launch:report-proof, a repeatable verifier that checks a production generate_report run for a real client, measured metric input, structured report output, report evidence, succeeded audit evidence, and stored content_metrics rows.",
+          "source": "terminal",
+          "capturedAt": "2026-07-26T23:45:00.000Z"
+        }
+      ],
+      "rollback": {
+        "strategy": "remove scripts/verify-report-proof.mjs and the launch:report-proof package script; no production runtime state is changed by the verifier",
         "verified": false
       }
     }

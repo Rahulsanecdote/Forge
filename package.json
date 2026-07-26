@@ -19,6 +19,7 @@
     "env:validate": "node scripts/validate-env.mjs",
     "launch:status": "node .ops/launch-status.mjs",
     "launch:validate": "node scripts/validate-launch-board.mjs",
+    "launch:report-proof": "node scripts/verify-report-proof.mjs",
     "launch:smoke": "node scripts/verify-production-smoke.mjs",
     "launch:onboarding:e2e": "node --import tsx scripts/verify-onboarding-e2e.ts"
   },
