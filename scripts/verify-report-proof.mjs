@@ -2,6 +2,8 @@
 // LaunchOps proof gate for real-client performance reports.
 // Verifies a production `generate_report` run has measured inputs, structured output,
 // durable report evidence, and audit evidence. It does not call any model provider.
+// Set LAUNCH_REPORT_RUN_ID to pin a specific run; otherwise the latest succeeded
+// `generate_report` run is used.
 
 import { createClient } from '@supabase/supabase-js';
 import { config } from 'dotenv';
@@ -9,14 +11,14 @@ import { config } from 'dotenv';
 config({ path: '.env', quiet: true });
 config({ path: '.env.local', override: true, quiet: true });
 
-const runId = process.env.LAUNCH_REPORT_RUN_ID;
+const runId = process.env.LAUNCH_REPORT_RUN_ID?.trim();
 const appUrl = normalizeAppUrl(process.env.LAUNCH_SMOKE_APP_URL || process.env.NEXT_PUBLIC_APP_URL);
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const errors = [];
 
-if (!runId || !isUuid(runId)) {
-  fail('Set LAUNCH_REPORT_RUN_ID to the production generate_report run UUID.');
+if (runId && !isUuid(runId)) {
+  fail('LAUNCH_REPORT_RUN_ID must be a production generate_report run UUID. Omit it to verify the latest succeeded report run.');
 }
 if (!supabaseUrl || !serviceRoleKey) {
   fail('Set NEXT_PUBLIC_SUPABASE_URL/SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.');
@@ -29,16 +31,12 @@ if (!errors.length) {
     auth: { persistSession: false },
   });
 
-  const { data: run, error: runError } = await supabase
-    .from('tool_runs')
-    .select('id, client_id, tool, task, input, output, status, started_at, completed_at')
-    .eq('id', runId)
-    .single();
+  const { run, error: runError, selectedBy } = await loadReportRun(supabase, runId);
 
   if (runError || !run) {
-    fail(`Could not load tool run ${runId}: ${runError?.message ?? 'not found'}`);
+    fail(`Could not load report run${runId ? ` ${runId}` : ''}: ${runError ?? 'not found'}`);
   } else {
-    proof = await verifyRun(supabase, run);
+    proof = await verifyRun(supabase, run, selectedBy);
   }
 }
 
@@ -60,7 +58,35 @@ console.log(
   ),
 );
 
-async function verifyRun(supabase, run) {
+async function loadReportRun(supabase, pinnedRunId) {
+  const select = 'id, client_id, tool, task, input, output, status, started_at, completed_at';
+
+  if (pinnedRunId) {
+    const { data, error } = await supabase
+      .from('tool_runs')
+      .select(select)
+      .eq('id', pinnedRunId)
+      .single();
+    return { run: data, error: error?.message ?? null, selectedBy: 'LAUNCH_REPORT_RUN_ID' };
+  }
+
+  const { data, error } = await supabase
+    .from('tool_runs')
+    .select(select)
+    .eq('tool', 'generate_report')
+    .eq('status', 'succeeded')
+    .not('client_id', 'is', null)
+    .order('completed_at', { ascending: false, nullsFirst: false })
+    .limit(1);
+
+  return {
+    run: data?.[0] ?? null,
+    error: error?.message ?? null,
+    selectedBy: 'latest_succeeded_generate_report',
+  };
+}
+
+async function verifyRun(supabase, run, selectedBy) {
   if (run.tool !== 'generate_report') fail(`Run ${run.id} is tool "${run.tool}", expected "generate_report".`);
   if (run.status !== 'succeeded') fail(`Run ${run.id} status is "${run.status}", expected "succeeded".`);
   if (!run.client_id) fail(`Run ${run.id} has no client_id.`);
@@ -107,6 +133,7 @@ async function verifyRun(supabase, run) {
 
   return {
     id: run.id,
+    selectedBy,
     client: client
       ? {
           name: client.name,
