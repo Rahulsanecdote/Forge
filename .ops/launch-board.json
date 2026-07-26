@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-07-26T21:45:00.000Z",
+  "updatedAt": "2026-07-26T23:17:21.271Z",
   "project": "forge-agent",
   "activeLane": "observability-readiness",
   "lanes": [
@@ -778,11 +778,11 @@
       "title": "Operators can generate client-ready performance reports from live metrics",
       "priority": "P0",
       "type": "product_correctness",
-      "status": "in_progress",
+      "status": "shipped",
       "owner": "engineering",
       "lane": "observability-readiness",
       "createdAt": "2026-07-26T21:45:00.000Z",
-      "updatedAt": "2026-07-26T21:45:00.000Z",
+      "updatedAt": "2026-07-26T23:17:21.271Z",
       "requiresHumanApproval": false,
       "definitionOfDone": [
         {
@@ -807,7 +807,7 @@
         },
         {
           "item": "CI/build and production smoke evidence are recorded after push",
-          "done": false
+          "done": true
         }
       ],
       "evidence": [
@@ -820,6 +820,16 @@
           "description": "Local validation passed: 131 Node tests, npm run typecheck, npm run launch:validate, npm run env:validate, and git diff --check. Local npm run build was stopped after no additional Next output; final build proof is delegated to GitHub CI.",
           "source": "terminal",
           "capturedAt": "2026-07-26T21:50:00.000Z"
+        },
+        {
+          "description": "GitHub Actions CI run 30224633399 passed commit 2b5306d3a90510a60207d26b71050ef244d52eb0, including tests, LaunchOps validation, environment validation, TypeScript checking, Next production build, and gitleaks secret scan.",
+          "source": "https://github.com/Rahulsanecdote/Forge/actions/runs/30224633399",
+          "capturedAt": "2026-07-26T23:09:14.000Z"
+        },
+        {
+          "description": "Production smoke against https://forge-agent-ten.vercel.app passed after the report workflow deploy: / redirects to /dashboard; /dashboard, /dashboard/onboarding, and /dashboard/monitoring redirect to /dashboard/login; /marketing returns 200 without operator internals.",
+          "source": "terminal",
+          "capturedAt": "2026-07-26T23:17:21.271Z"
         }
       ],
       "rollback": {
