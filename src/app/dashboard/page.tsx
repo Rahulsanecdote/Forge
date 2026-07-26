@@ -62,6 +62,9 @@ export default async function DashboardPage() {
 
       <div className="mx-auto max-w-7xl px-6 py-10">
         <div className="mb-6 flex justify-end gap-3">
+          <Link href="/dashboard/monitoring" className="border border-gold-border px-4 py-3 font-mono text-xs uppercase tracking-wide text-muted transition hover:border-gold/60 hover:text-gold">
+            Monitoring
+          </Link>
           <Link href="/dashboard/calendar" className="border border-gold-border px-4 py-3 font-mono text-xs uppercase tracking-wide text-muted transition hover:border-gold/60 hover:text-gold">
             Content calendar
           </Link>

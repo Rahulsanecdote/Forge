@@ -11,6 +11,15 @@ import {
   type PublishedMetric,
 } from '@/forge/data/posting-insights-mapping';
 import type { CalendarEntry, CalendarStatus } from '@/lib/admin/calendar-grid';
+import {
+  buildMonitoringIssues,
+  isStalePublishing,
+  minutesSince,
+  monitoringSeverity,
+  type MonitoringIssue,
+  type MonitoringSeverity,
+} from '@/lib/admin/monitoring';
+import { isDeliveryActive } from '@/lib/billing/entitlements';
 
 export type { ClientPerformanceSummary } from '@/forge/data/performance-summary-mapping';
 export type { PostingSlot } from '@/forge/data/posting-insights-mapping';
@@ -305,6 +314,60 @@ export interface ContentCalendarData {
   errors: string[];
 }
 
+export interface MonitoringRow {
+  id: string;
+  title: string;
+  detail: string;
+  href: string | null;
+  status: string;
+  timestamp: string | null;
+  ageMinutes: number | null;
+  severity: 'info' | 'warning' | 'critical';
+}
+
+export interface MonitoringMetricClient {
+  id: string;
+  name: string;
+  slug: string;
+  latestFetchedAt: string | null;
+  totalInteractions: number;
+  rowCount: number;
+  stale: boolean;
+}
+
+export interface MonitoringClientGate {
+  id: string;
+  name: string;
+  slug: string;
+  plan: string | null;
+  subscriptionStatus: string;
+  billingOverride: boolean;
+}
+
+export interface DashboardMonitoringData {
+  capturedAt: string;
+  health: MonitoringSeverity;
+  issues: MonitoringIssue[];
+  stats: {
+    pendingApprovals: number;
+    dueSchedules: number;
+    failedSchedules: number;
+    reconcilePublications: number;
+    stalePublishingPublications: number;
+    failedReviewRequests: number;
+    metricsRows: number;
+    clientsWithFreshMetrics: number;
+    inactiveDeliveryClients: number;
+  };
+  pendingApprovals: MonitoringRow[];
+  publicationCheckpoints: MonitoringRow[];
+  scheduleIssues: MonitoringRow[];
+  reviewDeliveryIssues: MonitoringRow[];
+  metricClients: MonitoringMetricClient[];
+  inactiveClients: MonitoringClientGate[];
+  errors: string[];
+}
+
 const SCHEDULE_STATUS_TO_CALENDAR: Record<string, CalendarStatus> = {
   pending: 'scheduled',
   publishing: 'publishing',
@@ -367,6 +430,252 @@ export async function loadContentCalendar(startIso: string, endIso: string): Pro
     });
 
   return { entries, pendingApprovals, errors };
+}
+
+export async function loadMonitoringData(now = new Date()): Promise<DashboardMonitoringData> {
+  const supabase = getAdminSupabase();
+  const errors: string[] = [];
+  const nowIso = now.toISOString();
+  const staleMetricCutoffMs = now.getTime() - 24 * 60 * 60 * 1000;
+
+  const pendingApprovals = await safeQuery<DashboardContentApproval & Record<string, unknown>>(
+    supabase
+      .from('content_approvals')
+      .select('id, run_id, client_id, status, requested_at, clients(name, slug), tool_runs(task, tool)')
+      .eq('status', 'pending')
+      .order('requested_at', { ascending: true })
+      .limit(25),
+  )
+    .then((rows) =>
+      rows.map((row) => {
+        const client = relationRecord(row.clients);
+        const run = relationRecord(row.tool_runs);
+        return {
+          id: row.id,
+          title: asString(client?.name) ?? 'Client',
+          detail: asString(run?.task) ?? asString(run?.tool) ?? 'Draft awaiting operator decision',
+          href: `/dashboard/runs/${row.run_id}`,
+          status: row.status,
+          timestamp: row.requested_at,
+          ageMinutes: minutesSince(row.requested_at, nowIso),
+          severity: 'info' as const,
+        };
+      }),
+    )
+    .catch((error: Error) => {
+      errors.push(`content_approvals: ${error.message}`);
+      return [];
+    });
+
+  const publicationCheckpoints = await safeQuery<Record<string, unknown>>(
+    supabase
+      .from('content_publications')
+      .select('id, run_id, post_index, platform, status, last_error, claimed_at, updated_at, clients(name, slug)')
+      .in('status', ['publishing', 'reconcile'])
+      .order('updated_at', { ascending: true })
+      .limit(50),
+  )
+    .then((rows) =>
+      rows.map((row) => {
+        const client = relationRecord(row.clients);
+        const status = String(row.status ?? '');
+        const timestamp = asString(row.updated_at) ?? asString(row.claimed_at);
+        const stale = status === 'publishing' && isStalePublishing(timestamp, nowIso);
+        return {
+          id: String(row.id),
+          title: `${asString(client?.name) ?? 'Client'} · post ${Number(row.post_index ?? 0) + 1}`,
+          detail:
+            asString(row.last_error) ??
+            `${String(row.platform ?? 'platform')} checkpoint is ${status}.`,
+          href: `/dashboard/runs/${String(row.run_id)}`,
+          status,
+          timestamp,
+          ageMinutes: minutesSince(timestamp, nowIso),
+          severity: status === 'reconcile' || stale ? ('critical' as const) : ('warning' as const),
+        };
+      }),
+    )
+    .catch((error: Error) => {
+      errors.push(`content_publications: ${error.message}`);
+      return [];
+    });
+
+  const scheduleIssues = await safeQuery<Record<string, unknown>>(
+    supabase
+      .from('content_schedules')
+      .select('id, run_id, status, scheduled_for, last_error, updated_at, clients(name, slug), tool_runs(task, tool)')
+      .in('status', ['pending', 'publishing', 'failed'])
+      .order('scheduled_for', { ascending: true })
+      .limit(50),
+  )
+    .then((rows) =>
+      rows
+        .filter((row) => {
+          const status = String(row.status ?? '');
+          if (status === 'failed') return true;
+          if (status === 'publishing') return isStalePublishing(asString(row.updated_at), nowIso);
+          return Date.parse(String(row.scheduled_for ?? '')) <= now.getTime();
+        })
+        .map((row) => {
+          const client = relationRecord(row.clients);
+          const run = relationRecord(row.tool_runs);
+          const status = String(row.status ?? '');
+          const due = Date.parse(String(row.scheduled_for ?? '')) <= now.getTime();
+          return {
+            id: String(row.id),
+            title: asString(client?.name) ?? 'Client',
+            detail:
+              asString(row.last_error) ??
+              asString(run?.task) ??
+              (due ? 'Scheduled publish is due or overdue.' : 'Scheduled publish is in progress.'),
+            href: `/dashboard/runs/${String(row.run_id)}`,
+            status,
+            timestamp: asString(row.scheduled_for),
+            ageMinutes: minutesSince(asString(row.scheduled_for), nowIso),
+            severity: status === 'failed' || status === 'publishing' ? ('critical' as const) : ('warning' as const),
+          };
+        }),
+    )
+    .catch((error: Error) => {
+      errors.push(`content_schedules: ${error.message}`);
+      return [];
+    });
+
+  const reviewDeliveryIssues = await safeQuery<Record<string, unknown>>(
+    supabase
+      .from('review_requests')
+      .select('id, client_id, customer_name, channel, send_status, status, created_at, clicked_at, delivery_error, clients(name, slug)')
+      .in('send_status', ['failed', 'pending'])
+      .order('created_at', { ascending: false })
+      .limit(50),
+  )
+    .then((rows) =>
+      rows.map((row) => {
+        const client = relationRecord(row.clients);
+        const sendStatus = String(row.send_status ?? '');
+        return {
+          id: String(row.id),
+          title: asString(client?.name) ?? 'Client',
+          detail:
+            asString(row.delivery_error) ??
+            `${asString(row.customer_name) ?? 'Customer'} review request is ${sendStatus} by ${String(row.channel ?? 'manual')}.`,
+          href: asString(client?.slug) ? `/dashboard/clients/${asString(client?.slug)}` : null,
+          status: sendStatus,
+          timestamp: asString(row.created_at),
+          ageMinutes: minutesSince(asString(row.created_at), nowIso),
+          severity: sendStatus === 'failed' ? ('critical' as const) : ('warning' as const),
+        };
+      }),
+    )
+    .catch((error: Error) => {
+      errors.push(`review_requests: ${error.message}`);
+      return [];
+    });
+
+  const clients = await safeQuery<DashboardClient>(
+    supabase.from('clients').select(clientColumns).order('created_at', { ascending: false }).limit(500),
+  )
+    .then((rows) => rows.map(normalizeClient))
+    .catch((error: Error) => {
+      errors.push(`clients: ${error.message}`);
+      return [];
+    });
+
+  const inactiveClients = clients
+    .filter((client) =>
+      !isDeliveryActive({
+        subscriptionStatus: client.subscription_status,
+        billingOverride: client.billing_override,
+      }),
+    )
+    .map((client) => ({
+      id: client.id,
+      name: client.name,
+      slug: client.slug,
+      plan: client.plan,
+      subscriptionStatus: client.subscription_status,
+      billingOverride: client.billing_override,
+    }));
+
+  const metrics = await safeQuery<Record<string, unknown>>(
+    supabase
+      .from('content_metrics')
+      .select('id, client_id, platform, interactions, fetched_at, clients(name, slug)')
+      .order('fetched_at', { ascending: false })
+      .limit(500),
+  ).catch((error: Error) => {
+    errors.push(`content_metrics: ${error.message}`);
+    return [];
+  });
+
+  const metricByClient = new Map<string, MonitoringMetricClient>();
+  for (const row of metrics) {
+    const clientId = asString(row.client_id);
+    if (!clientId) continue;
+    const client = relationRecord(row.clients);
+    const fetchedAt = asString(row.fetched_at);
+    const existing = metricByClient.get(clientId);
+    const interactions = typeof row.interactions === 'number' ? row.interactions : 0;
+    const latestFetchedAt =
+      !existing?.latestFetchedAt || (fetchedAt && Date.parse(fetchedAt) > Date.parse(existing.latestFetchedAt))
+        ? fetchedAt
+        : existing.latestFetchedAt;
+
+    metricByClient.set(clientId, {
+      id: clientId,
+      name: asString(client?.name) ?? 'Client',
+      slug: asString(client?.slug) ?? clientId,
+      latestFetchedAt,
+      totalInteractions: (existing?.totalInteractions ?? 0) + interactions,
+      rowCount: (existing?.rowCount ?? 0) + 1,
+      stale: latestFetchedAt ? Date.parse(latestFetchedAt) < staleMetricCutoffMs : true,
+    });
+  }
+
+  const metricClients = [...metricByClient.values()].sort((a, b) => {
+    if (a.stale !== b.stale) return a.stale ? -1 : 1;
+    return (Date.parse(b.latestFetchedAt ?? '') || 0) - (Date.parse(a.latestFetchedAt ?? '') || 0);
+  });
+
+  const stats = {
+    pendingApprovals: pendingApprovals.length,
+    dueSchedules: scheduleIssues.filter((row) => row.status === 'pending').length,
+    failedSchedules: scheduleIssues.filter((row) => row.status === 'failed').length,
+    reconcilePublications: publicationCheckpoints.filter((row) => row.status === 'reconcile').length,
+    stalePublishingPublications: publicationCheckpoints.filter(
+      (row) => row.status === 'publishing' && row.severity === 'critical',
+    ).length,
+    failedReviewRequests: reviewDeliveryIssues.filter((row) => row.status === 'failed').length,
+    metricsRows: metrics.length,
+    clientsWithFreshMetrics: metricClients.filter((client) => !client.stale).length,
+    inactiveDeliveryClients: inactiveClients.length,
+  };
+
+  const monitoringInput = {
+    nowIso,
+    pendingApprovals: stats.pendingApprovals,
+    reconcilePublications: stats.reconcilePublications,
+    stalePublishingPublications: stats.stalePublishingPublications,
+    dueSchedules: stats.dueSchedules,
+    failedSchedules: stats.failedSchedules,
+    failedReviewRequests: stats.failedReviewRequests,
+    staleMetricsClients: metricClients.filter((client) => client.stale).length,
+    inactiveDeliveryClients: stats.inactiveDeliveryClients,
+  };
+
+  return {
+    capturedAt: nowIso,
+    health: monitoringSeverity(monitoringInput),
+    issues: buildMonitoringIssues(monitoringInput),
+    stats,
+    pendingApprovals,
+    publicationCheckpoints,
+    scheduleIssues,
+    reviewDeliveryIssues,
+    metricClients,
+    inactiveClients,
+    errors,
+  };
 }
 
 export async function loadClientDetail(slug: string): Promise<DashboardClientDetail | null> {
