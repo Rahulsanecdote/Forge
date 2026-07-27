@@ -58,6 +58,12 @@ export interface PortalData {
   performance: ClientPerformanceSummary | null;
 }
 
+export interface PortalReportDetail {
+  client: PortalData['client'];
+  report: PortalReportItem;
+  performance: ClientPerformanceSummary | null;
+}
+
 interface ApprovalRow {
   run_id: string;
   status: 'pending' | 'approved' | 'rejected';
@@ -187,6 +193,58 @@ export async function loadClientPortal(clientId: string): Promise<PortalData | n
       (row) => ({ runId: row.run_id, scheduledFor: row.scheduled_for, status: row.status }),
     ),
     reports,
+    performance: summarizeClientPerformance((metrics ?? []) as MetricRowInput[]),
+  };
+}
+
+export async function loadPortalReportDetail(
+  clientId: string,
+  runId: string,
+): Promise<PortalReportDetail | null> {
+  const supabase = getAdminSupabase();
+
+  const { data: client } = await supabase
+    .from('clients')
+    .select('id, slug, name, industry, timezone, posting_frequency')
+    .eq('id', clientId)
+    .maybeSingle();
+  if (!client) return null;
+
+  const { data: run } = await supabase
+    .from('tool_runs')
+    .select('id, task, output, created_at')
+    .eq('id', runId)
+    .eq('client_id', clientId)
+    .eq('tool', 'generate_report')
+    .maybeSingle();
+  if (!run) return null;
+
+  const report = parseReportOutput((run as { output: unknown }).output);
+  if (!report) return null;
+
+  const { data: metrics } = await supabase
+    .from('content_metrics')
+    .select(
+      'platform, caption, permalink, likes, comments, shares, saved, reach, impressions, interactions, fetched_at',
+    )
+    .eq('client_id', clientId);
+
+  return {
+    client: {
+      id: client.id,
+      slug: client.slug,
+      name: client.name,
+      industry: client.industry ?? null,
+      timezone: client.timezone ?? null,
+      postingFrequency: client.posting_frequency ?? null,
+    },
+    report: {
+      runId: run.id,
+      period: report.period,
+      task: run.task,
+      createdAt: run.created_at,
+      report,
+    },
     performance: summarizeClientPerformance((metrics ?? []) as MetricRowInput[]),
   };
 }

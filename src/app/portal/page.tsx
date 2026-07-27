@@ -5,6 +5,7 @@ import { formatReportPackage } from '@/lib/admin/run-output';
 import { resolveScheduleTimeZone } from '@/forge/data/schedule-mapping';
 import { CopyButton } from '@/components/dashboard/copy-button';
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { decidePortalContent, portalLogout } from './actions';
 
 export const dynamic = 'force-dynamic';
@@ -149,7 +150,15 @@ export default async function ClientPortalPage({
                 </h2>
               </div>
               {latestReport && (
-                <CopyButton value={formatReportPackage(latestReport.report)} label="Copy report" />
+                <div className="flex flex-wrap items-center gap-3">
+                  <Link
+                    href={`/portal/reports/${latestReport.runId}`}
+                    className="bg-gold px-3 py-2 font-mono text-[11px] uppercase tracking-wide text-bg transition hover:bg-gold-soft"
+                  >
+                    View report
+                  </Link>
+                  <CopyButton value={formatReportPackage(latestReport.report)} label="Copy report" />
+                </div>
               )}
             </div>
             {latestReport ? (
@@ -215,7 +224,15 @@ export default async function ClientPortalPage({
                       </div>
                       <h3 className="mt-2 font-serif text-xl text-ink">{item.period}</h3>
                     </div>
-                    <CopyButton value={formatReportPackage(item.report)} label="Copy" />
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Link
+                        href={`/portal/reports/${item.runId}`}
+                        className="border border-gold-border px-3 py-2 font-mono text-[11px] uppercase tracking-wide text-muted transition hover:border-gold/60 hover:text-gold"
+                      >
+                        View
+                      </Link>
+                      <CopyButton value={formatReportPackage(item.report)} label="Copy" />
+                    </div>
                   </div>
                   <p className="mt-3 line-clamp-3 font-sans text-sm leading-6 text-muted">
                     {item.report.executiveSummary}

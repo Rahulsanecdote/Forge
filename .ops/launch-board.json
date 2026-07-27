@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-07-27T06:50:00.000Z",
+  "updatedAt": "2026-07-27T11:28:09.000Z",
   "project": "forge-agent",
   "activeLane": "observability-readiness",
   "lanes": [
@@ -967,7 +967,7 @@
       "owner": "engineering",
       "lane": "observability-readiness",
       "createdAt": "2026-07-27T03:05:00.000Z",
-      "updatedAt": "2026-07-27T03:05:00.000Z",
+      "updatedAt": "2026-07-27T11:28:09.000Z",
       "requiresHumanApproval": false,
       "definitionOfDone": [
         {
@@ -987,6 +987,10 @@
           "done": true
         },
         {
+          "item": "Portal report detail pages provide client-scoped printable and plaintext export views",
+          "done": true
+        },
+        {
           "item": "Local typecheck, test, env, launch-board, and diff hygiene pass",
           "done": true
         }
@@ -1001,6 +1005,11 @@
           "description": "Local validation passed: npm run test (135 tests), npm run typecheck, npm run env:validate, npm run launch:validate, and git diff --check.",
           "source": "terminal",
           "capturedAt": "2026-07-27T03:06:00.000Z"
+        },
+        {
+          "description": "Added /portal/reports/[runId] and /portal/reports/[runId]/export using the signed portal client session as the tenant boundary. The portal homepage now links to full report detail pages, with copy, plaintext download, and print/PDF controls. Local npm run typecheck, npm run test (136 tests), npm run launch:validate, and git diff --check passed; local npm run build was stopped after repeated Next CLI startup hangs with no compile output.",
+          "source": "terminal",
+          "capturedAt": "2026-07-27T11:28:09.000Z"
         }
       ],
       "rollback": {
