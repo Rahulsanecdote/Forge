@@ -176,7 +176,7 @@ async function loadMeasuredClient() {
     throw new Error(
       requestedSlug
         ? `No client found for LAUNCH_REPORT_CLIENT_SLUG=${requestedSlug}.`
-        : 'No client with measured content_metrics rows was found.',
+        : 'No client with measured content_metrics rows was found. Run npm run launch:metrics:refresh after a published Instagram/Facebook run, then rerun npm run launch:report-proof:create.',
     );
   }
 

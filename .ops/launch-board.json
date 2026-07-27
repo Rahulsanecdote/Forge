@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-07-27T00:10:00.000Z",
+  "updatedAt": "2026-07-27T01:55:00.000Z",
   "project": "forge-agent",
   "activeLane": "observability-readiness",
   "lanes": [
@@ -846,7 +846,7 @@
       "owner": "engineering",
       "lane": "observability-readiness",
       "createdAt": "2026-07-26T23:45:00.000Z",
-      "updatedAt": "2026-07-27T00:10:00.000Z",
+      "updatedAt": "2026-07-27T01:55:00.000Z",
       "requiresHumanApproval": false,
       "definitionOfDone": [
         {
@@ -855,6 +855,14 @@
         },
         {
           "item": "Repeatable LaunchOps creator exists to generate a report proof run from an existing measured client",
+          "done": true
+        },
+        {
+          "item": "Supabase migration allows durable report evidence rows",
+          "done": false
+        },
+        {
+          "item": "Repeatable LaunchOps metrics refresh exists for published Instagram/Facebook runs",
           "done": true
         },
         {
@@ -888,6 +896,11 @@
           "description": "Added npm run launch:report-proof:create, an operator script that selects an existing client with stored content_metrics, executes the configured generate_report model tool, records tool_runs output plus report evidence and audit rows, and prints the verification command for the created run.",
           "source": "terminal",
           "capturedAt": "2026-07-27T00:10:00.000Z"
+        },
+        {
+          "description": "Production proof creation failed because the remote database currently has no client with measured content_metrics rows. Added npm run launch:metrics:refresh to populate content_metrics from existing published Instagram/Facebook runs when Meta credentials and published_url evidence are present, and added migration 20260727014743_allow_report_evidence_kind.sql so report evidence kind is accepted.",
+          "source": "terminal",
+          "capturedAt": "2026-07-27T01:55:00.000Z"
         }
       ],
       "rollback": {
