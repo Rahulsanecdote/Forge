@@ -3,6 +3,7 @@ import { generateText } from 'ai';
 import { findBannedPhraseViolations } from '../compliance';
 import { parseJsonBlock } from '../util';
 import type { ForgeTool } from '../types';
+import { outputTokenLimit } from '../model-usage';
 
 const reviewSchema = z.object({
   reviewId: z.string().min(1),
@@ -69,7 +70,9 @@ export const draftReviewResponses: ForgeTool<Input> = {
       .filter(Boolean)
       .join('\n');
 
-    const { text } = await generateText({ model: ctx.model, prompt, maxOutputTokens: 2048 });
+    const maxOutputTokens = outputTokenLimit(1200);
+    const { text, usage } = await generateText({ model: ctx.model, prompt, maxOutputTokens });
+    ctx.recordModelUsage?.({ operation: draftReviewResponses.name, usage, maxOutputTokens });
     const replies = parseReviewReplies(
       text,
       input.reviews.map((review) => review.reviewId),

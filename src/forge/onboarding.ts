@@ -2,6 +2,7 @@ import { generateText } from 'ai';
 import type { LanguageModel } from 'ai';
 import { parseJsonBlock } from './util';
 import { clientConfigSchema, type ClientConfig } from './client-config';
+import { outputTokenLimit } from './model-usage';
 
 function slugify(s: string): string {
   return s.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'client';
@@ -27,7 +28,11 @@ export async function generateClientConfig(params: {
     .filter(Boolean)
     .join('\n');
 
-  const { text } = await generateText({ model: params.model, prompt, maxOutputTokens: 1024 });
+  const { text } = await generateText({
+    model: params.model,
+    prompt,
+    maxOutputTokens: outputTokenLimit(800),
+  });
   const brandVoice = parseJsonBlock<ClientConfig['brandVoice']>(text) ?? undefined;
 
   return clientConfigSchema.parse({

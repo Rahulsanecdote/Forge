@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { generateText } from 'ai';
 import { parseJsonBlock } from '../util';
 import type { ForgeTool } from '../types';
+import { outputTokenLimit } from '../model-usage';
 
 const metricSchema = z.object({
   name: z.string().describe('Metric name, e.g. "Instagram followers" or "Google rating".'),
@@ -64,7 +65,9 @@ export const generateReport: ForgeTool<Input> = {
       .filter(Boolean)
       .join('\n');
 
-    const { text } = await generateText({ model: ctx.model, prompt, maxOutputTokens: 2048 });
+    const maxOutputTokens = outputTokenLimit(1200);
+    const { text, usage } = await generateText({ model: ctx.model, prompt, maxOutputTokens });
+    ctx.recordModelUsage?.({ operation: generateReport.name, usage, maxOutputTokens });
     return parseReport(text, input.period);
   },
 };

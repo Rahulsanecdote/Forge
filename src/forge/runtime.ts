@@ -4,8 +4,7 @@ import { tools as forgeTools } from './registry';
 import { supabase } from '../supabase';
 import { assertToolPermission, DEFAULT_AGENT_KEY } from './authority';
 import type { AnyForgeTool, ClientContext, ToolContext } from './types';
-
-const MAX_STEPS = 6;
+import { maxAgentSteps, summarizeModelUsage } from './model-usage';
 
 function systemPrompt(client: ClientContext): string {
   const bv = client.brandVoice;
@@ -38,6 +37,14 @@ export interface ForgeStep {
 export interface ForgeRunResult {
   text: string;
   steps: ForgeStep[];
+}
+
+function mergeUsage(existing: unknown, controllerUsage: unknown) {
+  const base =
+    existing && typeof existing === 'object' && !Array.isArray(existing)
+      ? (existing as Record<string, unknown>)
+      : {};
+  return { ...base, controller: controllerUsage };
 }
 
 function errorMessage(error: unknown) {
@@ -127,10 +134,17 @@ function buildTools(
         }
 
         try {
-          const output = await t.execute(input, ctx);
+          const usageEvents: Parameters<NonNullable<ToolContext['recordModelUsage']>>[0][] = [];
+          const output = await t.execute(input, {
+            ...ctx,
+            recordModelUsage: (event) => {
+              usageEvents.push(event);
+            },
+          });
+          const modelUsage = summarizeModelUsage(usageEvents);
           const { error: outputError } = await supabase
             .from('tool_runs')
-            .update({ output })
+            .update({ output, ...(modelUsage ? { model_usage: modelUsage } : {}) })
             .eq('id', run.id);
           if (outputError) {
             throw new Error(`Could not persist tool output: ${outputError.message}`);
@@ -202,8 +216,27 @@ export async function runForge(params: {
     system: systemPrompt(client),
     prompt: task,
     tools: buildTools(forgeTools, ctx, task, agentKey, steps),
-    stopWhen: stepCountIs(MAX_STEPS),
+    stopWhen: stepCountIs(maxAgentSteps()),
   });
+
+  const controllerUsage = summarizeModelUsage([
+    { operation: 'agent_controller', usage: result.usage },
+  ]);
+  if (controllerUsage && steps.length > 0) {
+    const runIds = steps.map((step) => step.runId);
+    const { data: rows } = await supabase
+      .from('tool_runs')
+      .select('id, model_usage')
+      .in('id', runIds);
+    await Promise.all(
+      (rows ?? []).map((row: { id: string; model_usage: unknown }) =>
+        supabase
+          .from('tool_runs')
+          .update({ model_usage: mergeUsage(row.model_usage, controllerUsage) })
+          .eq('id', row.id),
+      ),
+    );
+  }
 
   return { text: result.text, steps };
 }

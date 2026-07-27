@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { findBannedPhraseViolations } from '../compliance';
 import { parseJsonBlock } from '../util';
 import type { ClientContext, ForgeTool } from '../types';
+import { outputTokenLimit } from '../model-usage';
 
 const schema = z.object({
   platform: z.enum(['instagram', 'facebook', 'google_business']).default('instagram'),
@@ -88,7 +89,9 @@ export const createSocialPosts: ForgeTool<Input> = {
 
     const prompt = buildSocialPostsPrompt(input, ctx.client, topPosts);
 
-    const { text } = await generateText({ model: ctx.model, prompt, maxOutputTokens: 2048 });
+    const maxOutputTokens = outputTokenLimit(1200);
+    const { text, usage } = await generateText({ model: ctx.model, prompt, maxOutputTokens });
+    ctx.recordModelUsage?.({ operation: createSocialPosts.name, usage, maxOutputTokens });
     const parsed = socialPostsSchema.safeParse(parseJsonBlock<unknown>(text));
     if (!parsed.success) {
       throw new Error(`Model returned invalid social post JSON: ${z.prettifyError(parsed.error)}`);

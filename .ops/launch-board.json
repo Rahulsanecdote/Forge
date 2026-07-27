@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-07-27T01:55:00.000Z",
+  "updatedAt": "2026-07-27T02:30:00.000Z",
   "project": "forge-agent",
   "activeLane": "observability-readiness",
   "lanes": [
@@ -905,6 +905,56 @@
       ],
       "rollback": {
         "strategy": "remove scripts/create-report-proof.ts, scripts/verify-report-proof.mjs, and the launch:report-proof package scripts; no public runtime routes are changed by these proof scripts",
+        "verified": false
+      }
+    },
+    {
+      "id": "model-token-budget-governance",
+      "title": "Model token use is capped and visible per generated run",
+      "priority": "P0",
+      "type": "observability",
+      "status": "shipped",
+      "owner": "engineering",
+      "lane": "observability-readiness",
+      "createdAt": "2026-07-27T02:30:00.000Z",
+      "updatedAt": "2026-07-27T02:30:00.000Z",
+      "requiresHumanApproval": false,
+      "definitionOfDone": [
+        {
+          "item": "Agent controller max steps are environment-configurable with a conservative default",
+          "done": true
+        },
+        {
+          "item": "Tool-level model calls use lower default output token caps",
+          "done": true
+        },
+        {
+          "item": "A global output-token limit can cap all tool calls without code changes",
+          "done": true
+        },
+        {
+          "item": "Model usage is recorded on tool_runs without storing prompts or completions",
+          "done": true
+        },
+        {
+          "item": "Run detail shows token totals and output cap for operator review",
+          "done": true
+        }
+      ],
+      "evidence": [
+        {
+          "description": "Implemented FORGE_MAX_STEPS and FORGE_OUTPUT_TOKEN_LIMIT, lowered model output caps for social posts, keyword research, reports, competitor analysis, review replies, and onboarding, and added model_usage JSON evidence on tool_runs for direct dashboard runs and agent-runtime tool calls.",
+          "source": "terminal",
+          "capturedAt": "2026-07-27T02:30:00.000Z"
+        },
+        {
+          "description": "Local validation passed for token-budget governance: npm run typecheck, npm run test (134 tests), npm run launch:validate, npm run env:validate, and git diff --check. Local npm run build was stopped after no additional Next output; final build proof should come from CI after push.",
+          "source": "terminal",
+          "capturedAt": "2026-07-27T02:36:00.000Z"
+        }
+      ],
+      "rollback": {
+        "strategy": "remove model usage helpers, the model_usage column migration, and restore prior maxOutputTokens / controller step defaults",
         "verified": false
       }
     }

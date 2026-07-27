@@ -34,6 +34,35 @@ export const dynamic = 'force-dynamic';
 
 const runIdSchema = z.string().uuid();
 
+const modelUsageSchema = z.object({
+  totals: z
+    .object({
+      inputTokens: z.number().optional(),
+      outputTokens: z.number().optional(),
+      totalTokens: z.number().optional(),
+    })
+    .optional(),
+  maxAgentSteps: z.number().optional(),
+  events: z
+    .array(
+      z.object({
+        operation: z.string(),
+        maxOutputTokens: z.number().optional(),
+      }),
+    )
+    .optional(),
+  controller: z
+    .object({
+      totals: z
+        .object({
+          totalTokens: z.number().optional(),
+        })
+        .optional(),
+      maxAgentSteps: z.number().optional(),
+    })
+    .optional(),
+});
+
 function platformName(value: string | null) {
   if (!value) return 'Social';
   return value
@@ -228,6 +257,13 @@ export default async function ToolRunDetailPage({
   const reconciliationQueue = publications.filter(
     (publication) => publication.status === 'reconcile',
   );
+  const modelUsage = modelUsageSchema.safeParse(run.model_usage).success
+    ? modelUsageSchema.parse(run.model_usage)
+    : null;
+  const totalModelTokens =
+    modelUsage?.totals?.totalTokens != null || modelUsage?.controller?.totals?.totalTokens != null
+      ? (modelUsage?.totals?.totalTokens ?? 0) + (modelUsage?.controller?.totals?.totalTokens ?? 0)
+      : null;
 
   const publishedEvidence =
     socialPosts && approval?.status === 'approved'
@@ -414,6 +450,20 @@ export default async function ToolRunDetailPage({
                   : report
                     ? 'evidence'
                   : (approval?.status ?? 'not queued')}
+              </dd>
+            </div>
+            <div>
+              <dt className="uppercase tracking-wide text-muted-dark">Tokens</dt>
+              <dd className="mt-1 text-ink">
+                {totalModelTokens ?? 'n/a'}
+              </dd>
+            </div>
+            <div>
+              <dt className="uppercase tracking-wide text-muted-dark">Output Cap</dt>
+              <dd className="mt-1 text-ink">
+                {modelUsage?.events?.[0]?.maxOutputTokens != null
+                  ? modelUsage.events[0].maxOutputTokens
+                  : 'n/a'}
               </dd>
             </div>
           </dl>

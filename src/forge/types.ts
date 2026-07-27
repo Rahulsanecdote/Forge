@@ -1,5 +1,6 @@
 import type { z } from 'zod';
 import type { LanguageModel } from 'ai';
+import type { ModelUsageEvent } from './model-usage';
 
 export interface BrandVoice {
   tone: string[];
@@ -33,6 +34,7 @@ export interface ClientContext {
 export interface ToolContext {
   client: ClientContext;
   model: LanguageModel;
+  recordModelUsage?: (event: ModelUsageEvent) => void;
 }
 
 // The contract every Forge capability implements. Provider-independent on purpose.

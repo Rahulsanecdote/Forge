@@ -3,6 +3,7 @@ import { generateText } from 'ai';
 import { parseJsonBlock } from '../util';
 import type { ForgeTool } from '../types';
 import { fetchKeywordMetricsFromDataForSeo, type KeywordMetric } from '../data/keywords';
+import { outputTokenLimit } from '../model-usage';
 
 const schema = z.object({
   topic: z.string().describe('Product, service, or theme to research keywords around.'),
@@ -97,7 +98,9 @@ export const researchKeywords: ForgeTool<Input> = {
       .filter(Boolean)
       .join('\n');
 
-    const { text } = await generateText({ model: ctx.model, prompt, maxOutputTokens: 2048 });
+    const maxOutputTokens = outputTokenLimit(1400);
+    const { text, usage } = await generateText({ model: ctx.model, prompt, maxOutputTokens });
+    ctx.recordModelUsage?.({ operation: researchKeywords.name, usage, maxOutputTokens });
     const clusters = parseKeywordClusters(text);
     const keywordData = await fetchKeywordMetricsFromDataForSeo(uniqueKeywordsFromClusters(clusters));
 

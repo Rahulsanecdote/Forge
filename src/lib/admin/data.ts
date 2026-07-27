@@ -64,6 +64,7 @@ export interface DashboardToolRun {
   tool: string | null;
   input?: unknown;
   output?: unknown;
+  model_usage?: unknown;
   created_at: string | null;
 }
 
@@ -803,7 +804,7 @@ export async function loadToolRunDetail(id: string): Promise<DashboardToolRunDet
 
   const { data: run, error } = await supabase
     .from('tool_runs')
-    .select('id, client_id, task, tool, input, output, created_at')
+    .select('id, client_id, task, tool, input, output, model_usage, created_at')
     .eq('id', id)
     .single();
 

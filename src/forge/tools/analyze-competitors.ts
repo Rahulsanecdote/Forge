@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { generateText } from 'ai';
 import { parseJsonBlock } from '../util';
 import type { ForgeTool } from '../types';
+import { outputTokenLimit } from '../model-usage';
 
 const competitorSchema = z.object({
   name: z.string(),
@@ -69,7 +70,9 @@ export const analyzeCompetitors: ForgeTool<Input> = {
       .filter(Boolean)
       .join('\n');
 
-    const { text } = await generateText({ model: ctx.model, prompt, maxOutputTokens: 2048 });
+    const maxOutputTokens = outputTokenLimit(1400);
+    const { text, usage } = await generateText({ model: ctx.model, prompt, maxOutputTokens });
+    ctx.recordModelUsage?.({ operation: analyzeCompetitors.name, usage, maxOutputTokens });
     return parseCompetitorAnalysis(
       text,
       input.competitors.map((competitor) => competitor.name),

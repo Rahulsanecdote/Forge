@@ -30,6 +30,8 @@ const schema = z.object({
   FORGE_MODEL: optionalConfigSchema, // defaults per-provider if unset
   FORGE_BASE_URL: optionalConfigSchema, // for openai-compatible / local (e.g. Ollama)
   FORGE_API_KEY: optionalConfigSchema, // optional key for openai-compatible endpoints
+  FORGE_MAX_STEPS: optionalConfigSchema, // default 3, capped 1-6
+  FORGE_OUTPUT_TOKEN_LIMIT: optionalConfigSchema, // optional global cap for tool output tokens
 
   // Scheduled jobs (Inngest). Cron strings; sensible defaults applied if unset.
   FORGE_CONTENT_CRON: optionalConfigSchema,
@@ -98,6 +100,8 @@ const runtimeEnv = {
   FORGE_MODEL: process.env.FORGE_MODEL,
   FORGE_BASE_URL: process.env.FORGE_BASE_URL,
   FORGE_API_KEY: process.env.FORGE_API_KEY,
+  FORGE_MAX_STEPS: process.env.FORGE_MAX_STEPS,
+  FORGE_OUTPUT_TOKEN_LIMIT: process.env.FORGE_OUTPUT_TOKEN_LIMIT,
   FORGE_CONTENT_CRON: process.env.FORGE_CONTENT_CRON,
   FORGE_REVIEW_CRON: process.env.FORGE_REVIEW_CRON,
   FORGE_PUBLISH_CRON: process.env.FORGE_PUBLISH_CRON,

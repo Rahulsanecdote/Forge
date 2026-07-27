@@ -551,11 +551,17 @@ export async function runKeywordResearch(formData: FormData) {
   let runId: string | null = null;
 
   try {
-    const [{ DEFAULT_AGENT_KEY, assertToolPermission }, { resolveModel }, { researchKeywords }] =
+    const [
+      { DEFAULT_AGENT_KEY, assertToolPermission },
+      { resolveModel },
+      { researchKeywords },
+      { summarizeModelUsage },
+    ] =
       await Promise.all([
         import('@/forge/authority'),
         import('@/forge/model'),
         import('@/forge/tools/research-keywords'),
+        import('@/forge/model-usage'),
       ]);
     const authority = await assertToolPermission({
       agentKey: DEFAULT_AGENT_KEY,
@@ -583,14 +589,23 @@ export async function runKeywordResearch(formData: FormData) {
     }
     runId = run.id;
 
+    const usageEvents: Parameters<NonNullable<import('@/forge/types').ToolContext['recordModelUsage']>>[0][] = [];
     const output = await researchKeywords.execute(input, {
       client: clientContextFromDetail(detail),
       model: resolveModel(),
+      recordModelUsage: (event) => usageEvents.push(event),
     });
+    const modelUsage = summarizeModelUsage(usageEvents);
 
     const { error: outputError } = await supabase
       .from('tool_runs')
-      .update({ output, status: 'succeeded', completed_at: new Date().toISOString(), error: null })
+      .update({
+        output,
+        ...(modelUsage ? { model_usage: modelUsage } : {}),
+        status: 'succeeded',
+        completed_at: new Date().toISOString(),
+        error: null,
+      })
       .eq('id', run.id);
     if (outputError) throw new Error(`Could not persist keyword output: ${outputError.message}`);
 
@@ -692,11 +707,17 @@ export async function runPerformanceReport(formData: FormData) {
   let runId: string | null = null;
 
   try {
-    const [{ DEFAULT_AGENT_KEY, assertToolPermission }, { resolveModel }, { generateReport }] =
+    const [
+      { DEFAULT_AGENT_KEY, assertToolPermission },
+      { resolveModel },
+      { generateReport },
+      { summarizeModelUsage },
+    ] =
       await Promise.all([
         import('@/forge/authority'),
         import('@/forge/model'),
         import('@/forge/tools/generate-report'),
+        import('@/forge/model-usage'),
       ]);
     const authority = await assertToolPermission({
       agentKey: DEFAULT_AGENT_KEY,
@@ -724,14 +745,23 @@ export async function runPerformanceReport(formData: FormData) {
     }
     runId = run.id;
 
+    const usageEvents: Parameters<NonNullable<import('@/forge/types').ToolContext['recordModelUsage']>>[0][] = [];
     const output = await generateReport.execute(input, {
       client: clientContextFromDetail(detail),
       model: resolveModel(),
+      recordModelUsage: (event) => usageEvents.push(event),
     });
+    const modelUsage = summarizeModelUsage(usageEvents);
 
     const { error: outputError } = await supabase
       .from('tool_runs')
-      .update({ output, status: 'succeeded', completed_at: new Date().toISOString(), error: null })
+      .update({
+        output,
+        ...(modelUsage ? { model_usage: modelUsage } : {}),
+        status: 'succeeded',
+        completed_at: new Date().toISOString(),
+        error: null,
+      })
       .eq('id', run.id);
     if (outputError) throw new Error(`Could not persist report output: ${outputError.message}`);
 
