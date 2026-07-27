@@ -116,6 +116,24 @@ export interface ReportOutput {
   recommendedActions: string[];
 }
 
+export function formatReportPackage(report: ReportOutput) {
+  return [
+    `Performance Report - ${report.period}`,
+    '',
+    'Executive Summary',
+    report.executiveSummary,
+    '',
+    "What's Working",
+    ...report.whatsWorking.map((item) => `- ${item}`),
+    '',
+    'Needs Attention',
+    ...report.needsAttention.map((item) => `- ${item}`),
+    '',
+    'Recommended Actions',
+    ...report.recommendedActions.map((item) => `- ${item}`),
+  ].join('\n');
+}
+
 export function parseSocialPostOutput(output: unknown): SocialPostDraftOutput | null {
   const parsed = socialPostOutputSchema.safeParse(output);
   if (!parsed.success) return null;

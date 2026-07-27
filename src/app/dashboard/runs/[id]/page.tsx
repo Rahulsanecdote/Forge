@@ -22,6 +22,7 @@ import {
 } from '@/lib/admin/content-export-policy';
 import {
   findBannedPhraseViolations,
+  formatReportPackage,
   formatRunPayload,
   parseKeywordResearchOutput,
   parseReportOutput,
@@ -117,30 +118,6 @@ function socialPublishingPackage(posts: Array<{
       return blocks.filter(Boolean).join('\n');
     })
     .join('\n\n---\n\n');
-}
-
-function reportPackage(report: {
-  period: string;
-  executiveSummary: string;
-  whatsWorking: string[];
-  needsAttention: string[];
-  recommendedActions: string[];
-}) {
-  return [
-    `Performance Report — ${report.period}`,
-    '',
-    'Executive Summary',
-    report.executiveSummary,
-    '',
-    "What's Working",
-    ...report.whatsWorking.map((item) => `- ${item}`),
-    '',
-    'Needs Attention',
-    ...report.needsAttention.map((item) => `- ${item}`),
-    '',
-    'Recommended Actions',
-    ...report.recommendedActions.map((item) => `- ${item}`),
-  ].join('\n');
 }
 
 function ApprovalStatus({ status }: { status?: string }) {
@@ -759,7 +736,7 @@ export default async function ToolRunDetailPage({
                   </div>
                   <h3 className="mt-3 font-serif text-3xl text-ink">{report.period}</h3>
                 </div>
-                <CopyButton value={reportPackage(report)} label="Copy report" />
+                <CopyButton value={formatReportPackage(report)} label="Copy report" />
               </div>
 
               <div className="mt-6 border-l border-gold-border pl-5">

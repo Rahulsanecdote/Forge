@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-07-27T02:30:00.000Z",
+  "updatedAt": "2026-07-27T03:05:00.000Z",
   "project": "forge-agent",
   "activeLane": "observability-readiness",
   "lanes": [
@@ -955,6 +955,56 @@
       ],
       "rollback": {
         "strategy": "remove model usage helpers, the model_usage column migration, and restore prior maxOutputTokens / controller step defaults",
+        "verified": false
+      }
+    },
+    {
+      "id": "client-portal-reporting-ux-polish",
+      "title": "Client portal surfaces draft approvals, reports, and performance clearly",
+      "priority": "P1",
+      "type": "observability",
+      "status": "shipped",
+      "owner": "engineering",
+      "lane": "observability-readiness",
+      "createdAt": "2026-07-27T03:05:00.000Z",
+      "updatedAt": "2026-07-27T03:05:00.000Z",
+      "requiresHumanApproval": false,
+      "definitionOfDone": [
+        {
+          "item": "Client portal reads recent generate_report tool runs scoped to the portal client",
+          "done": true
+        },
+        {
+          "item": "Portal homepage shows latest report, report history, and copyable client-ready report text",
+          "done": true
+        },
+        {
+          "item": "Portal performance snapshot uses existing content_metrics summaries without new provider dependencies",
+          "done": true
+        },
+        {
+          "item": "Operator run-detail and client portal share one report copy formatter",
+          "done": true
+        },
+        {
+          "item": "Local typecheck, test, env, launch-board, and diff hygiene pass",
+          "done": true
+        }
+      ],
+      "evidence": [
+        {
+          "description": "Implemented client portal report UX using existing tool_runs generate_report output, content approval queue data, schedules, and content_metrics summaries. Added latest report, report history, copy actions, and performance stats without schema or provider changes.",
+          "source": "terminal",
+          "capturedAt": "2026-07-27T03:05:00.000Z"
+        },
+        {
+          "description": "Local validation passed: npm run test (135 tests), npm run typecheck, npm run env:validate, npm run launch:validate, and git diff --check.",
+          "source": "terminal",
+          "capturedAt": "2026-07-27T03:06:00.000Z"
+        }
+      ],
+      "rollback": {
+        "strategy": "remove portal report query/rendering and restore dashboard report copy formatter to the run-detail page only",
         "verified": false
       }
     }

@@ -1,7 +1,9 @@
 import { getPortalClientId } from '@/lib/portal/session';
 import { loadClientPortal } from '@/lib/portal/data';
 import { formatDateTime } from '@/lib/admin/format';
+import { formatReportPackage } from '@/lib/admin/run-output';
 import { resolveScheduleTimeZone } from '@/forge/data/schedule-mapping';
+import { CopyButton } from '@/components/dashboard/copy-button';
 import type { Metadata } from 'next';
 import { decidePortalContent, portalLogout } from './actions';
 
@@ -27,6 +29,14 @@ function statusClass(status: string) {
   if (status === 'approved') return 'text-emerald-300';
   if (status === 'rejected') return 'text-red-300';
   return 'text-gold';
+}
+
+function reportPreview(report: {
+  executiveSummary: string;
+  recommendedActions: string[];
+}) {
+  if (report.recommendedActions.length === 0) return report.executiveSummary;
+  return `${report.executiveSummary} Next: ${report.recommendedActions[0]}`;
 }
 
 function DecisionBanner({ status }: { status?: string }) {
@@ -78,11 +88,17 @@ export default async function ClientPortalPage({
   if (!data) return <NoAccess />;
 
   const query = await searchParams;
-  const { client, queue, schedules, performance } = data;
+  const { client, queue, schedules, reports, performance } = data;
   const zone = resolveScheduleTimeZone(client.timezone) ?? 'UTC';
   const pending = queue.filter((item) => item.status === 'pending');
   const decided = queue.filter((item) => item.status !== 'pending');
   const pendingCount = pending.length;
+  const latestReport = reports[0] ?? null;
+  const totalEngagement =
+    (performance?.totals.likes ?? 0) +
+    (performance?.totals.comments ?? 0) +
+    (performance?.totals.shares ?? 0) +
+    (performance?.totals.saved ?? 0);
 
   return (
     <main className="min-h-screen bg-bg text-ink">
@@ -105,16 +121,16 @@ export default async function ClientPortalPage({
         <div className="section-label">Overview</div>
         <p className="mt-3 max-w-2xl font-sans text-sm leading-6 text-muted">
           Review and approve your content, and track what&apos;s scheduled and how it&apos;s
-          performing. Approve a draft to greenlight it; your Forge operator schedules and
-          publishes everything you approve.
+          performing. Reports use the drafts and measured metrics already recorded in Forge,
+          so you can review progress without leaving this portal.
         </p>
 
         <dl className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
           {[
             { label: 'Awaiting review', value: pendingCount },
             { label: 'Scheduled', value: schedules.length },
+            { label: 'Reports', value: reports.length },
             { label: 'Measured posts', value: performance?.measuredPosts ?? 0 },
-            { label: 'Total reach', value: performance?.totals.reach ?? 0 },
           ].map((stat) => (
             <div key={stat.label} className="border border-gold-border bg-surface/50 p-4">
               <dt className="font-mono text-[11px] uppercase tracking-wide text-muted-dark">{stat.label}</dt>
@@ -122,6 +138,93 @@ export default async function ClientPortalPage({
             </div>
           ))}
         </dl>
+
+        <section className="mt-8 grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]" aria-label="Reporting snapshot">
+          <div className="border border-gold-border bg-surface/50 p-5">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <div className="font-mono text-xs uppercase tracking-wide text-muted">Latest report</div>
+                <h2 className="mt-3 font-serif text-3xl text-ink">
+                  {latestReport ? latestReport.period : 'No report generated yet'}
+                </h2>
+              </div>
+              {latestReport && (
+                <CopyButton value={formatReportPackage(latestReport.report)} label="Copy report" />
+              )}
+            </div>
+            {latestReport ? (
+              <>
+                <p className="mt-4 max-w-3xl font-sans text-sm leading-6 text-muted">
+                  {reportPreview(latestReport.report)}
+                </p>
+                <div className="mt-5 grid gap-4 sm:grid-cols-3">
+                  {[
+                    { label: "Working", items: latestReport.report.whatsWorking },
+                    { label: 'Watch', items: latestReport.report.needsAttention },
+                    { label: 'Next', items: latestReport.report.recommendedActions },
+                  ].map((section) => (
+                    <div key={section.label} className="border border-gold-border/70 bg-bg/40 p-4">
+                      <div className="font-mono text-[11px] uppercase tracking-wide text-gold">
+                        {section.label}
+                      </div>
+                      <p className="mt-2 font-sans text-sm leading-6 text-muted">
+                        {section.items[0] ?? 'No item recorded.'}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-4 font-mono text-[11px] uppercase tracking-wide text-muted-dark">
+                  Generated {formatDateTime(latestReport.createdAt)}
+                </div>
+              </>
+            ) : (
+              <p className="mt-4 font-sans text-sm leading-6 text-muted">
+                Your operator can generate a client-ready report from the existing draft and
+                metrics history when enough evidence is available.
+              </p>
+            )}
+          </div>
+
+          <div className="border border-gold-border bg-surface/50 p-5">
+            <div className="font-mono text-xs uppercase tracking-wide text-muted">Performance</div>
+            <dl className="mt-4 space-y-4">
+              {[
+                { label: 'Total reach', value: performance?.totals.reach ?? 0 },
+                { label: 'Impressions', value: performance?.totals.impressions ?? 0 },
+                { label: 'Engagement', value: totalEngagement },
+              ].map((stat) => (
+                <div key={stat.label} className="flex items-baseline justify-between gap-4">
+                  <dt className="font-mono text-[11px] uppercase tracking-wide text-muted-dark">{stat.label}</dt>
+                  <dd className="font-serif text-2xl text-ink">{compactNumber.format(stat.value)}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+        </section>
+
+        {reports.length > 1 && (
+          <section className="mt-8" aria-label="Report history">
+            <div className="font-mono text-xs uppercase tracking-wide text-muted">Report history</div>
+            <ul className="mt-3 grid gap-3 md:grid-cols-2">
+              {reports.slice(1).map((item) => (
+                <li key={item.runId} className="border border-gold-border bg-surface/40 p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <div className="font-mono text-[11px] uppercase tracking-wide text-muted-dark">
+                        {formatDateTime(item.createdAt)}
+                      </div>
+                      <h3 className="mt-2 font-serif text-xl text-ink">{item.period}</h3>
+                    </div>
+                    <CopyButton value={formatReportPackage(item.report)} label="Copy" />
+                  </div>
+                  <p className="mt-3 line-clamp-3 font-sans text-sm leading-6 text-muted">
+                    {item.report.executiveSummary}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
 
         {schedules.length > 0 && (
           <section className="mt-8" aria-label="Scheduled posts">

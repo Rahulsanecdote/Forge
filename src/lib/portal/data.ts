@@ -5,7 +5,7 @@ import {
   type ClientPerformanceSummary,
   type MetricRowInput,
 } from '@/forge/data/performance-summary-mapping';
-import { parseSocialPostOutput } from '@/lib/admin/run-output';
+import { parseReportOutput, parseSocialPostOutput, type ReportOutput } from '@/lib/admin/run-output';
 
 // Read-only client-portal data. SECURITY: every query here is scoped to the verified
 // `clientId` from the session cookie — this is the sole tenant boundary, so the
@@ -35,6 +35,14 @@ export interface PortalScheduleItem {
   status: string;
 }
 
+export interface PortalReportItem {
+  runId: string;
+  period: string;
+  task: string | null;
+  createdAt: string | null;
+  report: ReportOutput;
+}
+
 export interface PortalData {
   client: {
     id: string;
@@ -46,6 +54,7 @@ export interface PortalData {
   };
   queue: PortalQueueItem[];
   schedules: PortalScheduleItem[];
+  reports: PortalReportItem[];
   performance: ClientPerformanceSummary | null;
 }
 
@@ -137,6 +146,33 @@ export async function loadClientPortal(clientId: string): Promise<PortalData | n
     )
     .eq('client_id', clientId);
 
+  const { data: reportRuns } = await supabase
+    .from('tool_runs')
+    .select('id, task, output, created_at')
+    .eq('client_id', clientId)
+    .eq('tool', 'generate_report')
+    .order('created_at', { ascending: false })
+    .limit(6);
+
+  const reports: PortalReportItem[] = ((reportRuns ?? []) as Array<{
+    id: string;
+    task: string | null;
+    output: unknown;
+    created_at: string | null;
+  }>)
+    .map((row) => {
+      const report = parseReportOutput(row.output);
+      if (!report) return null;
+      return {
+        runId: row.id,
+        period: report.period,
+        task: row.task,
+        createdAt: row.created_at,
+        report,
+      };
+    })
+    .filter((item): item is PortalReportItem => Boolean(item));
+
   return {
     client: {
       id: client.id,
@@ -150,6 +186,7 @@ export async function loadClientPortal(clientId: string): Promise<PortalData | n
     schedules: ((schedules ?? []) as Array<{ run_id: string; scheduled_for: string; status: string }>).map(
       (row) => ({ runId: row.run_id, scheduledFor: row.scheduled_for, status: row.status }),
     ),
+    reports,
     performance: summarizeClientPerformance((metrics ?? []) as MetricRowInput[]),
   };
 }

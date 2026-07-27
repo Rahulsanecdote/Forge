@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { findBannedPhraseViolations, parseKeywordResearchOutput, parseReportOutput } from './run-output';
+import {
+  findBannedPhraseViolations,
+  formatReportPackage,
+  parseKeywordResearchOutput,
+  parseReportOutput,
+} from './run-output';
 
 test('finds current-policy violations in historical structured output', () => {
   const output = {
@@ -102,4 +107,33 @@ test('parses report output for dashboard report preview', () => {
     needsAttention: ['Google review velocity is below target.'],
     recommendedActions: ['Run a review request batch this week.'],
   });
+});
+
+test('formats a report package for operator and client copy actions', () => {
+  const packageText = formatReportPackage({
+    period: 'July 2026',
+    executiveSummary: 'Reach improved while review volume needs attention.',
+    whatsWorking: ['Instagram posts are driving steady engagement.'],
+    needsAttention: ['Google review velocity is below target.'],
+    recommendedActions: ['Run a review request batch this week.'],
+  });
+
+  assert.equal(
+    packageText,
+    [
+      'Performance Report - July 2026',
+      '',
+      'Executive Summary',
+      'Reach improved while review volume needs attention.',
+      '',
+      "What's Working",
+      '- Instagram posts are driving steady engagement.',
+      '',
+      'Needs Attention',
+      '- Google review velocity is below target.',
+      '',
+      'Recommended Actions',
+      '- Run a review request batch this week.',
+    ].join('\n'),
+  );
 });
