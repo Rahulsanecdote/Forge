@@ -3,6 +3,7 @@ import test from 'node:test';
 import {
   findBannedPhraseViolations,
   formatReportPackage,
+  parseCompetitorAnalysisOutput,
   parseKeywordResearchOutput,
   parseReportOutput,
 } from './run-output';
@@ -136,4 +137,34 @@ test('formats a report package for operator and client copy actions', () => {
       '- Run a review request batch this week.',
     ].join('\n'),
   );
+});
+
+test('parses competitor analysis output for dashboard preview', () => {
+  const output = parseCompetitorAnalysisOutput({
+    summary: 'The client can win on local proof and clearer offers.',
+    per_competitor: [
+      {
+        name: 'Alpha Cafe',
+        likely_strengths: ['Established neighborhood recognition.'],
+        likely_gaps: ['Weak proof of sourcing.'],
+      },
+    ],
+    where_client_wins: ['More specific origin story.'],
+    opportunities: ['Build content around traceable lots.'],
+    recommended_positioning: 'Lead with transparent sourcing and practical brew guidance.',
+  });
+
+  assert.deepEqual(output, {
+    summary: 'The client can win on local proof and clearer offers.',
+    competitors: [
+      {
+        name: 'Alpha Cafe',
+        likelyStrengths: ['Established neighborhood recognition.'],
+        likelyGaps: ['Weak proof of sourcing.'],
+      },
+    ],
+    whereClientWins: ['More specific origin story.'],
+    opportunities: ['Build content around traceable lots.'],
+    recommendedPositioning: 'Lead with transparent sourcing and practical brew guidance.',
+  });
 });

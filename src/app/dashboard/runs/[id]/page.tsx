@@ -24,6 +24,7 @@ import {
   findBannedPhraseViolations,
   formatReportPackage,
   formatRunPayload,
+  parseCompetitorAnalysisOutput,
   parseKeywordResearchOutput,
   parseReportOutput,
   parseSocialPostOutput,
@@ -99,6 +100,52 @@ function keywordClusterTask(cluster: {
     `Content angle: ${cluster.contentAngle}.`,
     'Do not stuff keywords; use them only where natural.',
   ].join(' ');
+}
+
+function InsightList({
+  items,
+  empty = 'No items generated.',
+}: {
+  items: string[];
+  empty?: string;
+}) {
+  if (items.length === 0) {
+    return <p className="mt-3 font-mono text-xs text-muted-dark">{empty}</p>;
+  }
+
+  return (
+    <ul className="mt-3 space-y-2">
+      {items.map((item, index) => (
+        <li key={`${item}-${index}`} className="font-sans text-sm leading-6 text-muted">
+          {item}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function SectionList({ title, items }: { title: string; items: string[] }) {
+  return (
+    <article className="border border-gold-border bg-surface/50 p-5">
+      <div className="font-mono text-xs uppercase tracking-wide text-gold">
+        {title}
+      </div>
+      {items.length > 0 ? (
+        <ul className="mt-4 space-y-3">
+          {items.map((item, index) => (
+            <li
+              key={`${title}-${index}`}
+              className="border-b border-gold-border/60 pb-3 font-sans text-sm leading-6 text-muted last:border-b-0 last:pb-0"
+            >
+              {item}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-4 font-mono text-xs text-muted-dark">No items generated.</p>
+      )}
+    </article>
+  );
 }
 
 function socialPublishingPackage(posts: Array<{
@@ -223,6 +270,7 @@ export default async function ToolRunDetailPage({
   const { run, client, approval, publications, currentBannedPhrases, errors } = detail;
   const socialPosts = run.tool === 'create_social_posts' ? parseSocialPostOutput(run.output) : null;
   const keywordResearch = run.tool === 'research_keywords' ? parseKeywordResearchOutput(run.output) : null;
+  const competitorAnalysis = run.tool === 'analyze_competitors' ? parseCompetitorAnalysisOutput(run.output) : null;
   const report = run.tool === 'generate_report' ? parseReportOutput(run.output) : null;
   const bannedPhraseViolations = findBannedPhraseViolations(run.output, currentBannedPhrases);
   const contentExportPolicy = {
@@ -383,9 +431,11 @@ export default async function ToolRunDetailPage({
                 ? `${socialPosts.posts.length} generated drafts`
                 : keywordResearch
                   ? 'Keyword research'
-                  : report
-                    ? `Performance report · ${report.period}`
-                  : 'Agent run detail'}
+                  : competitorAnalysis
+                    ? 'Competitor analysis'
+                    : report
+                      ? `Performance report · ${report.period}`
+                      : 'Agent run detail'}
             </h2>
             <p className="mt-3 max-w-3xl font-sans text-sm leading-6 text-muted">
               {run.task ?? 'No task description was recorded for this run.'}
@@ -407,26 +457,28 @@ export default async function ToolRunDetailPage({
             </div>
             <div>
               <dt className="uppercase tracking-wide text-muted-dark">
-                {keywordResearch ? 'Data Source' : report ? 'Artifact' : 'Platform'}
+                {keywordResearch ? 'Data Source' : competitorAnalysis || report ? 'Artifact' : 'Platform'}
               </dt>
               <dd className="mt-1 text-ink">
                 {keywordResearch
                   ? (keywordResearch.dataSource?.provider ?? 'n/a')
-                  : report
-                    ? 'Report'
-                  : platformName(socialPosts?.platform ?? null)}
+                  : competitorAnalysis
+                    ? 'Competitive Intel'
+                    : report
+                      ? 'Report'
+                      : platformName(socialPosts?.platform ?? null)}
               </dd>
             </div>
             <div>
               <dt className="uppercase tracking-wide text-muted-dark">
-                {keywordResearch ? 'Configured' : report ? 'Evidence' : 'Approval'}
+                {keywordResearch ? 'Configured' : competitorAnalysis || report ? 'Evidence' : 'Approval'}
               </dt>
               <dd className="mt-1 uppercase text-ink">
                 {keywordResearch
                   ? (keywordResearch.dataSource?.configured ? 'yes' : 'no')
-                  : report
+                  : competitorAnalysis || report
                     ? 'evidence'
-                  : (approval?.status ?? 'not queued')}
+                    : (approval?.status ?? 'not queued')}
               </dd>
             </div>
             <div>
@@ -726,7 +778,56 @@ export default async function ToolRunDetailPage({
           </section>
         )}
 
-        {report ? (
+        {competitorAnalysis ? (
+          <section className="mt-8 space-y-6" aria-label="Competitor analysis output">
+            <div className="border border-gold-border bg-surface/50 p-5">
+              <div className="font-mono text-xs uppercase tracking-wide text-muted">
+                Positioning Brief
+              </div>
+              <p className="mt-4 max-w-4xl font-sans text-base leading-7 text-ink">
+                {competitorAnalysis.summary}
+              </p>
+              <div className="mt-5 border-l border-gold-border pl-5">
+                <div className="font-mono text-[11px] uppercase tracking-wide text-muted-dark">
+                  Recommended Positioning
+                </div>
+                <p className="mt-3 max-w-4xl font-sans text-base leading-7 text-muted">
+                  {competitorAnalysis.recommendedPositioning}
+                </p>
+              </div>
+            </div>
+
+            <div className="grid gap-5 lg:grid-cols-2">
+              {competitorAnalysis.competitors.map((competitor) => (
+                <article key={competitor.name} className="border border-gold-border bg-surface/50 p-5">
+                  <div className="font-mono text-xs uppercase tracking-wide text-gold">
+                    Competitor
+                  </div>
+                  <h3 className="mt-3 font-serif text-2xl text-ink">{competitor.name}</h3>
+                  <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <div className="font-mono text-[11px] uppercase tracking-wide text-muted-dark">
+                        Likely strengths
+                      </div>
+                      <InsightList items={competitor.likelyStrengths} />
+                    </div>
+                    <div>
+                      <div className="font-mono text-[11px] uppercase tracking-wide text-muted-dark">
+                        Likely gaps
+                      </div>
+                      <InsightList items={competitor.likelyGaps} />
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+
+            <div className="grid gap-5 lg:grid-cols-2">
+              <SectionList title="Where client wins" items={competitorAnalysis.whereClientWins} />
+              <SectionList title="Opportunities" items={competitorAnalysis.opportunities} />
+            </div>
+          </section>
+        ) : report ? (
           <section className="mt-8 space-y-6" aria-label="Performance report output">
             <div className="border border-gold-border bg-surface/50 p-5">
               <div className="flex flex-wrap items-start justify-between gap-4">

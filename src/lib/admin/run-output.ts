@@ -116,6 +116,36 @@ export interface ReportOutput {
   recommendedActions: string[];
 }
 
+const competitorViewSchema = z
+  .object({
+    name: z.string(),
+    likely_strengths: z.array(z.string()),
+    likely_gaps: z.array(z.string()),
+  })
+  .passthrough();
+
+const competitorAnalysisOutputSchema = z
+  .object({
+    summary: z.string(),
+    per_competitor: z.array(competitorViewSchema),
+    where_client_wins: z.array(z.string()),
+    opportunities: z.array(z.string()),
+    recommended_positioning: z.string(),
+  })
+  .passthrough();
+
+export interface CompetitorAnalysisOutput {
+  summary: string;
+  competitors: Array<{
+    name: string;
+    likelyStrengths: string[];
+    likelyGaps: string[];
+  }>;
+  whereClientWins: string[];
+  opportunities: string[];
+  recommendedPositioning: string;
+}
+
 export function formatReportPackage(report: ReportOutput) {
   return [
     `Performance Report - ${report.period}`,
@@ -183,6 +213,23 @@ export function parseKeywordResearchOutput(output: unknown): KeywordResearchOutp
         }
       : null,
     note: parsed.data.note ?? null,
+  };
+}
+
+export function parseCompetitorAnalysisOutput(output: unknown): CompetitorAnalysisOutput | null {
+  const parsed = competitorAnalysisOutputSchema.safeParse(output);
+  if (!parsed.success) return null;
+
+  return {
+    summary: parsed.data.summary,
+    competitors: parsed.data.per_competitor.map((competitor) => ({
+      name: competitor.name,
+      likelyStrengths: competitor.likely_strengths,
+      likelyGaps: competitor.likely_gaps,
+    })),
+    whereClientWins: parsed.data.where_client_wins,
+    opportunities: parsed.data.opportunities,
+    recommendedPositioning: parsed.data.recommended_positioning,
   };
 }
 

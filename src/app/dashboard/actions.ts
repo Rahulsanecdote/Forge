@@ -50,6 +50,13 @@ function listValue(formData: FormData, key: string) {
     .filter(Boolean);
 }
 
+function lineListValue(formData: FormData, key: string) {
+  return stringValue(formData, key)
+    .split(/\r?\n/)
+    .map((value) => value.trim())
+    .filter(Boolean);
+}
+
 function isMissingGoogleBusinessColumns(error: { message?: string } | null) {
   return Boolean(error?.message && /google_business_|google_review_url/i.test(error.message));
 }
@@ -634,6 +641,134 @@ export async function runKeywordResearch(formData: FormData) {
   revalidatePath(`/dashboard/clients/${slug}`);
   if (!runId) redirectClient(slug, 'keyword-error');
   redirectRun(runId, 'keyword-complete');
+}
+
+function parseCompetitorLines(value: string) {
+  return value
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const [rawName, ...rest] = line.split(':');
+      const name = rawName?.trim();
+      const notes = rest.join(':').trim();
+      if (!name) return null;
+      return {
+        name,
+        ...(notes ? { notes } : {}),
+      };
+    })
+    .filter((competitor): competitor is { name: string; notes?: string } => Boolean(competitor));
+}
+
+type CompetitorAnalysisInput = {
+  competitors: Array<{ name: string; notes?: string }>;
+  focus?: string;
+};
+
+export async function runCompetitorAnalysis(formData: FormData) {
+  await requireAdmin();
+  const slug = stringValue(formData, 'slug');
+  const competitors = parseCompetitorLines(stringValue(formData, 'competitors'));
+  const focus = lineListValue(formData, 'focus').join(' ');
+
+  if (!slug || competitors.length === 0) redirectClient(slug || 'unknown', 'competitor-invalid');
+
+  const detail = await loadClientDetail(slug);
+  if (!detail) redirect('/dashboard?status=client-missing');
+
+  const input: CompetitorAnalysisInput = {
+    competitors,
+    ...(focus ? { focus } : {}),
+  };
+  const task = `Analyze ${detail.client.name} against ${competitors.map((competitor) => competitor.name).join(', ')}${focus ? ` with focus on ${focus}` : ''}.`;
+  const supabase = getAdminSupabase();
+  let runId: string | null = null;
+
+  try {
+    const [
+      { DEFAULT_AGENT_KEY, assertToolPermission },
+      { resolveModel },
+      { analyzeCompetitors },
+      { summarizeModelUsage },
+    ] =
+      await Promise.all([
+        import('@/forge/authority'),
+        import('@/forge/model'),
+        import('@/forge/tools/analyze-competitors'),
+        import('@/forge/model-usage'),
+      ]);
+    const authority = await assertToolPermission({
+      agentKey: DEFAULT_AGENT_KEY,
+      toolName: analyzeCompetitors.name,
+    });
+    if (authority.verificationGates.length > 0 || authority.requiresApproval) {
+      throw new Error('Competitor analysis requires an authority gate that is not configured in the dashboard.');
+    }
+
+    const { data: run, error: runError } = await supabase
+      .from('tool_runs')
+      .insert({
+        agent_id: authority.agentId,
+        client_id: detail.client.id,
+        task,
+        tool: analyzeCompetitors.name,
+        input,
+        status: 'running',
+        started_at: new Date().toISOString(),
+      })
+      .select('id')
+      .single();
+    if (runError || !run) {
+      throw new Error(`Could not record competitor analysis run: ${runError?.message ?? 'missing run id'}`);
+    }
+    runId = run.id;
+
+    const usageEvents: Parameters<NonNullable<import('@/forge/types').ToolContext['recordModelUsage']>>[0][] = [];
+    const output = await analyzeCompetitors.execute(input, {
+      client: clientContextFromDetail(detail),
+      model: resolveModel(),
+      recordModelUsage: (event) => usageEvents.push(event),
+    });
+    const modelUsage = summarizeModelUsage(usageEvents);
+
+    const { error: outputError } = await supabase
+      .from('tool_runs')
+      .update({
+        output,
+        ...(modelUsage ? { model_usage: modelUsage } : {}),
+        status: 'succeeded',
+        completed_at: new Date().toISOString(),
+        error: null,
+      })
+      .eq('id', run.id);
+    if (outputError) throw new Error(`Could not persist competitor analysis output: ${outputError.message}`);
+
+    const { error: evidenceError } = await supabase.from('forge_run_evidence').insert({
+      run_id: run.id,
+      kind: 'output',
+      description: 'Structured competitor analysis output produced from the operator dashboard.',
+      payload: output,
+    });
+    if (evidenceError) throw new Error(`Could not record competitor analysis evidence: ${evidenceError.message}`);
+
+    const { error: auditError } = await supabase.from('forge_run_audits').insert({
+      run_id: run.id,
+      status: 'succeeded',
+      summary: 'analyze_competitors completed and produced durable competitor evidence.',
+      findings: [],
+    });
+    if (auditError) throw new Error(`Could not record competitor analysis audit: ${auditError.message}`);
+  } catch (error) {
+    console.error('[dashboard/runCompetitorAnalysis]', error);
+    if (runId) await markDashboardRunFailed(runId, error);
+    redirectClient(slug, 'competitor-error');
+  }
+
+  revalidatePath('/dashboard');
+  revalidatePath(`/dashboard/clients/${slug}`);
+  if (!runId) redirectClient(slug, 'competitor-error');
+  redirectRun(runId, 'competitor-complete');
 }
 
 function parseReportMetricLines(value: string) {

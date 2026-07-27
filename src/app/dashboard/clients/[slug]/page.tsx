@@ -7,6 +7,7 @@ import {
   publishReviewReply,
   revokeClientPortal,
   runClientTask,
+  runCompetitorAnalysis,
   runKeywordResearch,
   runPerformanceReport,
   setClientBilling,
@@ -75,6 +76,7 @@ function StatusBanner({ status }: { status?: string }) {
     'voice-saved': 'Brand voice saved.',
     'run-complete': 'Forge run completed and was logged.',
     'keyword-complete': 'Keyword research completed with DataForSEO metrics when credentials are configured.',
+    'competitor-complete': 'Competitor analysis completed and was logged as durable evidence.',
     'report-complete': 'Performance report generated from live metrics and provided highlights.',
     'profile-invalid': 'Enter a valid profile name and lowercase URL slug.',
     'profile-error': 'Client profile could not be saved.',
@@ -83,6 +85,8 @@ function StatusBanner({ status }: { status?: string }) {
     'run-invalid': 'Enter a task before running Forge.',
     'keyword-error': 'Keyword research could not complete. Check provider keys and server logs.',
     'keyword-invalid': 'Enter a keyword topic before running research.',
+    'competitor-error': 'Competitor analysis could not complete. Check provider keys and server logs.',
+    'competitor-invalid': 'Enter at least one competitor before running analysis.',
     'report-error': 'Performance report could not complete. Check provider keys and server logs.',
     'report-invalid': 'Enter a reporting period before generating a report.',
     'reply-published': 'Reply published to Google. The review is now marked posted.',
@@ -423,6 +427,36 @@ export default async function ClientDetailPage({
               </div>
               <button className="mt-5 bg-gold px-5 py-3 font-mono text-xs uppercase tracking-wide text-bg transition hover:bg-gold-soft">
                 Generate Report
+              </button>
+            </form>
+
+            <form action={runCompetitorAnalysis} className="border border-gold-border bg-surface/50 p-5">
+              <input type="hidden" name="slug" value={client.slug} />
+              <div className="font-mono text-xs uppercase tracking-wide text-muted">
+                Competitor Analysis
+              </div>
+              <p className="mt-3 font-sans text-sm leading-6 text-muted">
+                Compare this client against named competitors using only the notes you provide
+                plus general category knowledge. Forge will hedge assumptions and avoid
+                inventing specific claims like pricing or traffic.
+              </p>
+              <div className="mt-5">
+                <TextArea
+                  label="Competitors — one per line, Name: notes or URL"
+                  name="competitors"
+                  rows={5}
+                  defaultValue=""
+                />
+              </div>
+              <div className="mt-4">
+                <Field
+                  label="Focus"
+                  name="focus"
+                  defaultValue="local positioning, social content, reviews, and offer clarity"
+                />
+              </div>
+              <button className="mt-5 bg-gold px-5 py-3 font-mono text-xs uppercase tracking-wide text-bg transition hover:bg-gold-soft">
+                Analyze Competitors
               </button>
             </form>
 

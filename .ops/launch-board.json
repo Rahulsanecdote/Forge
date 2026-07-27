@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-07-27T03:05:00.000Z",
+  "updatedAt": "2026-07-27T06:50:00.000Z",
   "project": "forge-agent",
   "activeLane": "observability-readiness",
   "lanes": [
@@ -1005,6 +1005,56 @@
       ],
       "rollback": {
         "strategy": "remove portal report query/rendering and restore dashboard report copy formatter to the run-detail page only",
+        "verified": false
+      }
+    },
+    {
+      "id": "operator-competitor-analysis-workflow",
+      "title": "Operators can generate competitor positioning briefs from the client dashboard",
+      "priority": "P1",
+      "type": "observability",
+      "status": "shipped",
+      "owner": "engineering",
+      "lane": "observability-readiness",
+      "createdAt": "2026-07-27T06:50:00.000Z",
+      "updatedAt": "2026-07-27T06:50:00.000Z",
+      "requiresHumanApproval": false,
+      "definitionOfDone": [
+        {
+          "item": "Client dashboard exposes a first-class competitor analysis form",
+          "done": true
+        },
+        {
+          "item": "Competitor lines are parsed into governed analyze_competitors tool input",
+          "done": true
+        },
+        {
+          "item": "Runs are recorded as tool_runs with model usage, durable output evidence, and audit rows",
+          "done": true
+        },
+        {
+          "item": "Run detail renders a readable competitor positioning brief instead of raw JSON",
+          "done": true
+        },
+        {
+          "item": "Local tests, typecheck, env validation, LaunchOps validation, and diff hygiene pass",
+          "done": true
+        }
+      ],
+      "evidence": [
+        {
+          "description": "Implemented a dashboard competitor-analysis workflow using the existing analyze_competitors tool: client form, server action, tool_runs persistence, model_usage recording, durable output evidence, succeeded audit row, and run-detail preview for positioning, competitor strengths/gaps, client wins, and opportunities.",
+          "source": "terminal",
+          "capturedAt": "2026-07-27T06:50:00.000Z"
+        },
+        {
+          "description": "Local validation passed: npm run test (136 tests), npm run typecheck after clearing stale tsconfig.tsbuildinfo, npm run env:validate, npm run launch:validate, and git diff --check.",
+          "source": "terminal",
+          "capturedAt": "2026-07-27T06:51:00.000Z"
+        }
+      ],
+      "rollback": {
+        "strategy": "remove the competitor analysis dashboard form/action, competitor output parser, and run-detail competitor preview; historical analyze_competitors tool_runs remain readable as raw recorded output",
         "verified": false
       }
     }
