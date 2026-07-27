@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-07-26T23:45:00.000Z",
+  "updatedAt": "2026-07-27T00:10:00.000Z",
   "project": "forge-agent",
   "activeLane": "observability-readiness",
   "lanes": [
@@ -846,11 +846,15 @@
       "owner": "engineering",
       "lane": "observability-readiness",
       "createdAt": "2026-07-26T23:45:00.000Z",
-      "updatedAt": "2026-07-26T23:45:00.000Z",
+      "updatedAt": "2026-07-27T00:10:00.000Z",
       "requiresHumanApproval": false,
       "definitionOfDone": [
         {
           "item": "Repeatable LaunchOps verifier exists for production report evidence",
+          "done": true
+        },
+        {
+          "item": "Repeatable LaunchOps creator exists to generate a report proof run from an existing measured client",
           "done": true
         },
         {
@@ -879,10 +883,15 @@
           "description": "Added npm run launch:report-proof, a repeatable verifier that checks a production generate_report run for a real client, measured metric input, structured report output, report evidence, succeeded audit evidence, and stored content_metrics rows.",
           "source": "terminal",
           "capturedAt": "2026-07-26T23:45:00.000Z"
+        },
+        {
+          "description": "Added npm run launch:report-proof:create, an operator script that selects an existing client with stored content_metrics, executes the configured generate_report model tool, records tool_runs output plus report evidence and audit rows, and prints the verification command for the created run.",
+          "source": "terminal",
+          "capturedAt": "2026-07-27T00:10:00.000Z"
         }
       ],
       "rollback": {
-        "strategy": "remove scripts/verify-report-proof.mjs and the launch:report-proof package script; no production runtime state is changed by the verifier",
+        "strategy": "remove scripts/create-report-proof.ts, scripts/verify-report-proof.mjs, and the launch:report-proof package scripts; no public runtime routes are changed by these proof scripts",
         "verified": false
       }
     }
