@@ -1,6 +1,8 @@
 import { z } from 'zod';
 
 import { supabase } from '../../supabase';
+import { STALE_PUBLISHING_MINUTES } from './publication-checkpoint-policy';
+
 export { decidePublicationClaim } from './publication-checkpoint-policy';
 
 export const publicationPlatformSchema = z.enum([
@@ -79,21 +81,47 @@ export async function releaseContentPublicationClaim(publicationId: string) {
   }
 }
 
+// PostgREST resolves an RPC by the argument names it is given, so a deploy that lands
+// before 20260808010000 sees "function does not exist" rather than a wrong-arity error.
+// Detect that and fall back to the single-status signature: on an un-migrated database the
+// only resolvable checkpoints are the 'reconcile' ones the old function already handled.
+function isMissingStaleMinutesOverload(message: string | null | undefined): boolean {
+  return /could not find the function|does not exist|schema cache/i.test(message ?? '');
+}
+
 export async function confirmContentPublication(
   publicationId: string,
   reference: string,
+  staleMinutes: number = STALE_PUBLISHING_MINUTES,
 ) {
   const { error } = await supabase.rpc('resolve_content_publication_as_published', {
     p_publication_id: publicationId,
     p_reference: reference,
+    p_stale_minutes: staleMinutes,
   });
-  if (error) throw error;
+  if (!error) return;
+  if (!isMissingStaleMinutesOverload(error.message)) throw error;
+
+  const { error: legacyError } = await supabase.rpc(
+    'resolve_content_publication_as_published',
+    { p_publication_id: publicationId, p_reference: reference },
+  );
+  if (legacyError) throw legacyError;
 }
 
-export async function rearmContentPublication(publicationId: string) {
-  const { data, error } = await supabase.rpc('resolve_content_publication_for_retry', {
+export async function rearmContentPublication(
+  publicationId: string,
+  staleMinutes: number = STALE_PUBLISHING_MINUTES,
+) {
+  let { data, error } = await supabase.rpc('resolve_content_publication_for_retry', {
     p_publication_id: publicationId,
+    p_stale_minutes: staleMinutes,
   });
+  if (error && isMissingStaleMinutesOverload(error.message)) {
+    ({ data, error } = await supabase.rpc('resolve_content_publication_for_retry', {
+      p_publication_id: publicationId,
+    }));
+  }
   if (error) throw error;
   if (data !== true) {
     throw new Error('Publication checkpoint could not be re-armed.');
