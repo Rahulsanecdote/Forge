@@ -1,6 +1,5 @@
-import { lookup } from 'node:dns/promises';
-import { isIP } from 'node:net';
 import { z } from 'zod';
+import { resolvesToPrivateAddress } from '@/lib/net/private-address';
 
 const MAX_HTML_BYTES = 750_000;
 const MAX_VISIBLE_TEXT_CHARS = 40_000;
@@ -172,26 +171,11 @@ function unique(values: string[], limit = 8) {
   return result;
 }
 
-function isBlockedIp(address: string) {
-  const normalized = address.toLowerCase();
-  if (normalized.startsWith('::ffff:')) return isBlockedIp(normalized.slice(7));
-  if (normalized === '::1' || normalized === '::' || normalized.startsWith('fc') || normalized.startsWith('fd') || normalized.startsWith('fe8') || normalized.startsWith('fe9') || normalized.startsWith('fea') || normalized.startsWith('feb')) return true;
-  if (isIP(address) !== 4) return false;
-  const [a, b] = address.split('.').map(Number);
-  return a === 0 || a === 10 || a === 127 || a >= 224 || (a === 169 && b === 254) ||
-    (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) ||
-    (a === 100 && b >= 64 && b <= 127);
-}
-
 async function assertPublicUrl(url: URL) {
   if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) {
     throw new Error('Use a public http or https website URL.');
   }
-  if (url.hostname === 'localhost' || url.hostname.endsWith('.local')) {
-    throw new Error('Private network addresses are not allowed.');
-  }
-  const addresses = await lookup(url.hostname, { all: true, verbatim: true });
-  if (addresses.length === 0 || addresses.some(({ address }) => isBlockedIp(address))) {
+  if (await resolvesToPrivateAddress(url.hostname)) {
     throw new Error('Private network addresses are not allowed.');
   }
 }
