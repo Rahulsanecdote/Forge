@@ -101,3 +101,11 @@ export function summarizeModelUsage(events: ModelUsageEvent[]) {
     totals,
   };
 }
+
+// `model_usage` is optional telemetry stored on `tool_runs`. Its migration can lag a
+// deploy, and when the column is absent Postgres rejects the whole statement — which would
+// otherwise take down the operation being measured (persisting tool output, loading a run
+// detail page). Callers use this to detect that specific case and retry without the column.
+export function isMissingModelUsageColumn(message: string | null | undefined): boolean {
+  return /model_usage/i.test(message ?? '');
+}

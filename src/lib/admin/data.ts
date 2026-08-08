@@ -20,6 +20,7 @@ import {
   type MonitoringSeverity,
 } from '@/lib/admin/monitoring';
 import { isDeliveryActive } from '@/lib/billing/entitlements';
+import { isMissingModelUsageColumn } from '@/forge/model-usage';
 
 export type { ClientPerformanceSummary } from '@/forge/data/performance-summary-mapping';
 export type { PostingSlot } from '@/forge/data/posting-insights-mapping';
@@ -803,11 +804,21 @@ export async function loadToolRunDetail(id: string): Promise<DashboardToolRunDet
   const supabase = getAdminSupabase();
   const errors: string[] = [];
 
+  // `model_usage` telemetry is optional and its migration can lag a deploy. Without this
+  // fallback a missing column fails the select outright and every run-detail page 404s.
   const { data: run, error } = await supabase
     .from('tool_runs')
     .select('id, client_id, task, tool, input, output, model_usage, created_at')
     .eq('id', id)
-    .single();
+    .single()
+    .then(async (result) => {
+      if (!result.error || !isMissingModelUsageColumn(result.error.message)) return result;
+      return supabase
+        .from('tool_runs')
+        .select('id, client_id, task, tool, input, output, created_at')
+        .eq('id', id)
+        .single();
+    });
 
   if (error || !run) return null;
 

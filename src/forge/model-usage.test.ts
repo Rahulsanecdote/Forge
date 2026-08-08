@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  isMissingModelUsageColumn,
   maxAgentSteps,
   normalizeModelUsage,
   outputTokenLimit,
@@ -56,4 +57,17 @@ test('caps agent steps and output tokens from env', () => {
     if (priorOutput === undefined) delete process.env.FORGE_OUTPUT_TOKEN_LIMIT;
     else process.env.FORGE_OUTPUT_TOKEN_LIMIT = priorOutput;
   }
+});
+
+test('isMissingModelUsageColumn detects the lagging-migration error only', () => {
+  // Shape Postgres/PostgREST returns when the column has not been added yet.
+  assert.equal(
+    isMissingModelUsageColumn("column tool_runs.model_usage does not exist"),
+    true,
+  );
+  assert.equal(isMissingModelUsageColumn("Could not find the 'model_usage' column"), true);
+  // Unrelated failures must still surface as real errors rather than being retried away.
+  assert.equal(isMissingModelUsageColumn('duplicate key value violates unique constraint'), false);
+  assert.equal(isMissingModelUsageColumn(null), false);
+  assert.equal(isMissingModelUsageColumn(undefined), false);
 });

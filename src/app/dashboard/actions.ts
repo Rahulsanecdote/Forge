@@ -17,7 +17,16 @@ import { createReviewRequests } from '@/lib/reviews/requests';
 import { parseRecipients } from '@/lib/reviews/recipients';
 import { getPlan, DEFAULT_PLAN_KEY } from '@/lib/billing/plans';
 import { isSubscriptionStatus } from '@/lib/billing/entitlements';
+import { isMissingModelUsageColumn } from '@/forge/model-usage';
 import type { ClientContext } from '@/forge/types';
+
+// Migration 20260727014743 adds 'report' to the allowed forge_run_evidence kinds. Until it
+// is applied the insert is rejected by that check constraint; detect it so a real, already
+// persisted success is not rewritten as a failure.
+function isMissingReportEvidenceKind(message: string | null | undefined): boolean {
+  const text = message ?? '';
+  return /forge_run_evidence/i.test(text) && /kind/i.test(text);
+}
 
 export async function login(formData: FormData) {
   const password = String(formData.get('password') ?? '');
@@ -96,6 +105,30 @@ function clientContextFromDetail(detail: NonNullable<Awaited<ReturnType<typeof l
 
 function errorMessage(error: unknown) {
   return (error instanceof Error ? error.message : String(error)).slice(0, 2000);
+}
+
+// Persist a completed run's output. `model_usage` is optional telemetry whose migration can
+// lag a deploy; when the column is missing Postgres rejects the whole statement, so retry
+// without it rather than losing the output of work that already succeeded (and already
+// cost model tokens).
+async function persistRunOutput(
+  supabase: ReturnType<typeof getAdminSupabase>,
+  runId: string,
+  output: unknown,
+  modelUsage: unknown,
+) {
+  const completed = {
+    output,
+    status: 'succeeded',
+    completed_at: new Date().toISOString(),
+    error: null,
+  };
+  const attempt = await supabase
+    .from('tool_runs')
+    .update({ ...completed, ...(modelUsage ? { model_usage: modelUsage } : {}) })
+    .eq('id', runId);
+  if (!attempt.error || !isMissingModelUsageColumn(attempt.error.message)) return attempt;
+  return supabase.from('tool_runs').update(completed).eq('id', runId);
 }
 
 async function markDashboardRunFailed(runId: string, error: unknown) {
@@ -604,16 +637,7 @@ export async function runKeywordResearch(formData: FormData) {
     });
     const modelUsage = summarizeModelUsage(usageEvents);
 
-    const { error: outputError } = await supabase
-      .from('tool_runs')
-      .update({
-        output,
-        ...(modelUsage ? { model_usage: modelUsage } : {}),
-        status: 'succeeded',
-        completed_at: new Date().toISOString(),
-        error: null,
-      })
-      .eq('id', run.id);
+    const { error: outputError } = await persistRunOutput(supabase, run.id, output, modelUsage);
     if (outputError) throw new Error(`Could not persist keyword output: ${outputError.message}`);
 
     const { error: evidenceError } = await supabase.from('forge_run_evidence').insert({
@@ -732,16 +756,7 @@ export async function runCompetitorAnalysis(formData: FormData) {
     });
     const modelUsage = summarizeModelUsage(usageEvents);
 
-    const { error: outputError } = await supabase
-      .from('tool_runs')
-      .update({
-        output,
-        ...(modelUsage ? { model_usage: modelUsage } : {}),
-        status: 'succeeded',
-        completed_at: new Date().toISOString(),
-        error: null,
-      })
-      .eq('id', run.id);
+    const { error: outputError } = await persistRunOutput(supabase, run.id, output, modelUsage);
     if (outputError) throw new Error(`Could not persist competitor analysis output: ${outputError.message}`);
 
     const { error: evidenceError } = await supabase.from('forge_run_evidence').insert({
@@ -840,6 +855,7 @@ export async function runPerformanceReport(formData: FormData) {
   const task = `Generate a performance report for ${period} using only provided metrics and highlights.`;
   const supabase = getAdminSupabase();
   let runId: string | null = null;
+  let evidenceUnmigrated = false;
 
   try {
     const [
@@ -888,16 +904,7 @@ export async function runPerformanceReport(formData: FormData) {
     });
     const modelUsage = summarizeModelUsage(usageEvents);
 
-    const { error: outputError } = await supabase
-      .from('tool_runs')
-      .update({
-        output,
-        ...(modelUsage ? { model_usage: modelUsage } : {}),
-        status: 'succeeded',
-        completed_at: new Date().toISOString(),
-        error: null,
-      })
-      .eq('id', run.id);
+    const { error: outputError } = await persistRunOutput(supabase, run.id, output, modelUsage);
     if (outputError) throw new Error(`Could not persist report output: ${outputError.message}`);
 
     const { error: evidenceError } = await supabase.from('forge_run_evidence').insert({
@@ -906,15 +913,28 @@ export async function runPerformanceReport(formData: FormData) {
       description: 'Structured performance report generated from the operator dashboard.',
       payload: output,
     });
-    if (evidenceError) throw new Error(`Could not record report evidence: ${evidenceError.message}`);
+    // The 'report' evidence kind needs migration 20260727014743. If that lags the deploy the
+    // insert is rejected — but the report itself already generated and persisted as
+    // succeeded above, so throwing here would send a real success through
+    // markDashboardRunFailed and rewrite it as failed. Degrade instead: keep the run and
+    // flag the missing migration. (Set a flag rather than redirecting here — redirect()
+    // throws NEXT_REDIRECT, which this function's own catch would treat as a failure.)
+    if (evidenceError && isMissingReportEvidenceKind(evidenceError.message)) {
+      console.error('[dashboard/runPerformanceReport] report evidence kind rejected', evidenceError.message);
+      evidenceUnmigrated = true;
+    } else if (evidenceError) {
+      throw new Error(`Could not record report evidence: ${evidenceError.message}`);
+    }
 
-    const { error: auditError } = await supabase.from('forge_run_audits').insert({
-      run_id: run.id,
-      status: 'succeeded',
-      summary: 'generate_report completed and produced durable report evidence.',
-      findings: [],
-    });
-    if (auditError) throw new Error(`Could not record report audit: ${auditError.message}`);
+    if (!evidenceUnmigrated) {
+      const { error: auditError } = await supabase.from('forge_run_audits').insert({
+        run_id: run.id,
+        status: 'succeeded',
+        summary: 'generate_report completed and produced durable report evidence.',
+        findings: [],
+      });
+      if (auditError) throw new Error(`Could not record report audit: ${auditError.message}`);
+    }
   } catch (error) {
     console.error('[dashboard/runPerformanceReport]', error);
     if (runId) await markDashboardRunFailed(runId, error);
@@ -924,7 +944,7 @@ export async function runPerformanceReport(formData: FormData) {
   revalidatePath('/dashboard');
   revalidatePath(`/dashboard/clients/${slug}`);
   if (!runId) redirectClient(slug, 'report-error');
-  redirectRun(runId, 'report-complete');
+  redirectRun(runId, evidenceUnmigrated ? 'report-evidence-unmigrated' : 'report-complete');
 }
 
 const approvalDecisionSchema = z.enum(['approved', 'rejected']);
