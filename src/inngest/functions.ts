@@ -167,17 +167,24 @@ export const refreshMetrics = inngest.createFunction(
 
 // Push active monitoring issues to an operator-owned webhook. The webhook can be Slack,
 // Discord, Make, Zapier, or any endpoint that accepts JSON. Unconfigured or clean states
-// skip without failing the Inngest run.
+// skip without failing the Inngest run — but a genuine delivery failure throws, so Inngest
+// retries it and the step goes red instead of quietly reporting success nobody reads.
 export const monitoringAlerts = inngest.createFunction(
   { id: 'monitoring-alerts', triggers: [{ cron: ALERT_CRON }] },
   async ({ step }) => {
     const data = await step.run('load-monitoring-data', () => loadMonitoringData());
-    return step.run('send-monitoring-alert', () =>
-      sendMonitoringAlert({
+    return step.run('send-monitoring-alert', async () => {
+      const result = await sendMonitoringAlert({
         data,
         webhookUrl: env.FORGE_ALERT_WEBHOOK_URL,
-      }),
-    );
+      });
+      if (result.status === 'failed') {
+        throw new Error(
+          `Monitoring alert delivery failed${result.httpStatus ? ` (HTTP ${result.httpStatus})` : ''}: ${result.error ?? 'unknown error'}`,
+        );
+      }
+      return result;
+    });
   },
 );
 
