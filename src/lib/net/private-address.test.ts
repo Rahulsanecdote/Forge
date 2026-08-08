@@ -24,11 +24,33 @@ test('allows ordinary public IPv4', () => {
   }
 });
 
-test('blocks IPv6 loopback, unique-local, link-local, and IPv4-mapped loopback', () => {
-  for (const ip of ['::1', '::', 'fc00::1', 'fd12::1', 'fe80::1', '::ffff:127.0.0.1']) {
+test('blocks IPv6 loopback, unique-local, link-local, multicast, and IPv4-mapped loopback', () => {
+  for (const ip of [
+    '::1',
+    '::',
+    'fc00::1',
+    'fd12::1',
+    'fe80::1',
+    'ff02::1', // all-nodes multicast
+    'ff00::',
+    'ff05::1:3',
+    '::ffff:127.0.0.1',
+  ]) {
     assert.equal(isPrivateAddress(ip), true, ip);
   }
   assert.equal(isPrivateAddress('2606:4700:4700::1111'), false);
+});
+
+test('CGNAT range already covers documented metadata endpoints', () => {
+  // 100.100.100.200 (Alibaba ECS metadata) sits inside 100.64.0.0/10 — no special case needed.
+  assert.equal(isPrivateAddress('100.100.100.200'), true);
+  assert.equal(isPrivateAddress('100.63.255.255'), false, 'just below the CGNAT range');
+});
+
+test('IPv6 prefix checks do not misclassify lookalike hostnames', () => {
+  // Only genuine IPv6 literals take the v6 branch; a hostname is not an address.
+  assert.equal(isPrivateAddress('fdn.example.com'), false);
+  assert.equal(isPrivateAddress('ffmpeg.example.com'), false);
 });
 
 test('isPrivateHostname catches local suffixes without DNS', () => {
