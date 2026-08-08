@@ -63,6 +63,7 @@ test('sendMonitoringAlert posts JSON to a configured webhook', async () => {
   const result = await sendMonitoringAlert({
     data: data(),
     webhookUrl: 'https://example.com/hook',
+    isPrivateHostImpl: async () => false,
     fetchImpl: async (url, init) => {
       calls.push({ url: url as URL, init });
       return new Response('', { status: 200 });
@@ -84,8 +85,46 @@ test('sendMonitoringAlert fails closed on bad urls and non-2xx responses', async
     data: data(),
     webhookUrl: 'https://example.com/hook',
     fetchImpl: async () => new Response('nope', { status: 500 }),
+    isPrivateHostImpl: async () => false,
   });
 
   assert.equal(result.status, 'failed');
   assert.equal(result.httpStatus, 500);
+});
+
+test('sendMonitoringAlert refuses a webhook host that resolves privately (SSRF guard)', async () => {
+  let fetched = false;
+  const result = await sendMonitoringAlert({
+    data: data(),
+    // A public-looking hostname that resolves to link-local — e.g. cloud metadata.
+    webhookUrl: 'https://metadata.example.com/hook',
+    isPrivateHostImpl: async () => true,
+    fetchImpl: async () => {
+      fetched = true;
+      return new Response('', { status: 200 });
+    },
+  });
+
+  assert.equal(result.status, 'failed');
+  assert.match(result.error ?? '', /public address/);
+  assert.equal(fetched, false, 'must not send before the host is vetted');
+});
+
+test('sendMonitoringAlert does not follow redirects (SSRF bypass) and sets a timeout', async () => {
+  const inits: RequestInit[] = [];
+  const result = await sendMonitoringAlert({
+    data: data(),
+    webhookUrl: 'https://example.com/hook',
+    isPrivateHostImpl: async () => false,
+    fetchImpl: async (_url, init) => {
+      inits.push(init as RequestInit);
+      return new Response('', { status: 302, headers: { location: 'http://169.254.169.254/' } });
+    },
+  });
+
+  assert.equal(result.status, 'failed');
+  assert.equal(result.httpStatus, 302);
+  assert.match(result.error ?? '', /redirect/i);
+  assert.equal(inits[0]?.redirect, 'manual');
+  assert.ok(inits[0]?.signal, 'a timeout signal must be attached');
 });

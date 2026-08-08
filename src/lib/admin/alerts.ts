@@ -1,5 +1,9 @@
 import type { DashboardMonitoringData } from '@/lib/admin/data';
 import type { MonitoringIssue, MonitoringSeverity } from '@/lib/admin/monitoring';
+import { resolvesToPrivateAddress } from '@/lib/net/private-address';
+
+// Refuse to hang the cron step on an unresponsive webhook.
+const WEBHOOK_TIMEOUT_MS = 10_000;
 
 export type MonitoringAlertStatus = 'sent' | 'skipped-unconfigured' | 'skipped-clean' | 'failed';
 
@@ -41,6 +45,8 @@ export async function sendMonitoringAlert(input: {
   data: DashboardMonitoringData;
   webhookUrl?: string | null;
   fetchImpl?: typeof fetch;
+  // Injectable so unit tests stay hermetic (no live DNS); production uses the real resolver.
+  isPrivateHostImpl?: (hostname: string) => Promise<boolean>;
 }): Promise<MonitoringAlertResult> {
   const issueCount = input.data.issues.length;
   if (!input.webhookUrl) return { status: 'skipped-unconfigured', issueCount };
@@ -57,12 +63,35 @@ export async function sendMonitoringAlert(input: {
     return { status: 'failed', issueCount, error: 'FORGE_ALERT_WEBHOOK_URL must be http or https.' };
   }
 
+  // SSRF guard: the protocol check above only vets the string. Resolve the host and refuse
+  // private/link-local targets (incl. 169.254.169.254 cloud metadata) before sending.
+  if (await (input.isPrivateHostImpl ?? resolvesToPrivateAddress)(url.hostname)) {
+    return {
+      status: 'failed',
+      issueCount,
+      error: 'FORGE_ALERT_WEBHOOK_URL must resolve to a public address.',
+    };
+  }
+
   try {
     const response = await (input.fetchImpl ?? fetch)(url, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(buildMonitoringAlertPayload(input.data)),
+      // Following a redirect would re-target the POST at a host that never passed the
+      // checks above — the standard SSRF bypass. Treat any 3xx as a configuration error.
+      redirect: 'manual',
+      signal: AbortSignal.timeout(WEBHOOK_TIMEOUT_MS),
     });
+
+    if (response.status >= 300 && response.status < 400) {
+      return {
+        status: 'failed',
+        issueCount,
+        httpStatus: response.status,
+        error: 'Webhook redirected; point FORGE_ALERT_WEBHOOK_URL at the final URL.',
+      };
+    }
 
     if (!response.ok) {
       return {
