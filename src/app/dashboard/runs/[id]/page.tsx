@@ -215,6 +215,8 @@ function ApprovalStatus({ status }: { status?: string }) {
     'metrics-error': 'Could not refresh metrics. Check the Meta token and server logs.',
     'metrics-invalid': 'That metrics request was invalid.',
     'report-complete': 'Report generated and recorded as durable run evidence.',
+    'report-evidence-unmigrated':
+      'Report generated and saved, but it could not be recorded as durable evidence — apply migration 20260727014743_allow_report_evidence_kind.sql, then regenerate to capture the audit trail.',
   };
   const isError =
     status === 'approval-blocked' ||
@@ -234,6 +236,7 @@ function ApprovalStatus({ status }: { status?: string }) {
     status === 'schedule-blocked' ||
     status === 'schedule-missing-image' ||
     status === 'schedule-reconcile' ||
+    status === 'report-evidence-unmigrated' ||
     status.endsWith('error') ||
     status.endsWith('invalid');
 

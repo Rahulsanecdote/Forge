@@ -4,7 +4,7 @@ import { tools as forgeTools } from './registry';
 import { supabase } from '../supabase';
 import { assertToolPermission, DEFAULT_AGENT_KEY } from './authority';
 import type { AnyForgeTool, ClientContext, ToolContext } from './types';
-import { maxAgentSteps, summarizeModelUsage } from './model-usage';
+import { isMissingModelUsageColumn, maxAgentSteps, summarizeModelUsage } from './model-usage';
 
 function systemPrompt(client: ClientContext): string {
   const bv = client.brandVoice;
@@ -142,10 +142,18 @@ function buildTools(
             },
           });
           const modelUsage = summarizeModelUsage(usageEvents);
-          const { error: outputError } = await supabase
+          let { error: outputError } = await supabase
             .from('tool_runs')
             .update({ output, ...(modelUsage ? { model_usage: modelUsage } : {}) })
             .eq('id', run.id);
+          // Optional telemetry must never block persisting the actual tool output: when the
+          // model_usage migration lags the deploy, retry with the output alone.
+          if (outputError && isMissingModelUsageColumn(outputError.message)) {
+            ({ error: outputError } = await supabase
+              .from('tool_runs')
+              .update({ output })
+              .eq('id', run.id));
+          }
           if (outputError) {
             throw new Error(`Could not persist tool output: ${outputError.message}`);
           }
