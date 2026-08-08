@@ -10,6 +10,10 @@ export interface MonitoringInputs {
   failedReviewRequests: number;
   staleMetricsClients: number;
   inactiveDeliveryClients: number;
+  // How many monitoring queries failed to load. Every other figure here counts only what
+  // was successfully read, so without this a data-access outage would look like a clean
+  // bill of health. Optional for callers that cannot fail (pure inputs in tests).
+  dataErrors?: number;
 }
 
 export interface MonitoringIssue {
@@ -37,6 +41,10 @@ export function isStalePublishing(
 }
 
 export function monitoringSeverity(input: MonitoringInputs): MonitoringSeverity {
+  // A blind monitor is the most dangerous state: the counts below are all "0" simply
+  // because the queries behind them failed, so report critical rather than "operational".
+  if ((input.dataErrors ?? 0) > 0) return 'critical';
+
   if (
     input.reconcilePublications > 0 ||
     input.stalePublishingPublications > 0 ||
@@ -60,6 +68,18 @@ export function monitoringSeverity(input: MonitoringInputs): MonitoringSeverity 
 
 export function buildMonitoringIssues(input: MonitoringInputs): MonitoringIssue[] {
   const issues: MonitoringIssue[] = [];
+
+  // Emitted first, and deliberately an *issue* rather than a silent flag: the alert cron
+  // skips sending when there are no issues, so a data outage must surface here to be seen.
+  const dataErrors = input.dataErrors ?? 0;
+  if (dataErrors > 0) {
+    issues.push({
+      severity: 'critical',
+      title: 'Monitoring data is incomplete',
+      detail: `${dataErrors} monitoring quer${dataErrors === 1 ? 'y' : 'ies'} failed to load, so the figures below understate the real state. Treat this dashboard as unreliable until it clears.`,
+      href: '#data-errors',
+    });
+  }
 
   if (input.reconcilePublications > 0) {
     issues.push({

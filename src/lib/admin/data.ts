@@ -662,6 +662,7 @@ export async function loadMonitoringData(now = new Date()): Promise<DashboardMon
     failedReviewRequests: stats.failedReviewRequests,
     staleMetricsClients: metricClients.filter((client) => client.stale).length,
     inactiveDeliveryClients: stats.inactiveDeliveryClients,
+    dataErrors: errors.length,
   };
 
   return {

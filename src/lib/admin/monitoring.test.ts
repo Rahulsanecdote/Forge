@@ -14,6 +14,24 @@ const base = {
   inactiveDeliveryClients: 0,
 };
 
+test('a monitoring data outage reports critical, not operational', () => {
+  // Every count is zero *because the queries failed* — the exact case that previously
+  // rendered as "Operational" and made the alert cron skip as clean.
+  const blind = { ...base, dataErrors: 2 };
+  assert.equal(monitoringSeverity(blind), 'critical');
+
+  const issues = buildMonitoringIssues(blind);
+  assert.ok(issues.length > 0, 'must emit an issue so the alert cron does not skip as clean');
+  assert.equal(issues[0].severity, 'critical');
+  assert.match(issues[0].title, /incomplete/i);
+  assert.match(issues[0].detail, /2 monitoring queries/);
+
+  // Singular wording, and a healthy load is still ok.
+  assert.match(buildMonitoringIssues({ ...base, dataErrors: 1 })[0].detail, /1 monitoring query/);
+  assert.equal(monitoringSeverity({ ...base, dataErrors: 0 }), 'ok');
+  assert.equal(buildMonitoringIssues(base).length, 0);
+});
+
 test('minutesSince returns whole elapsed minutes and ignores invalid input', () => {
   assert.equal(minutesSince('2026-07-26T18:00:20.000Z', base.nowIso), 29);
   assert.equal(minutesSince('not-a-date', base.nowIso), null);
