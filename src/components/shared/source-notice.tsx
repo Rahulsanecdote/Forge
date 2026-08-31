@@ -8,8 +8,12 @@ import { site } from '@/lib/site-config';
 // Anyone deploying a modified fork has to point this at *their* source, not this repo:
 // set FORGE_SOURCE_URL to the location of the modified code.
 export default function SourceNotice() {
-  const sourceUrl = process.env.FORGE_SOURCE_URL ?? site.github;
-  const modified = Boolean(process.env.FORGE_SOURCE_URL);
+  // Trim rather than `??`: a deployment that defines FORGE_SOURCE_URL as an empty or
+  // blank string would otherwise render href="", which resolves to the current page and
+  // silently offers no source at all — the one failure this notice cannot afford.
+  const configured = process.env.FORGE_SOURCE_URL?.trim();
+  const modified = Boolean(configured);
+  const sourceUrl = configured || site.github;
 
   return (
     <div className="relative z-10 border-t border-line px-6 py-3 text-center">
