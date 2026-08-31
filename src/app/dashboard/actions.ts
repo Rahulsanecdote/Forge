@@ -18,6 +18,7 @@ import { parseRecipients } from '@/lib/reviews/recipients';
 import { getPlan, DEFAULT_PLAN_KEY } from '@/lib/billing/plans';
 import { isSubscriptionStatus } from '@/lib/billing/entitlements';
 import { isMissingModelUsageColumn } from '@/forge/model-usage';
+import { needsPublicationReconciliation } from '@/forge/data/publication-checkpoint-policy';
 import type { ClientContext } from '@/forge/types';
 
 // Migration 20260727014743 adds 'report' to the allowed forge_run_evidence kinds. Until it
@@ -1173,7 +1174,14 @@ export async function resolvePublicationCheckpoint(formData: FormData) {
 
   const detail = await loadToolRunDetail(runId.data);
   const publication = detail?.publications.find((row) => row.id === publicationId.data);
-  if (!detail?.client || !publication || publication.status !== 'reconcile') {
+  // Accept a checkpoint stuck in 'publishing' past the stale threshold as well as an
+  // explicit 'reconcile'. An abandoned claim is exactly the case the operator most needs to
+  // resolve, and rejecting it here is what made the wedge unrecoverable.
+  if (
+    !detail?.client ||
+    !publication ||
+    !needsPublicationReconciliation(publication, new Date().toISOString())
+  ) {
     redirectRun(runId.data, 'reconcile-error');
   }
 

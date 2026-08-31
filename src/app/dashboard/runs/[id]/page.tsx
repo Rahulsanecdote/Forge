@@ -13,7 +13,10 @@ import {
   runClientTask,
   scheduleApprovedContent,
 } from '../../actions';
-import { isPublicationRunComplete } from '@/forge/data/publication-checkpoint-policy';
+import {
+  isPublicationRunComplete,
+  needsPublicationReconciliation,
+} from '@/forge/data/publication-checkpoint-policy';
 import { isAdminAuthenticated } from '@/lib/admin/auth';
 import { getAdminSupabase, loadClientPostingInsights, loadToolRunDetail } from '@/lib/admin/data';
 import {
@@ -282,8 +285,12 @@ export default async function ToolRunDetailPage({
   };
   const contentExportAllowed = canExportApprovedContent(contentExportPolicy);
   const contentExportBlockedBy = contentExportBlockReason(contentExportPolicy);
-  const reconciliationQueue = publications.filter(
-    (publication) => publication.status === 'reconcile',
+  // Includes checkpoints stuck in 'publishing' past the stale threshold, not just
+  // 'reconcile' — otherwise an abandoned claim is invisible here and the run can never
+  // publish or schedule again.
+  const nowIso = new Date().toISOString();
+  const reconciliationQueue = publications.filter((publication) =>
+    needsPublicationReconciliation(publication, nowIso),
   );
   const modelUsage = modelUsageSchema.safeParse(run.model_usage).success
     ? modelUsageSchema.parse(run.model_usage)
@@ -578,7 +585,10 @@ export default async function ToolRunDetailPage({
                     Post {publication.post_index + 1} · {platformName(publication.platform)}
                   </div>
                   <p className="mt-2 break-words font-mono text-[11px] leading-5 text-red-100">
-                    {publication.last_error ?? 'Provider outcome was ambiguous.'}
+                    {publication.last_error ??
+                      (publication.status === 'publishing'
+                        ? `Forge claimed this post but never recorded an outcome — the publishing invocation was lost. Claimed ${formatDate(publication.claimed_at)}.`
+                        : 'Provider outcome was ambiguous.')}
                   </p>
                   <form action={resolvePublicationCheckpoint} className="mt-4 space-y-3">
                     <input type="hidden" name="run_id" value={run.id} />

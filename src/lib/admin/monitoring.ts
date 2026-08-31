@@ -1,3 +1,5 @@
+import { STALE_PUBLISHING_MINUTES } from '../../forge/data/publication-checkpoint-policy';
+
 export type MonitoringSeverity = 'ok' | 'warning' | 'critical';
 
 export interface MonitoringInputs {
@@ -34,7 +36,9 @@ export function minutesSince(value: string | null | undefined, nowIso: string): 
 export function isStalePublishing(
   updatedOrClaimedAt: string | null | undefined,
   nowIso: string,
-  thresholdMinutes = 30,
+  // Shared with the run-detail reconciliation queue so the cockpit can never flag a stuck
+  // publication the operator has no way to resolve.
+  thresholdMinutes = STALE_PUBLISHING_MINUTES,
 ): boolean {
   const age = minutesSince(updatedOrClaimedAt, nowIso);
   return age !== null && age >= thresholdMinutes;
