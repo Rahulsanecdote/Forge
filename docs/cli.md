@@ -65,7 +65,8 @@ If the client doesn't exist yet, you'll get:
 
 ```bash
 INNGEST_DEV=1 npm run forge:serve   # serves http://localhost:3030/api/inngest
-npx inngest-cli@latest dev       # in another terminal — discovers it, runs crons
+# forge:serve listens on :3030; the dev server looks for :3000 by default, so point it.
+npx inngest-cli@latest dev -u http://localhost:3030/api/inngest
 ```
 
 See [Scheduled jobs](./scheduled-jobs.md).

@@ -228,7 +228,8 @@ Run them locally:
 
 ```bash
 INNGEST_DEV=1 npm run forge:serve   # serves the Inngest endpoint on :3030
-npx inngest-cli@latest dev       # in another terminal — discovers it and runs the crons
+# forge:serve listens on :3030; the dev server looks for :3000 by default, so point it.
+npx inngest-cli@latest dev -u http://localhost:3030/api/inngest
 ```
 
 Override schedules with `FORGE_CONTENT_CRON` / `FORGE_REVIEW_CRON` (cron syntax; prefix with
