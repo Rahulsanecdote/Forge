@@ -24,10 +24,14 @@ export function resolveSourceOffer(
   try {
     parsed = new URL(trimmed);
   } catch {
+    // The value is deliberately not echoed. A malformed string can still carry a
+    // credential ("https://user:token@" fails to parse before the check below runs), and
+    // this message reaches the operator's logs — so quoting it would copy the token into
+    // log storage. The operator knows what they configured; they do not need it read back.
     throw new Error(
-      `FORGE_SOURCE_URL is not a valid absolute URL: ${JSON.stringify(trimmed)}. ` +
-        'AGPL-3.0 section 13 requires this deployment to offer its source; unset the ' +
-        'variable if this deployment is unmodified.',
+      'FORGE_SOURCE_URL is not a valid absolute URL. AGPL-3.0 section 13 requires this ' +
+        'deployment to offer its source; unset the variable if this deployment is ' +
+        'unmodified.',
     );
   }
 
