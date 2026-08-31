@@ -33,12 +33,31 @@ Set **only the one** matching `FORGE_PROVIDER`:
 | `GOOGLE_GENERATIVE_AI_API_KEY` | `google` |
 | *(none / `FORGE_API_KEY`)* | `openai-compatible` (usually not needed locally) |
 
+### Web app — dashboard, portal, webhooks
+
+Required to run the Next.js app, which is where the operator dashboard, the client portal,
+and the Stripe/Twilio/review-link routes live.
+
+| Variable | Required | Description |
+|---|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | ✅ always | Public project URL. Safe to expose. |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | ✅ always | Public anon key. RLS leaves it almost nothing — `INSERT` into `leads` and no reads. |
+| `FORGE_ADMIN_PASSWORD` | ✅ in production | The operator login. **Without it `/dashboard/login` refuses everyone**, so the app deploys but nobody can use it. Make it long and random: it is the only thing between the internet and every client you manage. |
+| `FORGE_PORTAL_SECRET` | — (falls back to `FORGE_ADMIN_PASSWORD`) | Signs client portal links and sessions. Set it separately in production — sharing the secret means rotating your operator password logs out every client. |
+| `NEXT_PUBLIC_APP_URL` | recommended | Canonical public URL. The Twilio webhook verifies its signature against exactly this, so a wrong value makes every inbound opt-out fail. |
+
+`npm run env:validate` checks these (with `NODE_ENV=production` for the production rules)
+and is the authority if this table and the code ever disagree.
+
 ### Scheduled jobs (optional)
 
 | Variable | Default | Description |
 |---|---|---|
 | `FORGE_CONTENT_CRON` | `0 9 * * 1` (Mondays 09:00 UTC) | Weekly content cron. |
 | `FORGE_REVIEW_CRON` | `0 8 * * *` (daily 08:00 UTC) | Review sweep cron. |
+| `FORGE_PUBLISH_CRON` | `*/15 * * * *` | Scheduled publish cron. |
+| `FORGE_METRICS_CRON` | `0 */6 * * *` | Post-metrics refresh cron. |
+| `FORGE_ALERT_CRON` | `*/30 * * * *` | Monitoring alerts cron. |
 
 Prefix a cron with a timezone, e.g. `TZ=America/New_York 0 9 * * 1`.
 

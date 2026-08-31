@@ -65,6 +65,23 @@ FORGE_PROVIDER=anthropic
 ANTHROPIC_API_KEY=sk-ant-...
 SUPABASE_URL=https://YOUR-PROJECT.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=eyJ...
+
+# Required by the web app — omit these and it deploys but nobody can log in.
+NEXT_PUBLIC_SUPABASE_URL=https://YOUR-PROJECT.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
+FORGE_ADMIN_PASSWORD=a-long-random-password
+NEXT_PUBLIC_APP_URL=https://your-app
+
+# Recommended: a separate portal secret, so rotating the operator password
+# doesn't also log out every client.
+FORGE_PORTAL_SECRET=another-long-random-secret
+```
+
+Check them before deploying — this is the repo's own contract, so it stays right even if
+this page drifts:
+
+```bash
+NODE_ENV=production npm run env:validate
 ```
 
 ### 3. Add clients
