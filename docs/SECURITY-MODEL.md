@@ -39,11 +39,23 @@ Two exceptions to "revoked", both deliberate and both narrow:
   operator and portal logins do not use; it is the only place the `authenticated` role
   reaches anything.
 
-Note also what the migrations do **not** do: they do not install an event trigger that
-enables RLS on future tables. Some hosted Supabase projects ship an `rls_auto_enable()`
-helper, and the migrations harden its privileges *if it already exists* — but a self-hosted
-deployment has no such automation. **A new table is not protected until its migration
-enables RLS and revokes the API roles explicitly**, the way the existing ones do.
+Note what the migrations do **not** do: they do not install an event trigger that enables
+RLS on future tables. Some hosted Supabase projects ship an `rls_auto_enable()` helper, and
+the migrations harden its privileges *if it already exists* — but a self-hosted deployment
+has no such automation, so **RLS is not switched on for you.**
+
+A new table is not thereby exposed, though. `alter default privileges in schema public
+revoke all on tables from anon, authenticated` means a table created by the migration role
+grants those API roles nothing from the moment it exists, RLS or no RLS. That is the
+grant layer doing the work, and it is the reason a forgotten `enable row level security`
+is a latent problem rather than an immediate leak.
+
+Two things still make explicit RLS and revocations the required convention: default
+privileges apply only to objects created by *that* role, so a table added through the
+Supabase dashboard or by a different migration user inherits nothing from them; and the
+grant layer alone gives you no row-level policy if you ever do grant a role access. Follow
+the existing migrations — `enable row level security`, `revoke all … from anon,
+authenticated`, `grant … to service_role`.
 
 What actually keeps client A from seeing client B is that every portal query is scoped by
 the `client_id` taken from a verified session cookie. It is enforced in TypeScript, in one
