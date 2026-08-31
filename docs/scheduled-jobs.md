@@ -105,7 +105,9 @@ terminals:
 
 ```bash
 # Terminal A — serve Forge's Inngest endpoint on :3030
-npm run forge:serve
+# INNGEST_DEV=1 puts the SDK in dev mode; without it it runs in cloud mode and wants a
+# signing key.
+INNGEST_DEV=1 npm run forge:serve
 # → "Forge Inngest endpoint: http://localhost:3030/api/inngest"
 
 # Terminal B — Inngest dev server discovers the endpoint and runs the crons

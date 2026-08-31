@@ -64,7 +64,7 @@ If the client doesn't exist yet, you'll get:
 ## `forge:serve` — run the scheduled jobs locally
 
 ```bash
-npm run forge:serve              # serves http://localhost:3030/api/inngest
+INNGEST_DEV=1 npm run forge:serve   # serves http://localhost:3030/api/inngest
 npx inngest-cli@latest dev       # in another terminal — discovers it, runs crons
 ```
 

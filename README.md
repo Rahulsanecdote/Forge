@@ -227,7 +227,7 @@ a lapsed client's account.
 Run them locally:
 
 ```bash
-npm run forge:serve              # serves the Inngest endpoint on :3030
+INNGEST_DEV=1 npm run forge:serve   # serves the Inngest endpoint on :3030
 npx inngest-cli@latest dev       # in another terminal — discovers it and runs the crons
 ```
 
