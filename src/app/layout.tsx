@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Bebas_Neue, DM_Serif_Display, IBM_Plex_Mono, DM_Sans } from 'next/font/google';
 import { site } from '@/lib/site-config';
+import SourceNotice from '@/components/shared/source-notice';
 import './globals.css';
 
 const bebas = Bebas_Neue({
@@ -75,6 +76,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <div className="fx-grain pointer-events-none fixed inset-0 z-[2]" />
 
         <div className="relative z-10">{children}</div>
+        <SourceNotice />
       </body>
     </html>
   );

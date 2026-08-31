@@ -18,7 +18,8 @@ Open-source, self-hostable **AI marketing agent for any small business** — "Ar
 Forge executes." It is a **universal framework that each user specializes per vertical via a
 brand-voice config.** That per-vertical specialization is the moat against horizontal SaaS
 (GoHighLevel, Vendasta) — do **not** let it drift into a generic marketing chatbot. Business
-model is open-core: free self-host now, managed cloud later. MIT licensed.
+model is dual-licensed: AGPL-3.0 for self-hosters, commercial licences for anyone running
+a modified Forge as a service (see COMMERCIAL.md). Managed cloud later.
 
 ## 2. Current state — BUILT and COMPILING (do not rebuild)
 
