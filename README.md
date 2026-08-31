@@ -16,12 +16,9 @@ and every tool run is logged to `tool_runs` keyed by `client_id`. If you're runn
 across many customers, that per-client scoping and audit trail is the part you'd otherwise
 build yourself.
 
-## Why Forge
-
-An **open**, self-hostable runtime for running one agent across many clients: typed tools,
-per-client brand voice, and every run logged to `tool_runs`. Marketing is the reference tool
-pack it ships with — swap it and the same runtime works for any vertical. You own the whole
-stack.
+**What it will not do:** invent numbers. `generate_report` reports only metrics you give it
+or that Forge measured, and `research_keywords` returns ideas without fabricated search
+volumes. Nothing reaches a client's public account without a human approving it first.
 
 ## How it works
 
@@ -65,7 +62,11 @@ Adding tools is the main extension point — see [CONTRIBUTING](./CONTRIBUTING.m
 # 1. Install
 npm install
 
-# 2. Create a Supabase project, then run supabase/migrations/0001_init.sql in its SQL editor
+# 2. Create a Supabase project, then apply ALL migrations in supabase/migrations/.
+#    Every one — they build on each other, and the code already expects the later ones.
+supabase link --project-ref YOUR-PROJECT-REF
+supabase db push
+#    No CLI? Paste each file in supabase/migrations/ into the SQL editor, in filename order.
 
 # 3. Configure
 cp .env.example .env     # set FORGE_PROVIDER + its key, plus Supabase URL + service role key
@@ -141,6 +142,21 @@ includes "Reply STOP", and opt-outs (email unsubscribe or SMS STOP, the latter s
 `/api/twilio/inbound`) land on a suppression list that's checked before every send — so an
 opted-out customer is never contacted again.
 
+## Client portal
+
+Clients get a read-only view of their own work at `/portal`, plus one write action: they
+can approve or reject their own pending drafts. No password — an operator copies a signed
+link from the client's Manage page and sends it to them.
+
+Every portal query is scoped to the client id in the signed session, which is the boundary
+between one client's data and another's. Links are signed with a per-client secret, so
+**Revoke & rotate** on a client's page invalidates that client's links and sessions without
+touching anyone else's; rotating `FORGE_PORTAL_SECRET` invalidates all of them at once.
+
+Set `FORGE_PORTAL_SECRET` in production. It falls back to `FORGE_ADMIN_PASSWORD` so the
+portal works out of the box, but sharing the secret means rotating your operator password
+also logs out every client.
+
 ## Add your business
 
 **Fastest — let Forge draft the brand voice from a description:**
@@ -184,17 +200,27 @@ Override the model anytime with `FORGE_MODEL`. Adding a provider is one case in
 
 ## Autopilot (scheduled jobs)
 
-Forge ships two Inngest cron jobs:
+Forge ships five Inngest cron jobs:
 
 - **Weekly content** (`weekly-content`, default Mondays 09:00 UTC) — generates next week's
   social posts for every client.
 - **Review sweep** (`review-sweep`, default daily 08:00 UTC) — drafts on-brand replies to any
   new rows in the `reviews` table and flags the ones needing a manager.
+- **Scheduled publish** (`scheduled-publish`) — publishes approved content when its
+  scheduled time arrives, through the same fail-closed path as the manual Publish button.
+- **Refresh metrics** (`refresh-metrics`) — pulls reach and engagement for published posts
+  back into `content_metrics`.
+- **Monitoring alerts** (`monitoring-alerts`) — sends active delivery-health issues to
+  `FORGE_ALERT_WEBHOOK_URL`; skips cleanly when unset or when nothing is wrong.
 
-Run it locally:
+The three delivery crons — weekly content, review sweep, scheduled publish — skip clients
+whose subscription is not active. Refresh-metrics and monitoring-alerts do not gate on
+billing: they observe rather than deliver, and an operator still needs to see the health of
+a lapsed client's account.
+
+Run them locally:
 
 ```bash
-# apply the reviews table: run supabase/migrations/0002_reviews.sql in Supabase
 npm run forge:serve              # serves the Inngest endpoint on :3030
 npx inngest-cli@latest dev       # in another terminal — discovers it and runs the crons
 ```
@@ -221,12 +247,19 @@ Found a vulnerability? See [SECURITY.md](./SECURITY.md). Please don't open a pub
 
 ## Roadmap
 
-**Increment 2** — live data feeds (DataForSEO for keyword volumes, GA4 / Search Console for
-report metrics, Google Business Profile to populate reviews); more tools (blog writer,
-performance alerts); a content approval queue; `client_memory` retrieval.
+Already shipped, and described above: the content approval queue, the client portal,
+scheduling and publishing, post metrics, Stripe billing with delivery gating, review
+requests with opt-out compliance, and the monitoring cockpit.
 
-**Increment 3** — client-facing portal + tiered tool activation; multi-tenant auth + RLS;
-managed cloud tier (open-core) + one-click self-host deploy.
+**Next** — live data feeds, which is where the biggest honesty gap remains: `research_keywords`
+produces ideas without real search volumes and `generate_report` needs metrics handed to
+it. DataForSEO for volumes, GA4 and Search Console for report metrics, and Google Business
+Profile to populate the `reviews` table would close all three. Then `client_memory`
+retrieval (pgvector) so the agent can draw on a client's past content, and more tools —
+a blog writer is the obvious next one.
+
+**Later** — per-user operator accounts to replace the single shared password, tiered tool
+activation per client, and a managed cloud tier alongside the self-host path.
 
 ## Contributing & License
 

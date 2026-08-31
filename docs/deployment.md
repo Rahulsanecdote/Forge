@@ -22,14 +22,24 @@ Both need:
 
 ### 1. Provision Supabase
 
-Create a Supabase project, then run the migrations in the SQL editor in order:
+Create a Supabase project, then apply **every** migration in `supabase/migrations/`, in
+filename order. The fastest way is the Supabase CLI:
 
-- `supabase/migrations/0001_init.sql`
-- `supabase/migrations/0002_reviews.sql`
+```bash
+supabase link --project-ref YOUR-PROJECT-REF
+supabase db push
+```
+
+If you would rather paste SQL by hand, run each file in `supabase/migrations/` in
+filename order — all of them, not just the first two. They build on each other:
+`0001_init.sql` creates the agent loop's tables, and later migrations add content
+approvals, scheduling, publication checkpoints, metrics, billing, review requests,
+opt-outs, and the client portal. **A database missing them will start and then fail at
+runtime**, because the features that need those tables are already in the code.
 
 (Optionally `supabase/optional/client_memory.sql` if you're building the
 pgvector memory feature — it needs the pgvector extension, which Supabase
-provides.)
+provides. It is kept out of `supabase/migrations/` so `db push` stays pgvector-free.)
 
 Grab the project URL and the **service-role** key.
 

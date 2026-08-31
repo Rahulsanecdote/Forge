@@ -67,11 +67,16 @@ Now apply Forge's migrations to the local database:
 supabase db reset
 ```
 
-This drops and recreates the local DB and applies everything in
-`supabase/migrations/` in order:
+This drops and recreates the local DB and applies **every** migration in
+`supabase/migrations/` in order. The first two set up the agent loop:
 
 - `0001_init.sql` — `clients`, `brand_voices`, `tool_runs`
 - `0002_reviews.sql` — `reviews` queue (for the review-sweep cron)
+
+The rest add content approvals, scheduling, publication checkpoints, metrics, billing,
+review requests, opt-outs, and the client portal. You need all of them — the features that
+use those tables are already in the code, so a partial schema starts fine and then fails at
+runtime.
 
 > The core schema needs **no extensions** — `supabase db reset` runs clean on any
 > Postgres. The pgvector-based `client_memory` table is intentionally **not** in

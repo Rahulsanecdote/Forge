@@ -10,18 +10,26 @@ required**. The optional pgvector table is in `supabase/optional/`.
 |---|---|
 | `supabase/migrations/0001_init.sql` | `clients`, `brand_voices`, `tool_runs` |
 | `supabase/migrations/0002_reviews.sql` | `reviews` (+ index) |
+| `supabase/migrations/0003_phase00_foundation.sql` | `leads` (marketing contact form — the one table `anon` may INSERT into) and `profiles` (Supabase Auth scaffolding) |
 | `supabase/migrations/20260717011053_content_approvals.sql` | `content_approvals` (+ index, RLS, service-role grants) |
 | `supabase/migrations/20260717053823_agent_authority_foundation.sql` | AAL agents, tool registry, permissions, run states, evidence, audits, and operator-table RLS |
 | `supabase/migrations/20260717233127_client_onboarding_invitations.sql` | Review-only client fields, hashed onboarding invitations, pending submissions, and token RPCs |
+| `supabase/migrations/20260720032927_google_business_reviews.sql` | `clients.google_business_account_id` / `location_id`, review-sync columns on `reviews`, and its client/date index |
 | `supabase/migrations/20260721140000_content_assets.sql` | `content_assets` (+ index, RLS, public `content-images` bucket) |
 | `supabase/migrations/20260721160000_content_schedules.sql` | `content_schedules` (+ due index, RLS, service-role grants) |
 | `supabase/migrations/20260721180000_content_assets_carousel.sql` | `content_assets.asset_index` slot + widened uniqueness (multi-image carousels) |
 | `supabase/migrations/20260721200000_content_metrics.sql` | `content_metrics` (post-publish reach/engagement; RLS, service-role grants) |
+| `supabase/migrations/20260721220000_content_metrics_memory.sql` | `content_metrics.post_index` + `caption`, so metrics tie back to the specific post |
+| `supabase/migrations/20260721230000_content_metrics_published_at.sql` | `content_metrics.published_at` |
 | `supabase/migrations/20260722010000_review_requests.sql` | `clients.google_review_url` + `review_requests` (click-tracked review asks; RLS, service-role grants) |
 | `supabase/migrations/20260722020000_review_request_delivery.sql` | `review_requests` delivery columns (`channel`, `contact`, `send_status`, `sent_at`, `delivery_error`) for automated email/SMS sending |
 | `supabase/migrations/20260722030000_client_billing.sql` | `clients` billing columns (`plan`, `subscription_status`, `billing_override`, `stripe_customer_id`, `stripe_subscription_id`, `current_period_end`) + Stripe id indexes |
 | `supabase/migrations/20260722040000_review_optouts.sql` | `review_optouts` suppression list (email/SMS opt-outs; RLS, service-role grants) |
 | `supabase/migrations/20260723010000_portal_key_version.sql` | `clients.portal_key_version` for per-client portal revocation |
+| `supabase/migrations/20260723174832_content_publication_checkpoints.sql` | `content_publications` (one durable checkpoint per generated post) + the claim/finalize/reconcile RPCs that make publishing idempotent |
+| `supabase/migrations/20260727014743_allow_report_evidence_kind.sql` | Widens the run-evidence kind constraint to accept `report` |
+| `supabase/migrations/20260727023000_model_usage_tracking.sql` | `tool_runs.model_usage` for per-run token accounting |
+| `supabase/migrations/20260808010000_resolve_stale_publication_claims.sql` | Lets the resolve RPCs clear a publication claim abandoned past the stale threshold, not only one already marked `reconcile` |
 | `supabase/optional/client_memory.sql` | `client_memory` + pgvector (reserved for a later increment; apply by hand) |
 
 Apply locally with `supabase db reset`; in a hosted project, run the SQL files in
