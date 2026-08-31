@@ -30,7 +30,7 @@ model) and stores everything in your own Supabase.
 ## The 60-second mental model
 
 ```
-CLI · Inngest crons · (future portal)
+CLI · Inngest crons · operator dashboard · client portal
       │
       ▼
 runForge(client, task)              ← src/forge/runtime.ts

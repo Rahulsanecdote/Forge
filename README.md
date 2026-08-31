@@ -41,8 +41,8 @@ runForge(client, task)             ← src/forge/runtime.ts
 Nothing is business-specific in the code. Each business is a row in `clients` plus a brand
 voice — added from a JSON config, no code changes. The core migrations need no extensions;
 `*client_memory` (pgvector) is shipped separately as `supabase/optional/client_memory.sql`
-— kept out of `supabase/migrations/` so `supabase db push` stays pgvector-free — and applied
-by hand for increment 2 (retrieval over past content).
+— kept out of `supabase/migrations/` so `supabase db push` stays pgvector-free. Apply it by
+hand only if you want the memory table ahead of the retrieval feature that will use it.
 
 ## Tools in this release
 
@@ -229,9 +229,14 @@ npx inngest-cli@latest dev       # in another terminal — discovers it and runs
 ```
 
 Override schedules with `FORGE_CONTENT_CRON` / `FORGE_REVIEW_CRON` (cron syntax; prefix with
-`TZ=America/New_York` for a timezone). The review sweep acts on `reviews` rows with
-`status = 'new'` — a Google Business Profile (or other) integration feeds those in increment 2;
-insert a row by hand to test it now.
+`TZ=America/New_York` for a timezone).
+
+The review sweep acts on `reviews` rows with `status = 'new'`. It fills those itself from
+Google Business Profile for any client with a linked location — set
+`GOOGLE_BUSINESS_PROFILE_ACCOUNT_ID` / `_LOCATION_ID` plus an access or refresh token, or
+set the per-client ids on the client's page so one deployment can serve several locations.
+Without a linked location the sweep still drafts replies for whatever is in the table, so
+inserting a row by hand is a fine way to try it before wiring up Google.
 
 ## Security
 
