@@ -77,12 +77,18 @@ NEXT_PUBLIC_APP_URL=https://your-app
 FORGE_PORTAL_SECRET=another-long-random-secret
 ```
 
-Check them before deploying — this is the repo's own contract, so it stays right even if
-this page drifts:
+Plus `INNGEST_SIGNING_KEY` if you are connecting the crons to Inngest Cloud in step 5.
+
+Check them before deploying — the validator is what CI enforces, so prefer it over this page
+if the two ever disagree:
 
 ```bash
 NODE_ENV=production npm run env:validate
 ```
+
+It does not check `INNGEST_SIGNING_KEY` (needing it depends on your cron hosting, not on
+being in production), so a pass is necessary rather than sufficient for a deployment that
+serves the crons.
 
 ### 3. Add clients
 

@@ -46,8 +46,16 @@ and the Stripe/Twilio/review-link routes live.
 | `FORGE_PORTAL_SECRET` | — (falls back to `FORGE_ADMIN_PASSWORD`) | Signs client portal links and sessions. Set it separately in production — sharing the secret means rotating your operator password logs out every client. |
 | `NEXT_PUBLIC_APP_URL` | recommended | Canonical public URL. The Twilio webhook verifies its signature against exactly this, so a wrong value makes every inbound opt-out fail. |
 
-`npm run env:validate` checks these (with `NODE_ENV=production` for the production rules)
-and is the authority if this table and the code ever disagree.
+`npm run env:validate` (with `NODE_ENV=production` for the production rules) checks the
+variables above, and it — not this page — is what CI enforces, so prefer it if the two ever
+disagree.
+
+It does **not** check everything, though, and the gap is worth knowing: `INNGEST_SIGNING_KEY`
+is required in production once the crons are live (see
+[the environment contract](./ENVIRONMENT_CONTRACT.md)) but the validator does not look for
+it, because whether you need it depends on hosting the crons on Inngest Cloud rather than on
+being in production. A passing `env:validate` therefore does not by itself mean a
+cron-serving deployment is fully configured.
 
 ### Scheduled jobs (optional)
 
@@ -58,6 +66,7 @@ and is the authority if this table and the code ever disagree.
 | `FORGE_PUBLISH_CRON` | `*/15 * * * *` | Scheduled publish cron. |
 | `FORGE_METRICS_CRON` | `0 */6 * * *` | Post-metrics refresh cron. |
 | `FORGE_ALERT_CRON` | `*/30 * * * *` | Monitoring alerts cron. |
+| `INNGEST_SIGNING_KEY` | — | **Required in production once the crons are live** — Inngest Cloud uses it to sign requests to your endpoint. Not needed for the local `inngest-cli dev` server. Note `env:validate` does *not* check this one; see below. |
 
 Prefix a cron with a timezone, e.g. `TZ=America/New_York 0 9 * * 1`.
 
