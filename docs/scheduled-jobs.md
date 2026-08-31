@@ -110,7 +110,7 @@ terminals:
 INNGEST_DEV=1 npm run forge:serve
 # → "Forge Inngest endpoint: http://localhost:3030/api/inngest"
 
-# Terminal B — Inngest dev server discovers the endpoint and runs the crons
+# Terminal B — Inngest dev server connects to the endpoint and runs the crons
 # forge:serve listens on :3030; the dev server looks for :3000 by default, so point it.
 npx inngest-cli@latest dev -u http://localhost:3030/api/inngest
 ```
