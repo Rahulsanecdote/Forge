@@ -77,6 +77,23 @@ post missing its generated image).
   support are left null rather than failing the whole refresh.
 - Returns `{ runs, refreshed }`.
 
+### `monitoring-alerts`
+
+- **Schedule:** `FORGE_ALERT_CRON` (default `*/30 * * * *` — every 30 minutes).
+- **What it does:** rolls up delivery health — pending approvals, due or failed
+  schedules, publication checkpoints needing reconciliation, review-request delivery
+  failures, billing gates, and post-metric freshness — and posts the active issues as
+  JSON to `FORGE_ALERT_WEBHOOK_URL` (Slack, Discord, Make, Zapier, anything that accepts
+  a POST). The body links back to `/dashboard/monitoring`.
+- **Scope:** unlike the three delivery crons, this one does not skip clients whose
+  subscription has lapsed — an operator still needs to see the state of those accounts.
+- **Fails loud:** the webhook URL is resolved and checked against private and
+  link-local addresses before the request, the request has a 10-second timeout, and a
+  redirect is treated as a misconfiguration rather than followed. If the sweep's own
+  queries fail, that counts as a critical issue in its own right rather than being
+  reported as a clean bill of health.
+- Skips cleanly when the webhook is unset or nothing is wrong.
+
 ## Running them locally
 
 You need the `reviews` table applied (it's in the core migrations) and two

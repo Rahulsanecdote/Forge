@@ -103,6 +103,8 @@ the provider per se.
 - The **service-role key** bypasses Row-Level Security. Keep it server-side only;
   the `.gitignore` already excludes `.env`/`.env.*` (while keeping
   `.env.example`).
-- This alpha is **single-operator** — RLS policies are deferred to a later
-  increment (see [Deployment](./deployment.md)).
+- Forge is **single-operator**: one shared `FORGE_ADMIN_PASSWORD`, no per-user accounts.
+  RLS *is* enabled deny-by-default, but the server holds the service-role key and bypasses
+  it, so the boundary between clients is `client_id` scoping in application code. See
+  [the security model](./SECURITY-MODEL.md) for what that does and does not protect.
 - Store provider API keys in `.env`, never in code or the repo.
