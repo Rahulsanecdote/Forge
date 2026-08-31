@@ -70,7 +70,7 @@ src/
     tools/               # the five capabilities
   inngest/
     client.ts            # Inngest client
-    functions.ts         # weekly-content + review-sweep crons
+    functions.ts         # the five crons (content, reviews, publish, metrics, alerts)
     server.ts            # local Inngest HTTP endpoint
 scripts/                 # CLIs: onboard, add-client, run, serve
 examples/                # example client configs

@@ -121,7 +121,8 @@ Your Phase 00 `.env.local.example` becomes a fail-closed contract. This matters 
 ## Server (fail closed in production)
 - SUPABASE_SERVICE_ROLE_KEY: required, server-only. App refuses to boot if missing in prod.
 - ANTHROPIC_API_KEY: required for agent runtime.
-- INNGEST_SIGNING_KEY: required in production.
+- INNGEST_SIGNING_KEY: required once the crons are served from Inngest Cloud (not needed
+  for a production deployment that hosts them elsewhere, or not at all).
 - STRIPE_WEBHOOK_SECRET: required once billing is live (Phase 03).
 
 ## Public (must never contain secrets)

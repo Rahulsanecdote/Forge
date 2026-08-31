@@ -1,7 +1,11 @@
 # Environment Contract
 
-Fail-closed rules for every environment variable Forge carries. Validated by
-`scripts/validate-env.mjs` (run in CI and before production deploys).
+Fail-closed rules for the environment variables Forge carries.
+
+`scripts/validate-env.mjs` (run in CI and before production deploys) enforces most of them,
+but **not all** — the rules below that are conditional on how you host or which integrations
+you enable cannot be decided from `NODE_ENV` alone. Each such row says what it actually
+depends on. A passing `env:validate` is necessary, not sufficient.
 
 ## Server (fail closed in production)
 
@@ -11,7 +15,7 @@ Fail-closed rules for every environment variable Forge carries. Validated by
 | `SUPABASE_SERVICE_ROLE_KEY` | Required, **server-only**. Never expose to a browser. App refuses to deploy if missing in prod. |
 | `FORGE_ADMIN_PASSWORD` | Required in production for the single-operator dashboard. Server-only; stored as an HttpOnly signed session cookie after login. |
 | `ANTHROPIC_API_KEY` (or provider key matching `FORGE_PROVIDER`) | Required for the agent runtime. |
-| `INNGEST_SIGNING_KEY` | Required in production once Inngest jobs are live. |
+| `INNGEST_SIGNING_KEY` | Required once the crons are served from Inngest Cloud, which signs its requests to your endpoint. Not needed for the local `inngest-cli dev` server, nor for a production deployment that hosts the crons elsewhere or not at all. **Not checked by `validate-env.mjs`** — the condition is your cron hosting, not `NODE_ENV`. |
 | `STRIPE_WEBHOOK_SECRET` | Required once billing is live (Phase 03). |
 | `GOOGLE_BUSINESS_PROFILE_ACCESS_TOKEN` | Optional short-lived server-only credential for review import. Prefer refresh-token credentials in production. |
 | `GOOGLE_BUSINESS_PROFILE_REFRESH_TOKEN` + `GOOGLE_OAUTH_CLIENT_ID` + `GOOGLE_OAUTH_CLIENT_SECRET` | Optional server-only OAuth credentials for GBP review import. |
