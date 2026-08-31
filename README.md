@@ -116,9 +116,12 @@ side rail of drafts still awaiting your approval. It's a read-only cockpit over 
 The **monitoring cockpit** (`/dashboard/monitoring`) rolls up delivery health across pending
 approvals, due or failed schedules, publication checkpoints that need reconciliation,
 review-request delivery failures, billing delivery gates, and post-metric freshness. Set
-`FORGE_ALERT_WEBHOOK_URL` to an operator-owned webhook (Slack, Discord, Make, Zapier, etc.)
-to send active monitoring issues from the `monitoring-alerts` cron. The alert body is JSON
-and links operators back to `/dashboard/monitoring`; when the webhook is unset or there are
+`FORGE_ALERT_WEBHOOK_URL` to an operator-owned endpoint that accepts arbitrary JSON, or a
+relay that reshapes it (Make, Zapier, n8n). The body is Forge's own shape, not Slack's or
+Discord's, so their native incoming webhooks reject it — see
+[Scheduled jobs](./docs/scheduled-jobs.md#monitoring-alerts) for the payload. It carries
+active monitoring issues from the `monitoring-alerts` cron and
+links operators back to `/dashboard/monitoring`; when the webhook is unset or there are
 no active issues, the cron skips cleanly.
 
 Each client page also includes **performance report generation**. Forge can seed the
