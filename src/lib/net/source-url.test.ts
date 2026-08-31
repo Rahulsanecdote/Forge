@@ -42,6 +42,25 @@ test('a relative path is rejected instead of silently offering upstream', () => 
   assert.throws(() => resolveSourceOffer('github.com/x/y', UPSTREAM), /not a valid absolute URL/);
 });
 
+test('a URL carrying credentials is rejected without echoing them', () => {
+  // The resolved URL goes out in a redirect to every visitor, so a clone URL pasted from a
+  // private forge would publish its token.
+  const withToken = 'https://deploy-user:deploy-token@git.example.com/forge';
+  assert.throws(
+    () => resolveSourceOffer(withToken, UPSTREAM),
+    (error: unknown) => {
+      assert.ok(error instanceof Error);
+      assert.match(error.message, /must not contain credentials/);
+      assert.doesNotMatch(error.message, /deploy-token/);
+      return true;
+    },
+  );
+  assert.throws(
+    () => resolveSourceOffer('https://user@git.example.com/forge', UPSTREAM),
+    /must not contain credentials/,
+  );
+});
+
 test('a non-http scheme is rejected', () => {
   assert.throws(
     () => resolveSourceOffer('javascript:alert(1)', UPSTREAM),

@@ -37,5 +37,15 @@ export function resolveSourceOffer(
     );
   }
 
+  // A clone URL pasted straight from a private forge can carry credentials
+  // (https://user:token@host/repo). This URL is handed to every visitor in a redirect, so
+  // accepting one would publish the token. The error deliberately does not echo the value.
+  if (parsed.username || parsed.password) {
+    throw new Error(
+      'FORGE_SOURCE_URL must not contain credentials — it is shown publicly to everyone ' +
+        'who follows the source link. Use a URL anyone can open without authenticating.',
+    );
+  }
+
   return { url: parsed.toString(), modified: true };
 }

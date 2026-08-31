@@ -18,9 +18,14 @@ export async function GET() {
   } catch (error) {
     // Never fall back to upstream here: sending a modified deployment's users to someone
     // else's source is a compliance failure that looks like success. Fail visibly instead.
+    //
+    // The detail goes to the operator's logs, not to the response. Some of these errors
+    // quote the configured value back, and this endpoint is public — echoing it would turn
+    // a misconfigured URL into a way to read a fragment of the deployment's environment.
     console.error('[source] FORGE_SOURCE_URL is misconfigured', error);
     return new Response(
-      `${error instanceof Error ? error.message : String(error)}\n`,
+      'This deployment is misconfigured and cannot serve its source link. ' +
+        'Its operator must fix FORGE_SOURCE_URL; the reason is in the server logs.\n',
       { status: 500, headers: { 'content-type': 'text/plain; charset=utf-8' } },
     );
   }
