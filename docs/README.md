@@ -79,4 +79,7 @@ docs/                    # you are here
 
 ## License
 
-MIT. PRs welcome — see [CONTRIBUTING.md](../CONTRIBUTING.md).
+[AGPL-3.0](../LICENSE), with [commercial licences](../COMMERCIAL.md) available for anyone
+who needs to run a modified Forge as a service without publishing their changes. PRs
+welcome — see [CONTRIBUTING.md](../CONTRIBUTING.md); code contributions need a one-time
+[CLA](../CLA.md).

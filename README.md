@@ -5,7 +5,10 @@ One runtime, many businesses: each client is a row in the database plus a brand 
 code changes, no forks. Provider-agnostic — Anthropic, OpenAI, Google, or fully offline
 against Ollama. Ships with a marketing tool pack; write your own in ~40 lines.
 
-MIT licensed. Bring your own Supabase + model key and run it anywhere.
+Licensed under the [AGPL-3.0](./LICENSE) — free to run, modify, and self-host, including
+for your own clients. If you want to offer Forge to *your* customers as a service without
+publishing your modifications, a [commercial licence](./COMMERCIAL.md) covers that. Bring
+your own Supabase + model key and run it anywhere.
 
 **Why not just use LangChain / CrewAI?** Those give you a single agent loop. Forge wraps that
 loop for *many clients at once* — the system prompt is built from each client's brand voice,
@@ -212,4 +215,18 @@ managed cloud tier (open-core) + one-click self-host deploy.
 
 ## Contributing & License
 
-PRs welcome — see [CONTRIBUTING.md](./CONTRIBUTING.md). Licensed under [MIT](./LICENSE).
+PRs welcome — see [CONTRIBUTING.md](./CONTRIBUTING.md). Contributors sign a short
+[CLA](./CLA.md) so the project can keep offering commercial licences alongside the open
+one.
+
+Copyright (C) 2026 Rahulsanecdote. Forge is free software: you can redistribute it and/or
+modify it under the terms of the **GNU Affero General Public License, version 3**, as
+published by the Free Software Foundation. It is distributed in the hope that it will be
+useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE. See the [LICENSE](./LICENSE) file for the full terms.
+
+**What the AGPL means for you in practice.** Running Forge for your own business, or for
+clients on an unmodified copy, costs nothing and obliges you to nothing. The one thing it
+asks is section 13: if you modify Forge and let other people use it over a network, those
+users must be able to get your modified source. If that does not work for your business,
+[COMMERCIAL.md](./COMMERCIAL.md) explains the alternative.

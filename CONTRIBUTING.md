@@ -60,3 +60,24 @@ LM Studio, vLLM, LiteLLM) — no code needed.
 - TypeScript strict; run `npm run typecheck` before pushing.
 - Conventional Commits (`feat:`, `fix:`, `docs:` …).
 - One focused change per PR. Describe what and why.
+
+## Licensing your contribution
+
+Forge is [AGPL-3.0](./LICENSE), and commercial licences are sold alongside it to fund the
+work. That second half only works if one party holds the rights to the whole codebase, so
+code contributions need a one-time [CLA](./CLA.md). You keep your copyright; you grant the
+maintainer the right to relicense.
+
+Add this to the description of your first pull request and you are done for good:
+
+```
+I have read CLA.md and I agree to it. Signed-off-by: Your Name <your@email>
+```
+
+Issues, bug reports, code review, and design discussion need no CLA — only merged code
+does.
+
+If your change is a modified version of code from another project, say so in the PR and
+name its licence. AGPL-compatible sources are fine; MIT and BSD code can be brought in
+with attribution preserved. Code under a proprietary or AGPL-incompatible licence cannot,
+however useful it looks.
