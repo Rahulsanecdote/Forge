@@ -17,8 +17,9 @@ across many customers, that per-client scoping and audit trail is the part you'd
 build yourself.
 
 **What it will not do:** invent numbers. `generate_report` reports only metrics you give it
-or that Forge measured, and `research_keywords` returns ideas without fabricated search
-volumes. Nothing reaches a client's public account without a human approving it first.
+or that Forge measured, and `research_keywords` returns real search volumes when a data
+provider is configured and honest ideation when one isn't — never a plausible-looking figure
+it made up. Nothing reaches a client's public account without a human approving it first.
 
 ## How it works
 
@@ -48,7 +49,7 @@ by hand for increment 2 (retrieval over past content).
 - `create_social_posts` — on-brand social posts for a topic/platform.
 - `draft_review_responses` — rating-calibrated review replies, with a manager-escalation flag.
 - `generate_report` — turn provided metrics + highlights into an on-brand performance report (never invents numbers).
-- `research_keywords` — clustered SEO keyword ideas with search intent + content angles (ideation; add a data provider for volumes).
+- `research_keywords` — clustered SEO keyword ideas with search intent + content angles. Set `DATAFORSEO_LOGIN`/`DATAFORSEO_PASSWORD` and it returns real search volume and difficulty; without them it degrades to ideation rather than inventing numbers.
 - `analyze_competitors` — positioning analysis vs named competitors, surfacing gaps and opportunities.
 
 Adding tools is the main extension point — see [CONTRIBUTING](./CONTRIBUTING.md).
@@ -204,8 +205,10 @@ Forge ships five Inngest cron jobs:
 
 - **Weekly content** (`weekly-content`, default Mondays 09:00 UTC) — generates next week's
   social posts for every client.
-- **Review sweep** (`review-sweep`, default daily 08:00 UTC) — drafts on-brand replies to any
-  new rows in the `reviews` table and flags the ones needing a manager.
+- **Review sweep** (`review-sweep`, default daily 08:00 UTC) — imports new Google Business
+  Profile reviews for clients with a linked location, then drafts on-brand replies and flags
+  the ones needing a manager. Reviews inserted into the table by any other means are picked
+  up the same way.
 - **Scheduled publish** (`scheduled-publish`) — publishes approved content when its
   scheduled time arrives, through the same fail-closed path as the manual Publish button.
 - **Refresh metrics** (`refresh-metrics`) — pulls reach and engagement for published posts
@@ -251,12 +254,12 @@ Already shipped, and described above: the content approval queue, the client por
 scheduling and publishing, post metrics, Stripe billing with delivery gating, review
 requests with opt-out compliance, and the monitoring cockpit.
 
-**Next** — live data feeds, which is where the biggest honesty gap remains: `research_keywords`
-produces ideas without real search volumes and `generate_report` needs metrics handed to
-it. DataForSEO for volumes, GA4 and Search Console for report metrics, and Google Business
-Profile to populate the `reviews` table would close all three. Then `client_memory`
-retrieval (pgvector) so the agent can draw on a client's past content, and more tools —
-a blog writer is the obvious next one.
+**Next** — the remaining live-data gap is website performance: `generate_report` works from
+post metrics Forge measured plus anything you enter by hand, so GA4 and Search Console are
+what would let it speak to site traffic and rankings without an operator typing numbers in.
+(Keyword volumes via DataForSEO and Google Business Profile review import are already
+wired — see above.) Then `client_memory` retrieval (pgvector) so the agent can draw on a
+client's past content, and more tools — a blog writer is the obvious next one.
 
 **Later** — per-user operator accounts to replace the single shared password, tiered tool
 activation per client, and a managed cloud tier alongside the self-host path.
