@@ -167,8 +167,25 @@ npm run forge:run -- my-cafe "Draft a friendly post announcing weekend opening h
 
 ## 7. Run the scheduled jobs (optional)
 
-Forge has two Inngest crons: weekly content and a daily review sweep. To run them
-locally you need the reviews table (already applied in step 3) and two terminals:
+### The web app
+
+The dashboard and client portal are part of the Next.js app, and nothing above starts it.
+Run:
+
+```bash
+npm run dev
+```
+
+Then `http://localhost:3000/dashboard` (log in with `FORGE_ADMIN_PASSWORD`) and, once
+you've copied a client's portal link from their Manage page, `/portal`. This is also what
+serves the Stripe and Twilio webhook routes and the `/r/<token>` and `/u/<token>` links, so
+you need it running to exercise review requests or opt-outs locally.
+
+### The crons
+
+Forge has five Inngest crons: weekly content, a daily review sweep, scheduled publish,
+metrics refresh, and monitoring alerts. To run them locally you need the schema (applied in
+step 3) and two more terminals:
 
 ```bash
 # Terminal A — serve Forge's Inngest endpoint on :3030
@@ -236,5 +253,5 @@ supabase db reset        # wipe + re-apply migrations (fresh DB)
 - **No cloud accounts** — local Supabase is a Docker stack.
 - **Same code path as production** — only `.env` differs. When you move to a
   hosted model or Supabase project later, you change environment variables, not
-  code. (And the planned dashboard will let users pick their provider per
-  account — see the roadmap in the README.)
+  code. (The provider is currently a process-level setting; per-account provider
+  selection is still ahead — see the roadmap in the README.)

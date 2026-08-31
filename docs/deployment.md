@@ -1,16 +1,28 @@
 # Deployment
 
 Forge is self-hostable. This page covers moving from local development to a
-running deployment, the security model, and what's deliberately deferred.
+running deployment, and what the security model does and does not cover.
 
 ## What you're deploying
 
-Two things run server-side:
+Three things, and the first is not optional:
 
-1. **The CLIs / `runForge`** — on-demand task execution (or your own code calling
-   `runForge`).
-2. **The Inngest endpoint** (`src/inngest/server.ts`) — serves the two crons so
-   Inngest can drive them on a schedule.
+1. **The Next.js app** — the operator dashboard (`/dashboard`), the client portal
+   (`/portal`), and the route handlers everything else depends on: the Stripe webhook
+   (`/api/stripe/webhook`), the Twilio inbound webhook (`/api/twilio/inbound`), review
+   click-through links (`/r/<token>`), and unsubscribe links (`/u/<token>`).
+
+   Skipping this does not merely cost you a UI. Without `/api/stripe/webhook` a client's
+   subscription status never syncs, so billing gates act on stale state. Without
+   `/api/twilio/inbound` and `/u/<token>`, SMS `STOP` replies and email unsubscribes are
+   never recorded — the links go out in your messages and lead nowhere, which is a
+   compliance problem, not a cosmetic one.
+
+2. **The Inngest endpoint** (`src/inngest/server.ts`) — serves the five crons so Inngest
+   can drive them on a schedule.
+
+3. **The CLIs / `runForge`** — optional, for on-demand task execution or your own code
+   calling `runForge` directly.
 
 Both need:
 
@@ -63,13 +75,44 @@ npm run forge:client:add -- my-business.json
 npm run forge:onboard -- "My Business" "Description..."
 ```
 
-### 4. Host the Inngest endpoint and connect Inngest Cloud
+### 4. Deploy the Next.js app
+
+```bash
+npm run build
+npm start          # or your host's equivalent
+```
+
+Any Node host works; Vercel is the path of least resistance since the app is a stock
+Next.js App Router project. Set `NEXT_PUBLIC_APP_URL` to the canonical public URL — the
+Twilio webhook verifies its signature against exactly that URL, so getting it wrong makes
+every inbound opt-out fail signature checks.
+
+Then point the provider webhooks at it:
+
+- Stripe → `https://your-app/api/stripe/webhook`, and set `STRIPE_WEBHOOK_SECRET` to that
+  endpoint's signing secret.
+- Twilio → `https://your-app/api/twilio/inbound` for inbound SMS.
+
+Both endpoints refuse traffic outright when their secret is unset, so a half-configured
+deployment fails closed rather than accepting unverified requests.
+
+### 5. Host the Inngest endpoint and connect Inngest Cloud
 
 Run `npm run forge:serve` (or embed `serve({ client: inngest, functions })` from
 `inngest/node` in your own HTTP server) behind a public URL, then register that
 URL with [Inngest Cloud](https://www.inngest.com/), which drives the crons.
 Override schedules with `FORGE_CONTENT_CRON` / `FORGE_REVIEW_CRON` if needed. See
 [Scheduled jobs](./scheduled-jobs.md).
+
+### 6. Verify
+
+```bash
+LAUNCH_SMOKE_APP_URL=https://your-app npm run launch:smoke
+```
+
+Checks unauthenticated that the app entry redirects into the dashboard, that protected
+operator routes redirect to login, and that the public marketing page is reachable without
+leaking operator internals.
 
 ## Security model
 
@@ -79,22 +122,26 @@ Override schedules with `FORGE_CONTENT_CRON` / `FORGE_REVIEW_CRON` if needed. Se
 - **Provider API keys** live in env/secrets, never in code or the repo.
 - **No secrets in the repo** — only `.env.example` (placeholders) is tracked.
 
-### Row-Level Security (deferred)
+### Row-Level Security
 
-This alpha is **single-operator** — you, via the service-role key in a CLI or
-server. There are no RLS policies yet. Multi-tenant RLS (so clients/teammates get
-their own authenticated, scoped access) lands when the cloud portal is built.
+RLS **is** enabled, deny-by-default: the migrations revoke `anon` and `authenticated` on
+every table and grant only `service_role`, with two narrow exceptions. But the server holds
+the service-role key, which bypasses RLS entirely — so RLS is a backstop against a leaked
+anon key, and the boundary between one client's data and another's is `client_id` scoping
+in application code.
+
+Forge remains **single-operator**: one shared password, no per-user accounts. Read
+[the security model](./SECURITY-MODEL.md) before pointing a deployment at a real client
+account — it is the authoritative description, and this page deliberately does not restate
+it.
 
 ## Roadmap
 
-From the project roadmap:
-
-- **Increment 2** — live data feeds (DataForSEO for keyword volumes, GA4 / Search
-  Console for report metrics, Google Business Profile to populate `reviews`); more
-  tools (blog writer, performance alerts); a content approval queue;
-  `client_memory` retrieval.
-- **Increment 3** — Next.js portal + tiered tool activation; multi-tenant auth +
-  RLS; managed cloud tier (open-core) + one-click self-host deploy.
+See the [README roadmap](../README.md#roadmap). In short: shipped since this page was first
+written are the content approval queue, the client portal, scheduling and publishing, post
+metrics, Stripe billing, review requests with opt-out compliance, DataForSEO keyword
+volumes, and Google Business Profile review import. Still ahead: GA4 and Search Console for
+site metrics, `client_memory` retrieval, more tools, and per-user operator accounts.
 
 ### Designing for the dashboard (provider-per-user)
 
