@@ -204,6 +204,21 @@ Override schedules with `FORGE_CONTENT_CRON` / `FORGE_REVIEW_CRON` (cron syntax;
 `status = 'new'` — a Google Business Profile (or other) integration feeds those in increment 2;
 insert a row by hand to test it now.
 
+## Security
+
+Forge holds Google Business Profile and Meta credentials, customer contact lists, and
+Stripe billing state for every business you manage. Before pointing it at a real client
+account, read the **[security model](./docs/SECURITY-MODEL.md)** — it sets out the trust
+boundaries, what enforces each one, and the limitations that are deliberate trade-offs
+rather than oversights.
+
+The two that catch people out: **Forge is single-operator** (one shared password, no
+accounts, no MFA), and **the tenant boundary between clients is application code, not
+Postgres RLS** — the server holds the service-role key, so RLS is a backstop against a
+leaked anon key rather than the thing keeping clients apart.
+
+Found a vulnerability? See [SECURITY.md](./SECURITY.md). Please don't open a public issue.
+
 ## Roadmap
 
 **Increment 2** — live data feeds (DataForSEO for keyword volumes, GA4 / Search Console for

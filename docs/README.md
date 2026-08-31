@@ -24,6 +24,8 @@ model) and stores everything in your own Supabase.
 | Run the weekly/daily automations | [Scheduled jobs](./scheduled-jobs.md) |
 | Add a tool, provider, or client | [Extending Forge](./extending.md) |
 | Deploy to production | [Deployment](./deployment.md) |
+| Know what Forge protects, and what it does not | **[Security model](./SECURITY-MODEL.md)** |
+| Report a vulnerability | [Security policy](../SECURITY.md) |
 
 ## The 60-second mental model
 
