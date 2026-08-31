@@ -146,8 +146,10 @@ manual and the automated route so the cron cannot do something the dashboard wou
   reconciliation queue instead of being retried blindly. **This covers `publishApprovedRun`
   only.** Publishing a drafted review reply takes a different path that writes to Google and
   then records the result, with no checkpoint and no reconciliation queue — a crash between
-  those two steps can leave a reply posted but unrecorded. Do not assume reconciliation
-  coverage there.
+  those two steps leaves a reply posted that Forge has no record of. The Google call is
+  itself idempotent (a `PUT` to the review's one `/reply` resource), so this costs you an
+  accurate local record rather than a duplicate reply. Do not assume reconciliation coverage
+  there.
 
 ## Known limitations
 
@@ -169,10 +171,14 @@ Forge is the wrong tool for it today.
    Forge cannot police that channel.
 6. **No tagged releases or signed artefacts.** Self-hosters track `main` and are trusting
    the repository directly.
-7. **Review-reply publishing is not checkpointed.** Social-post publishing is idempotent and
-   reconciles ambiguous outcomes; publishing a review reply to Google is not, so a failure
-   between the provider call and the database write can leave a reply live with no record of
-   it. The operator sees a failure and may reasonably retry, producing a second reply.
+7. **Review-reply publishing is not checkpointed.** Social-post publishing claims a
+   checkpoint and reconciles ambiguous outcomes; publishing a review reply does not, so a
+   failure between the Google call and the database write leaves a reply live that Forge has
+   no record of. This is a visibility problem rather than a duplication one: the reply is a
+   `PUT` to the review's single `/reply` resource, so retrying replaces that one reply
+   instead of adding another. What it costs you is an accurate local picture — the dashboard
+   can show a failure, or nothing, while a reply is in fact published under the client's
+   name.
 
 ## If you are deploying Forge
 
