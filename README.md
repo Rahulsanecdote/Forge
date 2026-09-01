@@ -16,12 +16,10 @@ and every tool run is logged to `tool_runs` keyed by `client_id`. If you're runn
 across many customers, that per-client scoping and audit trail is the part you'd otherwise
 build yourself.
 
-## Why Forge
-
-An **open**, self-hostable runtime for running one agent across many clients: typed tools,
-per-client brand voice, and every run logged to `tool_runs`. Marketing is the reference tool
-pack it ships with — swap it and the same runtime works for any vertical. You own the whole
-stack.
+**What it will not do:** invent numbers. `generate_report` reports only metrics you give it
+or that Forge measured, and `research_keywords` returns real search volumes when a data
+provider is configured and honest ideation when one isn't — never a plausible-looking figure
+it made up. Nothing reaches a client's public account without a human approving it first.
 
 ## How it works
 
@@ -43,15 +41,15 @@ runForge(client, task)             ← src/forge/runtime.ts
 Nothing is business-specific in the code. Each business is a row in `clients` plus a brand
 voice — added from a JSON config, no code changes. The core migrations need no extensions;
 `*client_memory` (pgvector) is shipped separately as `supabase/optional/client_memory.sql`
-— kept out of `supabase/migrations/` so `supabase db push` stays pgvector-free — and applied
-by hand for increment 2 (retrieval over past content).
+— kept out of `supabase/migrations/` so `supabase db push` stays pgvector-free. Apply it by
+hand only if you want the memory table ahead of the retrieval feature that will use it.
 
 ## Tools in this release
 
 - `create_social_posts` — on-brand social posts for a topic/platform.
 - `draft_review_responses` — rating-calibrated review replies, with a manager-escalation flag.
 - `generate_report` — turn provided metrics + highlights into an on-brand performance report (never invents numbers).
-- `research_keywords` — clustered SEO keyword ideas with search intent + content angles (ideation; add a data provider for volumes).
+- `research_keywords` — clustered SEO keyword ideas with search intent + content angles. Set `DATAFORSEO_LOGIN`/`DATAFORSEO_PASSWORD` and it returns real search volume and difficulty; without them it degrades to ideation rather than inventing numbers.
 - `analyze_competitors` — positioning analysis vs named competitors, surfacing gaps and opportunities.
 
 Adding tools is the main extension point — see [CONTRIBUTING](./CONTRIBUTING.md).
@@ -65,7 +63,11 @@ Adding tools is the main extension point — see [CONTRIBUTING](./CONTRIBUTING.m
 # 1. Install
 npm install
 
-# 2. Create a Supabase project, then run supabase/migrations/0001_init.sql in its SQL editor
+# 2. Create a Supabase project, then apply ALL migrations in supabase/migrations/.
+#    Every one — they build on each other, and the code already expects the later ones.
+supabase link --project-ref YOUR-PROJECT-REF
+supabase db push
+#    No CLI? Paste each file in supabase/migrations/ into the SQL editor, in filename order.
 
 # 3. Configure
 cp .env.example .env     # set FORGE_PROVIDER + its key, plus Supabase URL + service role key
@@ -114,9 +116,12 @@ side rail of drafts still awaiting your approval. It's a read-only cockpit over 
 The **monitoring cockpit** (`/dashboard/monitoring`) rolls up delivery health across pending
 approvals, due or failed schedules, publication checkpoints that need reconciliation,
 review-request delivery failures, billing delivery gates, and post-metric freshness. Set
-`FORGE_ALERT_WEBHOOK_URL` to an operator-owned webhook (Slack, Discord, Make, Zapier, etc.)
-to send active monitoring issues from the `monitoring-alerts` cron. The alert body is JSON
-and links operators back to `/dashboard/monitoring`; when the webhook is unset or there are
+`FORGE_ALERT_WEBHOOK_URL` to an operator-owned endpoint that accepts arbitrary JSON, or a
+relay that reshapes it (Make, Zapier, n8n). The body is Forge's own shape, not Slack's or
+Discord's, so their native incoming webhooks reject it — see
+[Scheduled jobs](./docs/scheduled-jobs.md#monitoring-alerts) for the payload. It carries
+active monitoring issues from the `monitoring-alerts` cron and
+links operators back to `/dashboard/monitoring`; when the webhook is unset or there are
 no active issues, the cron skips cleanly.
 
 Each client page also includes **performance report generation**. Forge can seed the
@@ -140,6 +145,21 @@ Automated sends are **compliance-aware**: every email includes an unsubscribe li
 includes "Reply STOP", and opt-outs (email unsubscribe or SMS STOP, the latter synced via
 `/api/twilio/inbound`) land on a suppression list that's checked before every send — so an
 opted-out customer is never contacted again.
+
+## Client portal
+
+Clients get a read-only view of their own work at `/portal`, plus one write action: they
+can approve or reject their own pending drafts. No password — an operator copies a signed
+link from the client's Manage page and sends it to them.
+
+Every portal query is scoped to the client id in the signed session, which is the boundary
+between one client's data and another's. Links are signed with a per-client secret, so
+**Revoke & rotate** on a client's page invalidates that client's links and sessions without
+touching anyone else's; rotating `FORGE_PORTAL_SECRET` invalidates all of them at once.
+
+Set `FORGE_PORTAL_SECRET` in production. It falls back to `FORGE_ADMIN_PASSWORD` so the
+portal works out of the box, but sharing the secret means rotating your operator password
+also logs out every client.
 
 ## Add your business
 
@@ -184,25 +204,43 @@ Override the model anytime with `FORGE_MODEL`. Adding a provider is one case in
 
 ## Autopilot (scheduled jobs)
 
-Forge ships two Inngest cron jobs:
+Forge ships five Inngest cron jobs:
 
 - **Weekly content** (`weekly-content`, default Mondays 09:00 UTC) — generates next week's
   social posts for every client.
-- **Review sweep** (`review-sweep`, default daily 08:00 UTC) — drafts on-brand replies to any
-  new rows in the `reviews` table and flags the ones needing a manager.
+- **Review sweep** (`review-sweep`, default daily 08:00 UTC) — imports new Google Business
+  Profile reviews for clients with a linked location, then drafts on-brand replies and flags
+  the ones needing a manager. Reviews inserted into the table by any other means are picked
+  up the same way.
+- **Scheduled publish** (`scheduled-publish`) — publishes approved content when its
+  scheduled time arrives, through the same fail-closed path as the manual Publish button.
+- **Refresh metrics** (`refresh-metrics`) — pulls reach and engagement for published posts
+  back into `content_metrics`.
+- **Monitoring alerts** (`monitoring-alerts`) — sends active delivery-health issues to
+  `FORGE_ALERT_WEBHOOK_URL`; skips cleanly when unset or when nothing is wrong.
 
-Run it locally:
+The three delivery crons — weekly content, review sweep, scheduled publish — skip clients
+whose subscription is not active. Refresh-metrics and monitoring-alerts do not gate on
+billing: they observe rather than deliver, and an operator still needs to see the health of
+a lapsed client's account.
+
+Run them locally:
 
 ```bash
-# apply the reviews table: run supabase/migrations/0002_reviews.sql in Supabase
-npm run forge:serve              # serves the Inngest endpoint on :3030
-npx inngest-cli@latest dev       # in another terminal — discovers it and runs the crons
+INNGEST_DEV=1 npm run forge:serve   # serves the Inngest endpoint on :3030
+# forge:serve listens on :3030; the dev server looks for :3000 by default, so point it.
+npx inngest-cli@latest dev -u http://localhost:3030/api/inngest
 ```
 
 Override schedules with `FORGE_CONTENT_CRON` / `FORGE_REVIEW_CRON` (cron syntax; prefix with
-`TZ=America/New_York` for a timezone). The review sweep acts on `reviews` rows with
-`status = 'new'` — a Google Business Profile (or other) integration feeds those in increment 2;
-insert a row by hand to test it now.
+`TZ=America/New_York` for a timezone).
+
+The review sweep acts on `reviews` rows with `status = 'new'`. It fills those itself from
+Google Business Profile for any client with a linked location — set
+`GOOGLE_BUSINESS_PROFILE_ACCOUNT_ID` / `_LOCATION_ID` plus an access or refresh token, or
+set the per-client ids on the client's page so one deployment can serve several locations.
+Without a linked location the sweep still drafts replies for whatever is in the table, so
+inserting a row by hand is a fine way to try it before wiring up Google.
 
 ## Security
 
@@ -221,12 +259,19 @@ Found a vulnerability? See [SECURITY.md](./SECURITY.md). Please don't open a pub
 
 ## Roadmap
 
-**Increment 2** — live data feeds (DataForSEO for keyword volumes, GA4 / Search Console for
-report metrics, Google Business Profile to populate reviews); more tools (blog writer,
-performance alerts); a content approval queue; `client_memory` retrieval.
+Already shipped, and described above: the content approval queue, the client portal,
+scheduling and publishing, post metrics, Stripe billing with delivery gating, review
+requests with opt-out compliance, and the monitoring cockpit.
 
-**Increment 3** — client-facing portal + tiered tool activation; multi-tenant auth + RLS;
-managed cloud tier (open-core) + one-click self-host deploy.
+**Next** — the remaining live-data gap is website performance: `generate_report` works from
+post metrics Forge measured plus anything you enter by hand, so GA4 and Search Console are
+what would let it speak to site traffic and rankings without an operator typing numbers in.
+(Keyword volumes via DataForSEO and Google Business Profile review import are already
+wired — see above.) Then `client_memory` retrieval (pgvector) so the agent can draw on a
+client's past content, and more tools — a blog writer is the obvious next one.
+
+**Later** — per-user operator accounts to replace the single shared password, tiered tool
+activation per client, and a managed cloud tier alongside the self-host path.
 
 ## Contributing & License
 

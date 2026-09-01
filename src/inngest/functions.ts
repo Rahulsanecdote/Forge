@@ -165,8 +165,10 @@ export const refreshMetrics = inngest.createFunction(
   },
 );
 
-// Push active monitoring issues to an operator-owned webhook. The webhook can be Slack,
-// Discord, Make, Zapier, or any endpoint that accepts JSON. Unconfigured or clean states
+// Push active monitoring issues to an operator-owned webhook. The body is Forge's own JSON
+// shape, so the endpoint has to accept arbitrary JSON — Slack and Discord incoming webhooks
+// reject it, since they require `text`/`blocks` and `content`/`embeds`. Use a relay (Make,
+// Zapier, n8n) to reshape it for those. Unconfigured or clean states
 // skip without failing the Inngest run — but a genuine delivery failure throws, so Inngest
 // retries it and the step goes red instead of quietly reporting success nobody reads.
 export const monitoringAlerts = inngest.createFunction(

@@ -1,8 +1,18 @@
 # Forge × LaunchOps — Integration Architecture
 
+> ⚠️ **Historical planning document — not current architecture.**
+> This was written while LaunchOps was being folded into Forge, and it describes the plan
+> as it stood then: phase numbering, "shipped / next / future" labels, and the roadmap
+> below are all frozen at time of writing and are **stale**. Several things it calls future
+> work — RLS, the client portal, external publishing — have since shipped. Read it for the
+> *reasoning* behind the LaunchOps layering, not for the state of the codebase.
+>
+> For what Forge actually is today, see [architecture.md](./architecture.md),
+> [data-model.md](./data-model.md), and [SECURITY-MODEL.md](./SECURITY-MODEL.md).
+
 **How LaunchOps folds into Forge without disturbing what exists — and where it upgrades the runtime.**
 
-Stack unchanged: Next.js 14 · TypeScript · Supabase · Inngest · Vercel.
+Stack: Next.js · TypeScript · Supabase · Inngest · Vercel.
 
 > **Implementation correction (2026-07-17):** the original Layer 2 proposal below assumed
 > `forge_agents`, `forge_tools`, `forge_tool_runs`, permission checks, retry/checkpoint, and
@@ -121,7 +131,8 @@ Your Phase 00 `.env.local.example` becomes a fail-closed contract. This matters 
 ## Server (fail closed in production)
 - SUPABASE_SERVICE_ROLE_KEY: required, server-only. App refuses to boot if missing in prod.
 - ANTHROPIC_API_KEY: required for agent runtime.
-- INNGEST_SIGNING_KEY: required in production.
+- INNGEST_SIGNING_KEY: required once the crons are served from Inngest Cloud (not needed
+  for a production deployment that hosts them elsewhere, or not at all).
 - STRIPE_WEBHOOK_SECRET: required once billing is live (Phase 03).
 
 ## Public (must never contain secrets)

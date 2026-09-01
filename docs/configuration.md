@@ -33,12 +33,40 @@ Set **only the one** matching `FORGE_PROVIDER`:
 | `GOOGLE_GENERATIVE_AI_API_KEY` | `google` |
 | *(none / `FORGE_API_KEY`)* | `openai-compatible` (usually not needed locally) |
 
+### Web app — dashboard, portal, webhooks
+
+Required to run the Next.js app, which is where the operator dashboard, the client portal,
+and the Stripe/Twilio/review-link routes live.
+
+| Variable | Required | Description |
+|---|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | ✅ always | Public project URL. Safe to expose. |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | ✅ always | Public anon key. RLS leaves it almost nothing — `INSERT` into `leads` and no reads. |
+| `FORGE_ADMIN_PASSWORD` | ✅ in production | The operator login. **Without it `/dashboard/login` refuses everyone**, so the app deploys but nobody can use it. Make it long and random: it is the only thing between the internet and every client you manage. |
+| `FORGE_PORTAL_SECRET` | — (falls back to `FORGE_ADMIN_PASSWORD`) | Signs client portal links and sessions. Set it separately in production — sharing the secret means rotating your operator password logs out every client. |
+| `NEXT_PUBLIC_APP_URL` | recommended | Canonical public URL. The Twilio webhook verifies its signature against exactly this, so a wrong value makes every inbound opt-out fail. |
+
+`npm run env:validate` (with `NODE_ENV=production` for the production rules) checks the
+variables above, and it — not this page — is what CI enforces, so prefer it if the two ever
+disagree.
+
+It does **not** check everything, though, and the gap is worth knowing: `INNGEST_SIGNING_KEY`
+is required when Inngest Cloud serves the cron endpoint (see
+[the environment contract](./ENVIRONMENT_CONTRACT.md)), and the validator does not look for
+it — that condition is your cron hosting, which `NODE_ENV` does not reveal. A passing
+`env:validate` therefore does not by itself mean a cron-serving deployment is fully
+configured.
+
 ### Scheduled jobs (optional)
 
 | Variable | Default | Description |
 |---|---|---|
 | `FORGE_CONTENT_CRON` | `0 9 * * 1` (Mondays 09:00 UTC) | Weekly content cron. |
 | `FORGE_REVIEW_CRON` | `0 8 * * *` (daily 08:00 UTC) | Review sweep cron. |
+| `FORGE_PUBLISH_CRON` | `*/15 * * * *` | Scheduled publish cron. |
+| `FORGE_METRICS_CRON` | `0 */6 * * *` | Post-metrics refresh cron. |
+| `FORGE_ALERT_CRON` | `*/30 * * * *` | Monitoring alerts cron. |
+| `INNGEST_SIGNING_KEY` | — | **Required when Inngest Cloud serves the cron endpoint** — it signs its requests with this. Not needed for `inngest-cli dev`, nor if you host the crons elsewhere or not at all. Note `env:validate` does *not* check this one; see below. |
 
 Prefix a cron with a timezone, e.g. `TZ=America/New_York 0 9 * * 1`.
 
@@ -103,6 +131,8 @@ the provider per se.
 - The **service-role key** bypasses Row-Level Security. Keep it server-side only;
   the `.gitignore` already excludes `.env`/`.env.*` (while keeping
   `.env.example`).
-- This alpha is **single-operator** — RLS policies are deferred to a later
-  increment (see [Deployment](./deployment.md)).
+- Forge is **single-operator**: one shared `FORGE_ADMIN_PASSWORD`, no per-user accounts.
+  RLS *is* enabled deny-by-default, but the server holds the service-role key and bypasses
+  it, so the boundary between clients is `client_id` scoping in application code. See
+  [the security model](./SECURITY-MODEL.md) for what that does and does not protect.
 - Store provider API keys in `.env`, never in code or the repo.

@@ -67,11 +67,16 @@ Now apply Forge's migrations to the local database:
 supabase db reset
 ```
 
-This drops and recreates the local DB and applies everything in
-`supabase/migrations/` in order:
+This drops and recreates the local DB and applies **every** migration in
+`supabase/migrations/` in order. The first two set up the agent loop:
 
 - `0001_init.sql` — `clients`, `brand_voices`, `tool_runs`
 - `0002_reviews.sql` — `reviews` queue (for the review-sweep cron)
+
+The rest add content approvals, scheduling, publication checkpoints, metrics, billing,
+review requests, opt-outs, and the client portal. You need all of them — the features that
+use those tables are already in the code, so a partial schema starts fine and then fails at
+runtime.
 
 > The core schema needs **no extensions** — `supabase db reset` runs clean on any
 > Postgres. The pgvector-based `client_memory` table is intentionally **not** in
@@ -162,15 +167,35 @@ npm run forge:run -- my-cafe "Draft a friendly post announcing weekend opening h
 
 ## 7. Run the scheduled jobs (optional)
 
-Forge has two Inngest crons: weekly content and a daily review sweep. To run them
-locally you need the reviews table (already applied in step 3) and two terminals:
+### The web app
+
+The dashboard and client portal are part of the Next.js app, and nothing above starts it.
+Run:
+
+```bash
+npm run dev
+```
+
+Then `http://localhost:3000/dashboard` (log in with `FORGE_ADMIN_PASSWORD`) and, once
+you've copied a client's portal link from their Manage page, `/portal`. This is also what
+serves the Stripe and Twilio webhook routes and the `/r/<token>` and `/u/<token>` links, so
+you need it running to exercise review requests or opt-outs locally.
+
+### The crons
+
+Forge has five Inngest crons: weekly content, a daily review sweep, scheduled publish,
+metrics refresh, and monitoring alerts. To run them locally you need the schema (applied in
+step 3) and two more terminals:
 
 ```bash
 # Terminal A — serve Forge's Inngest endpoint on :3030
-npm run forge:serve
+# INNGEST_DEV=1 puts the SDK in dev mode; without it it runs in cloud mode and wants a
+# signing key.
+INNGEST_DEV=1 npm run forge:serve
 
-# Terminal B — Inngest dev server discovers the endpoint and runs the crons
-npx inngest-cli@latest dev
+# Terminal B — Inngest dev server connects to the endpoint and runs the crons
+# forge:serve listens on :3030; the dev server looks for :3000 by default, so point it.
+npx inngest-cli@latest dev -u http://localhost:3030/api/inngest
 ```
 
 Open the Inngest dev dashboard (it prints the URL, usually
@@ -231,5 +256,5 @@ supabase db reset        # wipe + re-apply migrations (fresh DB)
 - **No cloud accounts** — local Supabase is a Docker stack.
 - **Same code path as production** — only `.env` differs. When you move to a
   hosted model or Supabase project later, you change environment variables, not
-  code. (And the planned dashboard will let users pick their provider per
-  account — see the roadmap in the README.)
+  code. (The provider is currently a process-level setting; per-account provider
+  selection is still ahead — see the roadmap in the README.)

@@ -148,11 +148,19 @@ and upserts the client.
 
 ## Scheduling — Inngest
 
-`src/inngest/functions.ts` defines two cron jobs:
+`src/inngest/functions.ts` defines five cron jobs:
 
 - **`weekly-content`** — generates next week's social posts for every client.
-- **`review-sweep`** — drafts replies to new rows in the `reviews` table and
-  flags ones that need a manager.
+- **`review-sweep`** — imports new Google Business Profile reviews for clients with a
+  linked location, drafts replies, and flags ones that need a manager.
+- **`scheduled-publish`** — publishes approved content when its scheduled time arrives.
+- **`refresh-metrics`** — pulls reach and engagement for published posts into
+  `content_metrics`.
+- **`monitoring-alerts`** — posts active delivery-health issues to
+  `FORGE_ALERT_WEBHOOK_URL`.
+
+The first three skip clients without an active subscription; the last two observe rather
+than deliver, so they do not.
 
 `src/inngest/server.ts` serves the Inngest endpoint locally on `:3030`. See
 [Scheduled jobs](./scheduled-jobs.md).

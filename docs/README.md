@@ -30,7 +30,7 @@ model) and stores everything in your own Supabase.
 ## The 60-second mental model
 
 ```
-CLI · Inngest crons · (future portal)
+CLI · Inngest crons · operator dashboard · client portal
       │
       ▼
 runForge(client, task)              ← src/forge/runtime.ts
@@ -70,7 +70,7 @@ src/
     tools/               # the five capabilities
   inngest/
     client.ts            # Inngest client
-    functions.ts         # weekly-content + review-sweep crons
+    functions.ts         # the five crons (content, reviews, publish, metrics, alerts)
     server.ts            # local Inngest HTTP endpoint
 scripts/                 # CLIs: onboard, add-client, run, serve
 examples/                # example client configs

@@ -1,10 +1,10 @@
 # Scheduled jobs (Inngest)
 
-Forge ships four cron jobs defined in `src/inngest/functions.ts` and served via
+Forge ships five cron jobs defined in `src/inngest/functions.ts` and served via
 `src/inngest/server.ts`. They use [Inngest](https://www.inngest.com/) for
 scheduling and durable, retryable steps.
 
-## The four jobs
+## The five jobs
 
 ### `weekly-content`
 
@@ -77,6 +77,27 @@ post missing its generated image).
   support are left null rather than failing the whole refresh.
 - Returns `{ runs, refreshed }`.
 
+### `monitoring-alerts`
+
+- **Schedule:** `FORGE_ALERT_CRON` (default `*/30 * * * *` — every 30 minutes).
+- **What it does:** rolls up delivery health — pending approvals, due or failed
+  schedules, publication checkpoints needing reconciliation, review-request delivery
+  failures, billing gates, and post-metric freshness — and posts the active issues as
+  JSON to `FORGE_ALERT_WEBHOOK_URL`. The body links back to `/dashboard/monitoring`.
+- **Payload shape:** Forge's own JSON — `app`, `kind`, `severity`, `capturedAt`, `summary`,
+  `dashboardPath`, `stats`, `issues`. It is **not** Slack or Discord shaped, and pointing
+  this at a native Slack or Discord incoming webhook will fail: those require `text`/`blocks`
+  and `content`/`embeds` respectively. Use an endpoint that accepts arbitrary JSON, or a
+  relay that reshapes it — Make, Zapier, n8n, or a few lines of your own.
+- **Scope:** unlike the three delivery crons, this one does not skip clients whose
+  subscription has lapsed — an operator still needs to see the state of those accounts.
+- **Fails loud:** the webhook URL is resolved and checked against private and
+  link-local addresses before the request, the request has a 10-second timeout, and a
+  redirect is treated as a misconfiguration rather than followed. If the sweep's own
+  queries fail, that counts as a critical issue in its own right rather than being
+  reported as a clean bill of health.
+- Skips cleanly when the webhook is unset or nothing is wrong.
+
 ## Running them locally
 
 You need the `reviews` table applied (it's in the core migrations) and two
@@ -84,11 +105,14 @@ terminals:
 
 ```bash
 # Terminal A — serve Forge's Inngest endpoint on :3030
-npm run forge:serve
+# INNGEST_DEV=1 puts the SDK in dev mode; without it it runs in cloud mode and wants a
+# signing key.
+INNGEST_DEV=1 npm run forge:serve
 # → "Forge Inngest endpoint: http://localhost:3030/api/inngest"
 
-# Terminal B — Inngest dev server discovers the endpoint and runs the crons
-npx inngest-cli@latest dev
+# Terminal B — Inngest dev server connects to the endpoint and runs the crons
+# forge:serve listens on :3030; the dev server looks for :3000 by default, so point it.
+npx inngest-cli@latest dev -u http://localhost:3030/api/inngest
 ```
 
 Open the Inngest dev dashboard (prints its URL, usually
@@ -122,6 +146,7 @@ FORGE_CONTENT_CRON=0 9 * * 1
 FORGE_REVIEW_CRON=0 8 * * *
 FORGE_PUBLISH_CRON=*/15 * * * *
 FORGE_METRICS_CRON=0 */6 * * *
+FORGE_ALERT_CRON=*/30 * * * *
 # e.g. with timezone:
 # FORGE_CONTENT_CRON=TZ=America/New_York 0 9 * * 1
 ```

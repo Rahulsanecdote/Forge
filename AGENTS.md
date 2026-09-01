@@ -113,7 +113,8 @@ npm install
 cp .env.example .env            # FORGE_PROVIDER + its key + Supabase URL/service key
 npm run forge:onboard "Acme Coffee" "Neighborhood specialty cafe, warm and unpretentious"
 npm run forge:run acme-coffee "Research local SEO keywords, then draft 3 posts"
-npm run forge:serve             # + `npx inngest-cli@latest dev` for crons
+INNGEST_DEV=1 npm run forge:serve   # crons; then in another terminal:
+# npx inngest-cli@latest dev -u http://localhost:3030/api/inngest
 npm run typecheck               # must pass
 ```
 
