@@ -82,6 +82,8 @@ hand only if you want the memory table ahead of the retrieval feature that will 
 - `generate_report` — turn provided metrics + highlights into an on-brand performance report (never invents numbers).
 - `research_keywords` — clustered SEO keyword ideas with search intent + content angles. Set `DATAFORSEO_LOGIN`/`DATAFORSEO_PASSWORD` and it returns real search volume and difficulty; without them it degrades to ideation rather than inventing numbers.
 - `analyze_competitors` — positioning analysis vs named competitors, surfacing gaps and opportunities.
+- `log_failure` — record an agent failure for the client (task, what it did vs should have done, severity, root-cause class) in the Fleetlog failure log.
+- `review_failures` — the failure-review digest: counts, unconverted P1s, and draft rules a human can promote.
 
 Adding tools is the main extension point — see [CONTRIBUTING](./CONTRIBUTING.md).
 
@@ -89,6 +91,10 @@ Adding tools is the main extension point — see [CONTRIBUTING](./CONTRIBUTING.m
 
 > **Want to run everything locally** (local Supabase + Ollama, no cloud, no per-token cost)?
 > See **[docs/RUNNING_LOCALLY.md](./docs/RUNNING_LOCALLY.md)**.
+
+> **Fastest proof it works:** with the local stack up, `npm run forge:demo` seeds the
+> Acme Coffee example, runs one governed task end to end, and prints the stored
+> evidence — see **[docs/demo.md](./docs/demo.md)**.
 
 ```bash
 # 1. Install
