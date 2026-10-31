@@ -184,6 +184,65 @@ hedges inferences with "likely".
 
 ---
 
+## `log_failure`
+
+Record an agent failure for the client in the `failure_log` table (Fleetlog):
+the task, what the agent did, what it should have done, who caught it, severity,
+and a root-cause class — so repeats can be counted and, later, promoted into
+rules. Append-only; logging is never gated by the authority policy. References
+only in `fix_ref` — never secrets, screenshots, or personal data.
+
+**Input**
+
+| Field | Type | Notes |
+|---|---|---|
+| `task` | string | The task being performed when it failed. |
+| `did` | string | What the agent actually did. |
+| `should_have` | string | What it should have done — concrete enough to become a rule. |
+| `caught_by` | string | Operator, a test, a client, or the agent itself. |
+| `severity` | `P1` \| `P2` \| `P3` | P1 = decision-grade harm risk; P2 = rework; P3 = friction. |
+| `root_cause_class` | string | Short label; reuse the client's existing labels when one fits. |
+| `fix_ref` | string | Optional reference/ID for the fix. |
+
+**Output**
+
+```jsonc
+{ "logged": true, "failure": { /* the stored row */ }, "repeat_count": 2 }
+```
+
+---
+
+## `review_failures`
+
+The weekly failure review for one client. The digest is computed
+deterministically from the recorded rows — counts are facts, so no model
+summarises them. Candidate rules are drafts built from the recorded
+"should have" text; **a human promotes them** (`failure_log.rule_created`),
+the tool never writes rules itself.
+
+**Input**
+
+| Field | Type | Notes |
+|---|---|---|
+| `period` | string | Optional `YYYY-MM` month filter. Repeat counts always span all of the client's rows. |
+
+**Output**
+
+```jsonc
+{
+  "period": "2026-10",
+  "total": 7,
+  "bySeverity": { "P1": 1, "P2": 4, "P3": 2 },
+  "byRootCauseClass": { "unverified-count": 3 },
+  "unconvertedP1": [ /* P1 rows with no rule yet */ ],
+  "candidateRules": [
+    { "rootCauseClass": "unverified-count", "severity": "P2", "repeatCount": 3, "draftRule": "Before this class of task completes, verify: …" }
+  ]
+}
+```
+
+---
+
 ## How tools are invoked
 
 You don't call tools directly — you give `runForge` a natural-language task and
