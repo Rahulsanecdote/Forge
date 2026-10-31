@@ -4,6 +4,8 @@ import { draftReviewResponses } from './tools/draft-review-responses';
 import { generateReport } from './tools/generate-report';
 import { researchKeywords } from './tools/research-keywords';
 import { analyzeCompetitors } from './tools/analyze-competitors';
+import { logFailure } from './tools/log-failure';
+import { reviewFailures } from './tools/review-failures';
 
 // The agent's tool suite. Add a tool here and the agent can choose it.
 export const tools: AnyForgeTool[] = [
@@ -12,6 +14,8 @@ export const tools: AnyForgeTool[] = [
   generateReport,
   researchKeywords,
   analyzeCompetitors,
+  logFailure,
+  reviewFailures,
 ];
 
 export const toolByName = new Map(tools.map((t) => [t.name, t] as const));
