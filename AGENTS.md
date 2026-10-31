@@ -1,6 +1,6 @@
 # Forge — Build Context for Codex (`AGENTS.md`)
 
-> **Version:** v1.29 · **Updated:** 2026-08-31 · **Repo:** `forge-agent`
+> **Version:** v1.30 · **Updated:** 2026-10-31 · **Repo:** `forge-agent`
 > **How to use:** Codex reads this automatically as `AGENTS.md`. (Also works pasted into a
 > Claude Code / Codex session at start, or renamed `CLAUDE.md`.) Read it fully before
 > changing code. Obey the Non-Negotiables. Append to the Decision Log on any structural
@@ -121,6 +121,7 @@ npm run typecheck               # must pass
 ## 8. Decision log
 | Date | Decision |
 |---|---|
+| 2026-10-31 | Public positioning pass (docs only): README top rewritten around the operator reality the code already implements — per-client isolation, authority policy + publication checkpoints, `tool_runs` audit, model-usage records, no fabricated outputs — aimed at operators running agents across many clients rather than at the general agent-framework field. Description surfaces reconciled on the 2026-08-31 relicence: the GitHub About text still said "MIT" and `package.json` still carried the pre-runtime description; both now state AGPL-3.0 and the runtime positioning. Forge's identity in §1 is unchanged: a universal framework specialized per vertical via brand-voice config, with the marketing tool pack as the shipped pack. |
 | 2026-08-31 | Relicensed from MIT to **AGPL-3.0** with commercial exceptions sold alongside (`COMMERCIAL.md`), plus a contributor CLA (`CLA.md`) granting the maintainer sublicensing rights — without which no commercial licence could ever be offered. MIT let anyone run Forge as a service for their own client roster and owe nothing back, which gave away the exact market Forge targets; AGPL §13 closes that while leaving self-hosters, and agencies running an unmodified copy, entirely unaffected. §13 is enforced at runtime, not just in a file: `SourceNotice` renders from the root layout so every interface (marketing, dashboard, portal) offers the Corresponding Source, and a modified fork sets `FORGE_SOURCE_URL` to its own source — validated as an absolute http(s) URL and hard-failing on a malformed value, because a broken source link is a silent compliance failure. Note the MIT grant on already-published commits is irrevocable for those revisions; this governs everything after. Per-file copyright headers deliberately skipped (100+ files of noise); revisit only if enforcement becomes live. |
 | 2026-06-23 | Runtime built on the **Vercel AI SDK** (not the direct Anthropic SDK) once the goal became universal + bring-your-own-model — unified tool-calling across providers + local models. |
 | 2026-06-23 | `ForgeTool` contract kept **provider-independent**; the runtime adapts tools to the AI SDK. |

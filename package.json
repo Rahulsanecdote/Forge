@@ -1,7 +1,7 @@
 {
   "name": "forge-agent",
   "version": "0.0.1",
-  "description": "Open-source vertical AI marketing agent",
+  "description": "Self-hostable agent runtime for running AI agents across many clients — per-client isolation, approval gates, and a full audit trail (AGPL-3.0)",
   "scripts": {
     "dev": "next dev",
     "build": "NEXT_TELEMETRY_DISABLED=1 next build",

@@ -1,25 +1,56 @@
 # Forge
 
-**A self-hostable agent runtime with a typed tool system and per-client context isolation.**
-One runtime, many businesses: each client is a row in the database plus a brand voice — no
-code changes, no forks. Provider-agnostic — Anthropic, OpenAI, Google, or fully offline
-against Ollama. Ships with a marketing tool pack; write your own in ~40 lines.
+**Run AI agents for many clients — with an audit trail, approval gates, and no invented numbers.**
 
-Licensed under the [AGPL-3.0](./LICENSE) — free to run, modify, and self-host, including
-for your own clients. If you want to offer Forge to *your* customers as a service without
-publishing your modifications, a [commercial licence](./COMMERCIAL.md) covers that. Bring
-your own Supabase + model key and run it anywhere.
+Forge is a self-hostable agent runtime for operators: agencies, consultants, and
+small teams who run agents on behalf of *many* clients at once. Each client is a row
+in the database plus a brand voice — no code changes, no forks. Every tool run is
+logged per client, nothing reaches a client's public account without a human
+approving it first, and the runtime refuses to fabricate the numbers it reports.
 
-**Why not just use LangChain / CrewAI?** Those give you a single agent loop. Forge wraps that
-loop for *many clients at once* — the system prompt is built from each client's brand voice,
-and every tool run is logged to `tool_runs` keyed by `client_id`. If you're running one agent
-across many customers, that per-client scoping and audit trail is the part you'd otherwise
-build yourself.
+Provider-agnostic — Anthropic, OpenAI, Google, or fully offline against Ollama.
+Bring your own Supabase + model key and run it anywhere.
 
-**What it will not do:** invent numbers. `generate_report` reports only metrics you give it
-or that Forge measured, and `research_keywords` returns real search volumes when a data
-provider is configured and honest ideation when one isn't — never a plausible-looking figure
-it made up. Nothing reaches a client's public account without a human approving it first.
+## Why Forge exists
+
+Agent frameworks give you a loop. Running that loop *for other people's businesses*
+is a different problem — and it's where agent projects actually die: unclear
+authority, no record of what the agent did, costs nobody tracked, and a confident
+report built on numbers nobody measured.
+
+Forge is the layer around the loop that makes running agents for clients defensible:
+
+- **Per-client isolation.** System prompts are built from each client's own brand
+  voice; tools read everything from that client's context, nothing leaks across.
+- **Authority policy.** What an agent may do alone, what needs a checkpoint, and
+  what needs a human is explicit policy (`src/forge/authority*`), not a prompt
+  instruction. Publication goes through checkpoints — nothing posts unapproved.
+- **Audit by default.** Every run is appended to `tool_runs`, keyed by `client_id`,
+  with model usage recorded alongside. When a client asks "what did it do?", there
+  is an answer.
+- **Honest outputs.** `generate_report` reports only metrics it was given or that
+  Forge measured; `research_keywords` returns real volumes when a data provider is
+  configured and says so when it isn't. A plausible-looking invented figure is
+  treated as a bug, not a feature.
+
+## Who this is for
+
+- You run (or want to run) marketing/ops agents for a roster of clients and need
+  each client's work isolated, reviewable, and attributable.
+- You need self-hosting — for cost, for client data, or because a client's data
+  cannot go to a third-party SaaS — including fully offline against local models.
+- You want one runtime to operate, not one fork per client.
+
+If you want a general agent *framework* for a single product, use LangGraph or
+CrewAI — they are excellent and much larger. Forge is what you reach for when the
+agents have clients.
+
+## Licensing
+
+Forge is licensed under the [AGPL-3.0](./LICENSE) — free to run, modify, and
+self-host, including for your own clients. If you want to offer Forge to *your*
+customers as a service without publishing your modifications, a
+[commercial licence](./COMMERCIAL.md) covers that.
 
 ## How it works
 
